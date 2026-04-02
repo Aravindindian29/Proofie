@@ -1,0 +1,732 @@
+import React, { useState, useEffect } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
+import { ArrowLeft, X, Workflow, CheckCircle, Sparkles } from 'lucide-react'
+import toast from 'react-hot-toast'
+import api from '../services/api'
+import PDFViewer from '../components/PDFViewer'
+import CommentSidebar from '../components/CommentSidebar'
+import PDFAnnotationLayer from '../components/PDFAnnotationLayer'
+import WorkflowPanel from '../components/workflow/WorkflowPanel'
+import DecisionModal from '../components/workflow/DecisionModal'
+import DeleteProofButton from '../components/workflow/DeleteProofButton'
+import ProofiePlusModal from '../components/ProofiePlusModal'
+
+const getMediaUrl = (fileUrl) => {
+  console.log('🔗 getMediaUrl input:', fileUrl)
+  if (!fileUrl) return null
+  
+  // If it's already a full URL, return as-is
+  if (fileUrl.startsWith('http://localhost:8000/')) {
+    console.log('🔗 Using full URL:', fileUrl)
+    return fileUrl
+  }
+  
+  // If it's already the correct API path, add the domain
+  if (fileUrl.startsWith('/api/versioning/media/')) {
+    const url = `http://localhost:8000${fileUrl}`
+    console.log('🔗 Converting API path to full URL:', url)
+    return url
+  }
+  
+  // Convert old /media/ paths to new API paths
+  if (fileUrl.startsWith('/media/')) {
+    const url = `http://localhost:8000/api/versioning/media${fileUrl.replace('/media', '')}`
+    console.log('🔗 Converting /media/ to API URL:', url)
+    return url
+  }
+  
+  // Default case - assume it's a relative path
+  const url = `http://localhost:8000/api/versioning/media${fileUrl.startsWith('/') ? '' : '/'}${fileUrl}`
+  console.log(' Using default pattern:', url)
+  return url
+}
+
+function FileViewer() {
+  const { id } = useParams()
+  const navigate = useNavigate()
+  const [asset, setAsset] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [annotations, setAnnotations] = useState([])
+  const [currentPage, setCurrentPage] = useState(1)
+  const [activeCommentId, setActiveCommentId] = useState(null)
+  const [commentMode, setCommentMode] = useState(false)
+  const [showNavigationLine, setShowNavigationLine] = useState(false)
+  const [navigationTarget, setNavigationTarget] = useState(null)
+  const [showWorkflow, setShowWorkflow] = useState(false)
+  const [showDecisionModal, setShowDecisionModal] = useState(false)
+  const [reviewCycleId, setReviewCycleId] = useState(null)
+  const [currentUser, setCurrentUser] = useState(null)
+  const [myMember, setMyMember] = useState(null)
+  const [showProofiePlus, setShowProofiePlus] = useState(false)
+  const pdfViewerRef = React.useRef(null)
+
+  useEffect(() => {
+    console.log('FileViewer loaded with ID:', id)
+    console.log('ID type:', typeof id)
+    console.log('ID length:', id.length)
+    console.log('ID contains special chars:', /[^a-zA-Z0-9_-]/.test(id))
+    fetchAssetData()
+    fetchCurrentUser()
+  }, [id])
+
+  // Auto-track view when review cycle is available
+  useEffect(() => {
+    if (reviewCycleId) {
+      trackView()
+      fetchMyStatus()
+    }
+  }, [reviewCycleId])
+
+  const fetchCurrentUser = async () => {
+    try {
+      const response = await api.get('/accounts/users/me/')
+      setCurrentUser(response.data)
+    } catch (error) {
+      console.error('Failed to fetch current user:', error)
+    }
+  }
+
+  const trackView = async () => {
+    try {
+      await api.post(`/workflows/review-cycles/${reviewCycleId}/track_view/`)
+      console.log('View tracked successfully')
+    } catch (error) {
+      console.error('Failed to track view:', error)
+    }
+  }
+
+  const fetchMyStatus = async () => {
+    try {
+      const response = await api.get(`/workflows/review-cycles/${reviewCycleId}/my_status/`)
+      if (response.data.is_member) {
+        setMyMember(response.data.member)
+      }
+    } catch (error) {
+      console.error('Failed to fetch my status:', error)
+    }
+  }
+
+  const fetchAssetData = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      
+      console.log('Fetching asset for ID:', id)
+      
+      // Check if we have authentication
+      const token = localStorage.getItem('token')
+      console.log('Token exists:', !!token)
+      console.log('Token value (first 20 chars):', token ? token.substring(0, 20) + '...' : 'none')
+      
+      if (!token) {
+        console.log('No token found, checking auth store...')
+        // Try to get token from auth store
+        const { useAuthStore } = await import('../stores/authStore')
+        const authState = useAuthStore.getState()
+        console.log('Auth store token:', !!authState.token)
+        
+        if (!authState.token) {
+          throw new Error('No authentication token found. Please log in again.')
+        }
+      }
+      
+      // Use the existing API service
+      const response = await api.get(`/versioning/assets/${id}/`)
+      console.log('Asset response:', response.data)
+      console.log('Asset file_type:', response.data?.file_type)
+      console.log('Asset current_version:', response.data?.current_version)
+      console.log('Current version file_url:', response.data?.current_version?.file_url)
+      
+      if (!response.data) {
+        throw new Error('No asset data received')
+      }
+      
+      setAsset(response.data)
+      
+      // Check if asset has an active review cycle
+      if (response.data?.review_cycles && response.data.review_cycles.length > 0) {
+        // Get the most recent review cycle
+        const activeReview = response.data.review_cycles[0]
+        setReviewCycleId(activeReview.id)
+      }
+      
+      // Fetch annotations if it's a PDF
+      if (response.data?.file_type === 'pdf' && response.data?.current_version?.id) {
+        fetchAnnotations(response.data.current_version.id)
+      }
+      
+    } catch (error) {
+      console.error('Error fetching asset:', error)
+      console.error('Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      })
+      
+      let errorMessage = 'Failed to load file'
+      
+      if (error.response?.status === 401) {
+        errorMessage = 'Authentication required - please log in again'
+      } else if (error.response?.status === 404) {
+        errorMessage = 'Asset not found'
+      } else if (error.response?.status === 500) {
+        errorMessage = 'Server error - please try again'
+      } else if (error.message) {
+        errorMessage = error.message
+      }
+      
+      setError(errorMessage)
+      toast.error(errorMessage)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchAnnotations = async (versionId) => {
+    try {
+      const response = await api.get(`/annotations/?version=${versionId}`)
+      setAnnotations(response.data.results || response.data || [])
+    } catch (error) {
+      console.error('Failed to fetch annotations:', error)
+    }
+  }
+
+  const handleAddAnnotation = async ({ x, y, page, content }) => {
+    try {
+      await api.post('/annotations/', {
+        version: asset.current_version.id,
+        annotation_type: 'comment',
+        x_coordinate: x,
+        y_coordinate: y,
+        page_number: page,
+        content: content,
+        color: '#FF0000'
+      })
+      
+      toast.success('Comment added successfully')
+      fetchAnnotations(asset.current_version.id)
+    } catch (error) {
+      console.error('Failed to add annotation:', error)
+      toast.error('Failed to add comment')
+    }
+  }
+
+  const handleCommentClick = (annotation) => {
+    console.log('Comment clicked:', annotation)
+    console.log('Current page:', currentPage, 'Target page:', annotation.page_number)
+    console.log('pdfViewerRef.current:', pdfViewerRef.current)
+    
+    setActiveCommentId(annotation.id)
+    setNavigationTarget({ x: annotation.x_coordinate, y: annotation.y_coordinate })
+    setShowNavigationLine(true)
+    
+    // Jump to the page using PDF viewer's navigation
+    if (pdfViewerRef.current) {
+      console.log('Calling jumpToPage with:', annotation.page_number)
+      pdfViewerRef.current.jumpToPage(annotation.page_number)
+    } else {
+      console.error('pdfViewerRef.current is null - cannot jump to page')
+    }
+    
+    // Scroll to the marker location and hide navigation line after animation
+    setTimeout(() => {
+      const markerElement = document.querySelector(`[data-annotation-id="${annotation.id}"]`)
+      console.log('Looking for marker with ID:', annotation.id, 'Found:', markerElement)
+      if (markerElement) {
+        markerElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+      
+      // Hide navigation line after 2 seconds
+      setTimeout(() => {
+        setShowNavigationLine(false)
+        setNavigationTarget(null)
+      }, 2000)
+    }, 800)
+  }
+
+  if (loading) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        height: '100vh',
+        background: '#000'
+      }}>
+        <div style={{ color: '#fff', fontSize: '1.2rem' }}>Loading file...</div>
+      </div>
+    )
+  }
+
+  if (error || !asset) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        height: '100vh',
+        background: '#000',
+        flexDirection: 'column',
+        gap: 20,
+        padding: '40px'
+      }}>
+        <div style={{ textAlign: 'center', color: '#fff' }}>
+          <div style={{ fontSize: '3rem', marginBottom: 16 }}>⚠️</div>
+          <h2 style={{ fontSize: '1.5rem', marginBottom: 8 }}>File Loading Issue</h2>
+          <p style={{ fontSize: '1rem', color: 'rgba(255,255,255,0.7)', marginBottom: 16 }}>
+            {error || 'Unable to load file information'}
+          </p>
+          <p style={{ fontSize: '0.9rem', color: 'rgba(255,255,255,0.5)', marginBottom: 24 }}>
+            Asset ID: {id}
+          </p>
+          
+          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => window.location.href = '/login'}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '12px 20px',
+                background: '#FF6B35',
+                border: 'none',
+                borderRadius: 8,
+                color: '#fff',
+                cursor: 'pointer'
+              }}
+            >
+              🔐 Login Again
+            </button>
+            <button
+              onClick={() => window.location.reload()}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '12px 20px',
+                background: '#0A84FF',
+                border: 'none',
+                borderRadius: 8,
+                color: '#fff',
+                cursor: 'pointer'
+              }}
+            >
+              🔄 Reload Page
+            </button>
+            <button
+              onClick={() => navigate(-1)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '12px 20px',
+                background: 'rgba(255,255,255,0.1)',
+                border: '1px solid rgba(255,255,255,0.2)',
+                borderRadius: 8,
+                color: '#fff',
+                cursor: 'pointer'
+              }}
+            >
+              <ArrowLeft size={16} />
+              Go Back
+            </button>
+          </div>
+          
+          <div style={{ 
+            marginTop: 32, 
+            padding: '16px', 
+            background: 'rgba(255,255,255,0.05)', 
+            borderRadius: 8,
+            border: '1px solid rgba(255,255,255,0.1)'
+          }}>
+            <p style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.6)', marginBottom: 8 }}>
+              <strong>Troubleshooting:</strong>
+            </p>
+            <ul style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.5)', textAlign: 'left', margin: 0 }}>
+              <li>Check if you're logged in properly</li>
+              <li>Verify the file exists and is accessible</li>
+              <li>Check browser console for detailed errors</li>
+              <li>Try refreshing the page</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ height: '100vh', background: '#000', display: 'flex', flexDirection: 'column' }}>
+      {/* Header */}
+      <div style={{
+        padding: '12px 16px',
+        background: '#000',
+        borderBottom: '1px solid rgba(255,255,255,0.1)'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <button
+              onClick={() => {
+                // Try to go back in history, but if that fails, close the window
+                if (window.history.length > 1) {
+                  navigate(-1)
+                } else {
+                  // Try to close the window
+                  window.close()
+                  // If closing doesn't work (browser restriction), navigate to projects
+                  setTimeout(() => {
+                    window.location.href = '/proofs'
+                  }, 100)
+                }
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '6px 12px',
+                background: 'rgba(255,255,255,0.1)',
+                border: '1px solid rgba(255,255,255,0.2)',
+                borderRadius: 6,
+                color: '#fff',
+                cursor: 'pointer',
+                textDecoration: 'none',
+                fontSize: '0.85rem'
+              }}
+            >
+              <ArrowLeft size={14} />
+            </button>
+            <div>
+              <h1 style={{ fontSize: '1rem', fontWeight: 600, color: '#fff', margin: 0 }}>
+                {asset.name}
+              </h1>
+              <p style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.6)', margin: 0 }}>
+                {asset.file_type.toUpperCase()}
+              </p>
+            </div>
+          </div>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {asset.file_type === 'pdf' && (
+              <>
+                <button
+                  onClick={() => setShowProofiePlus(true)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    padding: '8px 16px',
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    border: 'none',
+                    borderRadius: 6,
+                    color: '#fff',
+                    cursor: 'pointer',
+                    fontSize: '0.85rem',
+                    fontWeight: 600,
+                    boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)',
+                    transition: 'transform 0.2s, box-shadow 0.2s'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-2px)'
+                    e.currentTarget.style.boxShadow = '0 6px 16px rgba(102, 126, 234, 0.6)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)'
+                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.4)'
+                  }}
+                >
+                  <Sparkles size={16} />
+                  ProofiePlus
+                </button>
+                <button
+                  onClick={() => setCommentMode(!commentMode)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    padding: '8px 16px',
+                    background: commentMode ? '#0A84FF' : 'rgba(255,255,255,0.1)',
+                    border: commentMode ? 'none' : '1px solid rgba(255,255,255,0.2)',
+                    borderRadius: 6,
+                    color: '#fff',
+                    cursor: 'pointer',
+                    fontSize: '0.85rem',
+                    fontWeight: 500
+                  }}
+                >
+                  {commentMode ? '✓ Comment Mode' : '💬 Add Comment'}
+                </button>
+              </>
+            )}
+            
+            {myMember && myMember.decision === 'pending' && (
+              <button
+                onClick={() => setShowDecisionModal(true)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '8px 16px',
+                  background: '#10B981',
+                  border: 'none',
+                  borderRadius: 6,
+                  color: '#fff',
+                  cursor: 'pointer',
+                  fontSize: '0.85rem',
+                  fontWeight: 500
+                }}
+              >
+                <CheckCircle size={16} />
+                Make Decision
+              </button>
+            )}
+            
+            {reviewCycleId ? (
+              <button
+                onClick={() => setShowWorkflow(!showWorkflow)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '8px 16px',
+                  background: showWorkflow ? '#0A84FF' : 'rgba(255,255,255,0.1)',
+                  border: showWorkflow ? 'none' : '1px solid rgba(255,255,255,0.2)',
+                  borderRadius: 6,
+                  color: '#fff',
+                  cursor: 'pointer',
+                  fontSize: '0.85rem',
+                  fontWeight: 500
+                }}
+              >
+                <Workflow size={16} />
+                {showWorkflow ? 'Hide Workflow' : 'Show Workflow'}
+              </button>
+            ) : (
+              currentUser?.profile?.role === 'manager' || currentUser?.profile?.role === 'admin' ? (
+                <button
+                  onClick={() => alert('Create Workflow feature - Navigate to workflow creation page')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    padding: '8px 16px',
+                    background: 'rgba(16, 185, 129, 0.2)',
+                    border: '1px solid rgba(16, 185, 129, 0.5)',
+                    borderRadius: 6,
+                    color: '#10B981',
+                    cursor: 'pointer',
+                    fontSize: '0.85rem',
+                    fontWeight: 500
+                  }}
+                >
+                  <Workflow size={16} />
+                  Create Workflow
+                </button>
+              ) : null
+            )}
+            
+            {currentUser && (currentUser.profile?.role === 'manager' || currentUser.profile?.role === 'admin') && (
+              <button
+                onClick={async () => {
+                  if (!confirm('Delete this proof? This action cannot be undone.')) return
+                  try {
+                    await api.delete(`/versioning/assets/${id}/`)
+                    alert('Proof deleted successfully')
+                    navigate('/proofs')
+                  } catch (error) {
+                    alert('Failed to delete proof: ' + (error.response?.data?.error || error.message))
+                  }
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '8px 16px',
+                  background: '#EF4444',
+                  border: 'none',
+                  borderRadius: 6,
+                  color: '#fff',
+                  cursor: 'pointer',
+                  fontSize: '0.85rem',
+                  fontWeight: 500
+                }}
+              >
+                Delete Proof
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div style={{ 
+        flex: 1, 
+        display: 'flex',
+        background: '#111',
+        overflow: 'hidden'
+      }}>
+        {(() => {
+          // Check multiple possible locations for file_url
+          const fileUrl = asset.current_version?.file_url || asset.file_url || asset.current_version?.file
+          console.log('🔍 Checking file URL - current_version.file_url:', asset.current_version?.file_url)
+          console.log('🔍 Checking file URL - asset.file_url:', asset.file_url)
+          console.log('🔍 Final file URL to use:', fileUrl)
+          
+          if (!fileUrl) {
+            console.error('❌ No file URL found in asset data')
+            return (
+              <div style={{ 
+                flex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                textAlign: 'center', 
+                color: '#fff' 
+              }}>
+                <div>
+                  <div style={{ fontSize: '3rem', marginBottom: 16 }}>📄</div>
+                  <h2 style={{ fontSize: '1.5rem', marginBottom: 8 }}>No File Available</h2>
+                  <p style={{ fontSize: '1rem', color: 'rgba(255,255,255,0.7)' }}>
+                    This asset doesn't have a file uploaded yet.
+                  </p>
+                </div>
+              </div>
+            )
+          }
+          
+          if (asset.file_type === 'pdf') {
+            return (
+              <>
+                {/* PDF Viewer with Annotation Layer */}
+                <div style={{ 
+                  flex: 1, 
+                  position: 'relative',
+                  overflow: 'hidden'
+                }}>
+                  <div style={{ 
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%'
+                  }}>
+                    <PDFViewer 
+                      ref={pdfViewerRef}
+                      fileUrl={getMediaUrl(fileUrl)} 
+                      fileName={asset.name}
+                      onPageChange={setCurrentPage}
+                    />
+                  </div>
+                  <PDFAnnotationLayer
+                    annotations={annotations}
+                    currentPage={currentPage}
+                    onAddAnnotation={handleAddAnnotation}
+                    onCommentClick={handleCommentClick}
+                    activeCommentId={activeCommentId}
+                    isEnabled={commentMode}
+                    showNavigationLine={showNavigationLine}
+                    navigationTarget={navigationTarget}
+                  />
+                </div>
+                
+                {/* Comment Sidebar */}
+                <CommentSidebar
+                  versionId={asset.current_version?.id}
+                  currentPage={currentPage}
+                  onCommentClick={handleCommentClick}
+                  activeCommentId={activeCommentId}
+                />
+              </>
+            )
+          }
+          
+          return (
+            <div style={{ 
+              flex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              {asset.file_type === 'image' ? (
+                <img 
+                  src={getMediaUrl(fileUrl)} 
+                  alt={asset.name}
+                  style={{
+                    maxWidth: '100%',
+                    maxHeight: '100%',
+                    objectFit: 'contain'
+                  }}
+                />
+              ) : asset.file_type === 'video' ? (
+                <video
+                  controls
+                  style={{
+                    maxWidth: '100%',
+                    maxHeight: '100%'
+                  }}
+                >
+                  <source src={getMediaUrl(fileUrl)} type="video/mp4" />
+                  Your browser does not support the video tag.
+                </video>
+              ) : (
+                <div style={{ textAlign: 'center', color: '#fff' }}>
+                  <div style={{ fontSize: '3rem', marginBottom: 16 }}>📄</div>
+                  <p>Preview not available for this file type</p>
+                  <button
+                    onClick={() => window.open(getMediaUrl(fileUrl), '_blank')}
+                    style={{
+                      display: 'inline-block',
+                      marginTop: 16,
+                      padding: '8px 16px',
+                      background: '#0A84FF',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: 6,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Open in New Tab
+                  </button>
+                </div>
+              )}
+            </div>
+          )
+        })()}
+      </div>
+
+      {/* Workflow Panel */}
+      {reviewCycleId && (
+        <WorkflowPanel
+          reviewCycleId={reviewCycleId}
+          isOpen={showWorkflow}
+          onClose={() => setShowWorkflow(false)}
+          currentUser={currentUser}
+        />
+      )}
+
+      {/* Decision Modal */}
+      {reviewCycleId && (
+        <DecisionModal
+          isOpen={showDecisionModal}
+          onClose={() => setShowDecisionModal(false)}
+          reviewCycleId={reviewCycleId}
+          myMember={myMember}
+          onDecisionSuccess={() => {
+            setShowDecisionModal(false)
+            fetchMyStatus()
+          }}
+        />
+      )}
+
+      {/* ProofiePlus Modal */}
+      {showProofiePlus && asset?.current_version && (
+        <ProofiePlusModal
+          versionId={asset.current_version.id}
+          assetId={asset.id}
+          onClose={() => setShowProofiePlus(false)}
+        />
+      )}
+    </div>
+  )
+}
+
+export default FileViewer

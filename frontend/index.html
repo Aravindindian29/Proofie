@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Proofie - Creative Proofing & Collaboration</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              ios: {
+                blue:   '#0A84FF',
+                purple: '#5E5CE6',
+                pink:   '#FF375F',
+                green:  '#30D158',
+                yellow: '#FFD60A',
+                orange: '#FF9F0A',
+              }
+            },
+            backdropBlur: { xs: '2px' },
+            fontFamily: {
+              sans: ['-apple-system','BlinkMacSystemFont','SF Pro Display','Segoe UI','sans-serif'],
+            },
+          }
+        }
+      }
+    </script>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+</body>
+</html>

@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to Proofie!</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .container {
+            background-color: #ffffff;
+            border-radius: 12px;
+            padding: 40px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            margin: 20px 0;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .logo {
+            width: 64px;
+            height: 64px;
+            border-radius: 16px;
+            background: linear-gradient(135deg, #5E5CE6, #FF375F);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 16px;
+            font-size: 28px;
+            font-weight: 900;
+            color: #fff;
+        }
+        .title {
+            font-size: 24px;
+            font-weight: 700;
+            color: #1a1a1a;
+            margin-bottom: 8px;
+        }
+        .subtitle {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 30px;
+        }
+        .button {
+            display: inline-block;
+            background: linear-gradient(135deg, #5E5CE6, #0A84FF);
+            color: white;
+            text-decoration: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            margin: 20px 0;
+            transition: all 0.2s ease;
+        }
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(94, 92, 230, 0.3);
+        }
+        .features {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 24px;
+            margin: 20px 0;
+        }
+        .feature {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 16px;
+        }
+        .feature:last-child {
+            margin-bottom: 0;
+        }
+        .feature-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            background: linear-gradient(135deg, #5E5CE6, #0A84FF);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 12px;
+            flex-shrink: 0;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .feature-text {
+            flex: 1;
+        }
+        .feature-title {
+            font-weight: 600;
+            color: #1a1a1a;
+            margin-bottom: 4px;
+        }
+        .feature-desc {
+            font-size: 14px;
+            color: #666;
+        }
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #e9ecef;
+            font-size: 14px;
+            color: #666;
+            text-align: center;
+        }
+        .success-badge {
+            background: linear-gradient(135deg, #00D4AA, #00B894);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            display: inline-block;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">P</div>
+            <div class="success-badge">✓ Email Verified</div>
+            <h1 class="title">Welcome to Proofie!</h1>
+            <p class="subtitle">Your account is now active and ready to use.</p>
+        </div>
+
+        <p>Hi {{ user.first_name|default:user.username }},</p>
+        
+        <p>Congratulations! Your email has been successfully verified and your Proofie account is now fully activated. You're all set to start collaborating on creative projects with your team.</p>
+
+        <div class="features">
+            <h3 style="margin-top: 0; margin-bottom: 20px; color: #1a1a1a;">What you can do now:</h3>
+            
+            <div class="feature">
+                <div class="feature-icon">1</div>
+                <div class="feature-text">
+                    <div class="feature-title">Create Projects</div>
+                    <div class="feature-desc">Organize your creative work into collaborative projects</div>
+                </div>
+            </div>
+            
+            <div class="feature">
+                <div class="feature-icon">2</div>
+                <div class="feature-text">
+                    <div class="feature-title">Upload Assets</div>
+                    <div class="feature-desc">Share PDFs, images, and videos with your team</div>
+                </div>
+            </div>
+            
+            <div class="feature">
+                <div class="feature-icon">3</div>
+                <div class="feature-text">
+                    <div class="feature-title">Add Annotations</div>
+                    <div class="feature-desc">Provide precise feedback with pin-point comments</div>
+                </div>
+            </div>
+            
+            <div class="feature">
+                <div class="feature-icon">4</div>
+                <div class="feature-text">
+                    <div class="feature-title">Manage Workflows</div>
+                    <div class="feature-desc">Track multi-stage approval processes</div>
+                </div>
+            </div>
+        </div>
+
+        <div style="text-align: center;">
+            <a href="{{ frontend_url }}/login" class="button">Get Started</a>
+        </div>
+
+        <p>Here are some quick tips to get the most out of Proofie:</p>
+        <ul style="color: #666; padding-left: 20px;">
+            <li>Invite team members to your projects for better collaboration</li>
+            <li>Use version control to track changes and feedback history</li>
+            <li>Set up approval workflows to streamline your review process</li>
+            <li>Enable notifications to stay updated on project activity</li>
+        </ul>
+
+        <div class="footer">
+            <p>We're excited to have you on board! If you have any questions or need help getting started, don't hesitate to reach out.</p>
+            <p style="margin-top: 20px;">Best regards,<br>The Proofie Team</p>
+            <p style="margin-top: 20px; font-size: 12px;">
+                This email was sent to {{ user.email }} because you verified your Proofie account.<br>
+                If you have questions, contact us at {{ support_email }}.
+            </p>
+        </div>
+    </div>
+</body>
+</html>
