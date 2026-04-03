@@ -13,7 +13,7 @@ const colors = [
   'linear-gradient(135deg,#FFD60A,#FF9F0A)',
 ]
 
-function ProjectDetailsTray({ isOpen, onClose, project }) {
+function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted }) {
   const [projectWithAssets, setProjectWithAssets] = useState(null)
   const [loadingAssets, setLoadingAssets] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
@@ -28,12 +28,14 @@ function ProjectDetailsTray({ isOpen, onClose, project }) {
     setDeleting(true)
     try {
       await api.delete(`/versioning/projects/${displayProject.id}/`)
-      toast.success('Project deleted successfully')
+      toast.success('Proof deleted successfully', { id: 'proof-action-toast' })
       setShowDeleteModal(false)
       onClose()
-      window.location.reload()
+      if (onProjectDeleted) {
+        onProjectDeleted(displayProject.id)
+      }
     } catch (error) {
-      toast.error('Failed to delete project: ' + (error.response?.data?.error || error.message))
+      toast.error('Failed to delete proof: ' + (error.response?.data?.error || error.message), { id: 'proof-action-toast' })
     } finally {
       setDeleting(false)
     }

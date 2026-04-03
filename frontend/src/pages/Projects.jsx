@@ -555,6 +555,9 @@ function Projects() {
         isOpen={isTrayOpen}
         onClose={closeTray}
         project={selectedProject}
+        onProjectDeleted={(projectId) => {
+          setProjects(projects.filter(p => p.id !== projectId))
+        }}
       />
 
       <CreateProofModal

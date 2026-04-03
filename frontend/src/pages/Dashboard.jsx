@@ -390,6 +390,9 @@ function Dashboard() {
         isOpen={isTrayOpen} 
         onClose={closeTray} 
         project={selectedProject}
+        onProjectDeleted={(projectId) => {
+          setRecentProjects(recentProjects.filter(p => p.id !== projectId))
+        }}
       />
 
       <CreateProofModal
