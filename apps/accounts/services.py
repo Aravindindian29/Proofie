@@ -31,8 +31,10 @@ class EmailService:
             dict: Result with success status and message
         """
         try:
+            logger.info(f"Starting verification email send for user: {user.email}")
             # Generate verification link
             verification_link = f"{settings.FRONTEND_URL}/verify-email/{verification.token}/"
+            logger.info(f"Verification link: {verification_link}")
             
             # Prepare email context
             context = {
@@ -46,7 +48,9 @@ class EmailService:
             try:
                 html_message = render_to_string('emails/verification.html', context)
                 message = strip_tags(html_message)
-            except:
+                logger.info("Email template rendered successfully")
+            except Exception as template_error:
+                logger.warning(f"Template rendering failed: {str(template_error)}, using fallback")
                 # Fallback to plain text if templates fail
                 message = f"""
 Hi {user.first_name or user.username},
@@ -66,6 +70,7 @@ The Proofie Team
                 html_message = None
             
             # Send email
+            logger.info(f"Sending email to {user.email} using backend: {settings.EMAIL_BACKEND}")
             result = send_mail(
                 subject='Verify your Proofie account',
                 message=message,
@@ -83,7 +88,7 @@ The Proofie Team
             }
             
         except Exception as e:
-            logger.error(f"Failed to send verification email to {user.email}: {str(e)}")
+            logger.error(f"Failed to send verification email to {user.email}: {str(e)}", exc_info=True)
             return {
                 'success': False,
                 'message': f'Failed to send verification email: {str(e)}',

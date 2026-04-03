@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react'
 
-import { Folder, Plus, Trash2, Edit2, X, ChevronDown, ChevronRight, FileText, Hourglass, Search, XCircle } from 'lucide-react'
+import CrushLoader from '../components/CrushLoader'
+
+import Pagination from '../components/Pagination'
+
+import { Folder, Plus, Trash2, Edit2, X, ChevronDown, ChevronRight, FileText, Hourglass, Search, XCircle, ChevronLeft } from 'lucide-react'
 
 import toast from 'react-hot-toast'
 
@@ -12,7 +16,17 @@ import DeleteConfirmationModal from '../components/DeleteConfirmationModal'
 
 import ProjectDetailsTray from '../components/ProjectDetailsTray'
 
+const FOLDER_COLORS = [
+  { gradient: 'linear-gradient(135deg, #FF9500, #FF8C00)', label: 'Orange' },
+  { gradient: 'linear-gradient(135deg, #FF69B4, #FF1493)', label: 'Pink' },
+  { gradient: 'linear-gradient(135deg, #FF6B6B, #FF4444)', label: 'Red' },
+  { gradient: 'linear-gradient(135deg, #9B59B6, #8E44AD)', label: 'Purple' },
+  { gradient: 'linear-gradient(135deg, #20B2AA, #17A2B8)', label: 'Teal' }
+]
 
+const getFolderColor = (folderId) => {
+  return FOLDER_COLORS[folderId % FOLDER_COLORS.length]
+}
 
 function Folders() {
 
@@ -62,6 +76,8 @@ function Folders() {
   const [addingProofs, setAddingProofs] = useState(false)
   const [folderToDelete, setFolderToDelete] = useState(null)
   const [showFolderDeleteModal, setShowFolderDeleteModal] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const foldersPerPage = 5
 
 
 
@@ -71,9 +87,26 @@ function Folders() {
 
       setLoading(true)
 
-      const response = await api.get('/versioning/folders/')
+      let allFolders = []
+      let nextUrl = '/versioning/folders/'
 
-      setFolders(response.data.results || response.data)
+      // Fetch all folders across all backend pagination pages
+      while (nextUrl) {
+        const response = await api.get(nextUrl)
+        const folders = response.data.results || response.data
+        
+        if (Array.isArray(folders)) {
+          allFolders = allFolders.concat(folders)
+        } else {
+          allFolders = folders
+          break
+        }
+
+        // Check if there's a next page
+        nextUrl = response.data.next || null
+      }
+
+      setFolders(allFolders)
 
     } catch (error) {
 
@@ -149,6 +182,8 @@ function Folders() {
 
       setNewFolderNameError('')
 
+      setCurrentPage(1)
+
       fetchFolders()
 
     } catch (error) {
@@ -170,9 +205,22 @@ function Folders() {
     if (!folderToDelete) return
     
     try {
+      // Check if this is the only item on current page before deletion
+      const isOnlyItemOnPage = paginatedFolders.length === 1
+      const shouldGoToPreviousPage = isOnlyItemOnPage && currentPage > 1
+      
       await api.delete(`/versioning/folders/${folderToDelete}/`)
       toast.success('Folder deleted successfully', { id: 'folders-toast' })
-      fetchFolders()
+      
+      // Fetch updated folders
+      const response = await api.get('/versioning/folders/')
+      const foldersData = response.data.results || response.data || []
+      setFolders(foldersData)
+      
+      // If there's only one item on current page and we're not on page 1, go to previous page
+      if (shouldGoToPreviousPage) {
+        setCurrentPage(currentPage - 1)
+      }
     } catch (error) {
       toast.error('Failed to delete folder', { id: 'folders-toast' })
     } finally {
@@ -474,7 +522,11 @@ function Folders() {
     proof.name.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-
+  // Pagination calculations
+  const totalPages = Math.ceil(folders.length / foldersPerPage)
+  const startIndex = (currentPage - 1) * foldersPerPage
+  const endIndex = startIndex + foldersPerPage
+  const paginatedFolders = folders.slice(startIndex, endIndex)
 
   return (
 
@@ -500,22 +552,30 @@ function Folders() {
 
         </div>
 
-        <button
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+          />
 
-          onClick={() => {
-            setShowCreateModal(true)
-            setNewFolderNameError('')
-          }}
+          <button
 
-          className="btn-primary"
+            onClick={() => {
+              setShowCreateModal(true)
+              setNewFolderNameError('')
+            }}
 
-          style={{ borderRadius: 14, display: 'flex', alignItems: 'center', gap: 8 }}
+            className="btn-primary"
 
-        >
+            style={{ borderRadius: 14, display: 'flex', alignItems: 'center', gap: 8 }}
 
-          <Plus size={18} /> Create Folder
+          >
 
-        </button>
+            <Plus size={18} /> Create Folder
+
+          </button>
+        </div>
 
       </div>
 
@@ -524,12 +584,7 @@ function Folders() {
       {/* Folders Grid */}
 
       {loading ? (
-
-        <div style={{ textAlign: 'center', padding: '60px 0' }}>
-
-          <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '1rem' }}>Loading folders...</div>
-
-        </div>
+        <CrushLoader text="Loading folders..." />
 
       ) : folders.length === 0 ? (
 
@@ -548,10 +603,10 @@ function Folders() {
         </div>
 
       ) : (
-
+        <>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 
-          {folders.map((folder) => (
+          {paginatedFolders.map((folder) => (
 
             <div key={folder.id} className="glass-card" style={{ overflow: 'hidden' }}>
 
@@ -631,7 +686,7 @@ function Folders() {
 
                   borderRadius: 12,
 
-                  background: 'linear-gradient(135deg, #8E44AD, #9B59B6)',
+                  background: getFolderColor(folder.id).gradient,
 
                   display: 'flex',
 
@@ -1246,6 +1301,7 @@ function Folders() {
           ))}
 
         </div>
+        </>
 
       )}
 
@@ -1970,6 +2026,24 @@ function Folders() {
         isOpen={isTrayOpen}
         onClose={closeTray}
         project={selectedProject}
+        onProjectDeleted={(projectId) => {
+          // Remove deleted project from folderProjects
+          if (expandedFolder) {
+            setFolderProjects(prev => ({
+              ...prev,
+              [expandedFolder]: prev[expandedFolder].filter(p => p.id !== projectId)
+            }))
+          }
+          
+          // Handle pagination redirect when deleting from tray
+          const currentFolderProjects = expandedFolder ? (folderProjects[expandedFolder] || []) : []
+          const isOnlyItemOnPage = currentFolderProjects.length === 1
+          const shouldGoToPreviousPage = isOnlyItemOnPage && currentPage > 1
+          
+          if (shouldGoToPreviousPage) {
+            setCurrentPage(currentPage - 1)
+          }
+        }}
       />
 
     </div>

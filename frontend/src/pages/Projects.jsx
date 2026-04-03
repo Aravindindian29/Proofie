@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import CrushLoader from '../components/CrushLoader'
+import Pagination from '../components/Pagination'
 import { Link, useNavigate, useParams, useLocation } from 'react-router-dom'
 import { Plus, FolderOpen, Users, Calendar, Clock, Hourglass, Trash2, X, Folder, ChevronLeft, ChevronRight } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -176,11 +177,24 @@ function Projects() {
   const handleConfirmDelete = async () => {
     setDeleting(true)
     try {
+      // Check if this is the only item on current page before deletion
+      const isOnlyItemOnPage = paginatedProjects.length === 1
+      const shouldGoToPreviousPage = isOnlyItemOnPage && currentPage > 1
+      
       await api.delete(`/versioning/projects/${projectToDelete.id}/`)
       toast.success('Proof deleted successfully', { id: 'proof-action-toast' })
       setShowDeleteModal(false)
       setProjectToDelete(null)
-      fetchProjects()
+      
+      // Fetch updated projects
+      const response = await api.get('/versioning/projects/')
+      const projectsData = response.data.results || response.data
+      setProjects(projectsData)
+      
+      // If there's only one item on current page and we're not on page 1, go to previous page
+      if (shouldGoToPreviousPage) {
+        setCurrentPage(currentPage - 1)
+      }
     } catch (error) {
       toast.error('Failed to delete proof: ' + (error.response?.data?.error || error.message), { id: 'proof-action-toast' })
     } finally {
@@ -204,6 +218,14 @@ function Projects() {
             Proofs
           </h1>
         </div>
+        
+        {filteredProjects.length > 0 && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+          />
+        )}
       </div>
 
       {/* Folder Filter Indicator */}
@@ -441,74 +463,6 @@ function Projects() {
             </div>
           ))}
         </div>
-
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: 32 }}>
-            <button
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 10,
-                background: currentPage === 1 ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.1)',
-                border: '1px solid rgba(255,255,255,0.2)',
-                color: currentPage === 1 ? 'rgba(255,255,255,0.3)' : '#fff',
-                cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'all 0.2s'
-              }}
-            >
-              <ChevronLeft size={20} />
-            </button>
-            
-            <div style={{ display: 'flex', gap: 6 }}>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                <button
-                  key={page}
-                  onClick={() => setCurrentPage(page)}
-                  style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: 10,
-                    background: currentPage === page ? '#FF375F' : 'rgba(255,255,255,0.1)',
-                    border: '1px solid rgba(255,255,255,0.2)',
-                    color: '#fff',
-                    cursor: 'pointer',
-                    fontSize: '0.85rem',
-                    fontWeight: 600,
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  {page}
-                </button>
-              ))}
-            </div>
-            
-            <button
-              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 10,
-                background: currentPage === totalPages ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.1)',
-                border: '1px solid rgba(255,255,255,0.2)',
-                color: currentPage === totalPages ? 'rgba(255,255,255,0.3)' : '#fff',
-                cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'all 0.2s'
-              }}
-            >
-              <ChevronRight size={20} />
-            </button>
-          </div>
-        )}
       </>
       ) : selectedFolder ? (
         <div className="glass-card-static" style={{ textAlign: 'center', padding: '80px 40px' }}>
@@ -556,7 +510,16 @@ function Projects() {
         onClose={closeTray}
         project={selectedProject}
         onProjectDeleted={(projectId) => {
-          setProjects(projects.filter(p => p.id !== projectId))
+          const updatedProjects = projects.filter(p => p.id !== projectId)
+          setProjects(updatedProjects)
+          
+          // Handle pagination redirect when deleting from tray
+          const isOnlyItemOnPage = paginatedProjects.length === 1
+          const shouldGoToPreviousPage = isOnlyItemOnPage && currentPage > 1
+          
+          if (shouldGoToPreviousPage) {
+            setCurrentPage(currentPage - 1)
+          }
         }}
       />
 

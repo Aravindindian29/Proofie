@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import CrushLoader from '../components/CrushLoader'
 import { Settings as SettingsIcon, User, Bell, Shield, Palette, HelpCircle, LogOut } from 'lucide-react'
 import api from '../services/api'
 
@@ -45,9 +46,7 @@ function Settings() {
 
   if (loading) {
     return (
-      <div style={{ padding: '32px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-        <div style={{ color: '#fff' }}>Loading settings...</div>
-      </div>
+      <CrushLoader text="Loading settings..." />
     )
   }
 
