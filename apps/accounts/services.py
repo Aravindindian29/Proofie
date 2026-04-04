@@ -66,6 +66,10 @@ The Proofie Team
                 html_message = None
             
             # Send email
+            logger.info(f"Attempting to send verification email to {user.email}")
+            logger.info(f"From: {getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@proofie.com')}")
+            logger.info(f"SMTP Host: {settings.EMAIL_HOST}:{settings.EMAIL_PORT}")
+            
             result = send_mail(
                 subject='Verify your Proofie account',
                 message=message,
@@ -75,7 +79,7 @@ The Proofie Team
                 fail_silently=False,
             )
             
-            logger.info(f"Verification email sent to {user.email}. Result: {result}")
+            logger.info(f"Verification email sent successfully to {user.email}. Result: {result}")
             return {
                 'success': True,
                 'message': f'Verification email sent to {user.email}',
@@ -83,7 +87,11 @@ The Proofie Team
             }
             
         except Exception as e:
-            logger.error(f"Failed to send verification email to {user.email}: {str(e)}")
+            logger.error(f"Failed to send verification email to {user.email}")
+            logger.error(f"Error type: {type(e).__name__}")
+            logger.error(f"Error details: {str(e)}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
             return {
                 'success': False,
                 'message': f'Failed to send verification email: {str(e)}',
