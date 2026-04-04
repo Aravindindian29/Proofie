@@ -105,9 +105,9 @@ function CreateProofModal({ isOpen, onClose, onSuccess }) {
       const project = projectResponse.data
       const projectId = project.id
       
-      // Step 2: Upload each file as a CreativeAsset
+      // Step 2: Upload each file as a CreativeAsset in parallel
       let projectWithToken = project
-      for (const uploadedFile of uploadedFiles) {
+      const uploadPromises = uploadedFiles.map(uploadedFile => {
         const assetData = new FormData()
         assetData.append('name', uploadedFile.name)
         assetData.append('file', uploadedFile.file)
@@ -122,10 +122,15 @@ function CreateProofModal({ isOpen, onClose, onSuccess }) {
         }
         assetData.append('file_type', fileType)
         
-        const response = await api.post('/versioning/assets/', assetData, {
+        return api.post('/versioning/assets/', assetData, {
           headers: { 'Content-Type': 'multipart/form-data' }
         })
-        // DEBUG: Log the response to see what's returned
+      })
+      
+      const uploadResponses = await Promise.all(uploadPromises)
+      
+      // Process responses to capture project with token
+      for (const response of uploadResponses) {
         console.log('Asset creation response:', response.data)
         
         // Handle both new format { asset, project } and old format (project directly)

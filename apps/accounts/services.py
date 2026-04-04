@@ -31,8 +31,10 @@ class EmailService:
             dict: Result with success status and message
         """
         try:
+            logger.info(f"Starting verification email send for user: {user.email}")
             # Generate verification link
             verification_link = f"{settings.FRONTEND_URL}/verify-email/{verification.token}/"
+            logger.info(f"Verification link: {verification_link}")
             
             # Prepare email context
             context = {
@@ -46,7 +48,9 @@ class EmailService:
             try:
                 html_message = render_to_string('emails/verification.html', context)
                 message = strip_tags(html_message)
-            except:
+                logger.info("Email template rendered successfully")
+            except Exception as template_error:
+                logger.warning(f"Template rendering failed: {str(template_error)}, using fallback")
                 # Fallback to plain text if templates fail
                 message = f"""
 Hi {user.first_name or user.username},
@@ -69,7 +73,6 @@ The Proofie Team
             logger.info(f"Attempting to send verification email to {user.email}")
             logger.info(f"From: {getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@proofie.com')}")
             logger.info(f"SMTP Host: {settings.EMAIL_HOST}:{settings.EMAIL_PORT}")
-            
             result = send_mail(
                 subject='Verify your Proofie account',
                 message=message,

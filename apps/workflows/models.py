@@ -173,10 +173,17 @@ class StageApproval(models.Model):
 
     class Meta:
         ordering = ['created_at']
-        unique_together = ('review_cycle', 'stage', 'approver')
+        constraints = [
+            models.UniqueConstraint(
+                fields=['review_cycle', 'stage', 'approver'],
+                condition=models.Q(approver__isnull=False),
+                name='unique_stage_approval_with_approver'
+            )
+        ]
 
     def __str__(self):
-        return f"{self.approver.username} - {self.stage.name}"
+        approver_name = self.approver.username if self.approver else "Unassigned"
+        return f"{approver_name} - {self.stage.name}"
 
 
 class WorkflowTransition(models.Model):

@@ -63,7 +63,7 @@ function Dashboard() {
     try {
       const [projectsRes] = await Promise.all([api.get('/versioning/projects/')])
       const projects = projectsRes.data.results || projectsRes.data || []
-      setRecentProjects(projects.slice(0, 4))
+      setRecentProjects(projects)
       setStats(prev => ({ ...prev, projects: projects.length }))
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error)
@@ -125,20 +125,22 @@ function Dashboard() {
   return (
     <div style={{ padding: '36px 40px' }}>
       {/* Header */}
-      <div className="fade-up" style={{ marginBottom: 36 }}>
-        <p style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: 8, letterSpacing: '0.01em' }}>
-          <span style={{
-            background: 'linear-gradient(90deg, #ffffff, #a0c4ff, #ffffff)',
-            backgroundSize: '200% auto',
-            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-            backgroundClip: 'text',
-            animation: 'shimmer 3s linear infinite',
-          }}>Welcome {user?.username}</span>
-          {' '}{'\u{1F60E}'}
-        </p>
-        <h1 style={{ fontSize: '2.2rem', fontWeight: 800, letterSpacing: '-0.03em', color: '#fff' }}>
-          Dashboard
-        </h1>
+      <div className="fade-up" style={{ marginBottom: 36, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div>
+          <p style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: 8, letterSpacing: '0.01em' }}>
+            <span style={{
+              background: 'linear-gradient(90deg, #ffffff, #a0c4ff, #ffffff)',
+              backgroundSize: '200% auto',
+              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+              animation: 'shimmer 3s linear infinite',
+            }}>Welcome {user?.username}</span>
+            {' '}{'\u{1F60E}'}
+          </p>
+          <h1 style={{ fontSize: '2.2rem', fontWeight: 800, letterSpacing: '-0.03em', color: '#fff' }}>
+            Dashboard
+          </h1>
+        </div>
       </div>
 
       {/* Stat Cards */}
@@ -191,21 +193,30 @@ function Dashboard() {
       <div className="glass-card-static" style={{ padding: '28px 28px', minHeight: '280px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
           <h2 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#fff' }}>Recent Proofs</h2>
-          {recentProjects.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            {recentProjects.length > 0 && (
+              <button
+                onClick={openModal}
+                className="btn-primary"
+                style={{ borderRadius: 14, display: 'flex', alignItems: 'center', gap: 8 }}
+              >
+                <Plus size={18} /> Create New Proof
+              </button>
+            )}
             <Link to="/proofs" style={{
               display: 'flex', alignItems: 'center', gap: 6,
               color: '#0A84FF', textDecoration: 'none', fontSize: '0.85rem', fontWeight: 700,
             }}>
               <span style={{ fontWeight: 700 }}>View all</span> <ArrowRight size={14} strokeWidth={2.5} />
             </Link>
-          )}
+          </div>
         </div>
 
         {loading ? (
           <CrushLoader />
         ) : recentProjects.length > 0 ? (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20, alignItems: 'start' }}>
-            {recentProjects.map((project, i) => (
+            {recentProjects.slice(0, 4).map((project, i) => (
               <div
                 key={project.id}
                 onClick={() => handleProjectClick(project)}
@@ -390,6 +401,9 @@ function Dashboard() {
         isOpen={isTrayOpen} 
         onClose={closeTray} 
         project={selectedProject}
+        onProjectDeleted={(projectId) => {
+          setRecentProjects(recentProjects.filter(p => p.id !== projectId))
+        }}
       />
 
       <CreateProofModal
