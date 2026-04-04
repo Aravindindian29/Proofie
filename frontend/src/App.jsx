@@ -15,6 +15,7 @@ import ProjectDetail from './pages/ProjectDetail'
 import AssetDetail from './pages/AssetDetail'
 import FileViewer from './pages/FileViewer'
 import Workflows from './pages/Workflows'
+import WorkflowTemplateBuilder from './pages/WorkflowTemplateBuilder'
 import Notifications from './pages/Notifications'
 import Profile from './pages/Profile'
 import Settings from './pages/Settings'
@@ -103,6 +104,7 @@ function App() {
             <Route path="/assets/:id" element={<AssetDetail />} />
             <Route path="/files/:id" element={<FileViewer />} />
             <Route path="/workflows" element={<Workflows />} />
+            <Route path="/workflows/templates" element={<WorkflowTemplateBuilder />} />
             <Route path="/notifications" element={<Notifications />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/settings" element={<Settings />} />

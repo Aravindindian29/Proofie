@@ -71,89 +71,13 @@ function FileViewer() {
     fetchCurrentUser()
   }, [id])
 
-  // Auto-track view when review cycle is available (only once)
+  // Auto-track view when review cycle is available
   useEffect(() => {
-    if (reviewCycleId && !viewTracked) {
+    if (reviewCycleId) {
       trackView()
       fetchMyStatus()
     }
-  }, [reviewCycleId, viewTracked])
-
-  // Setup WebSocket listener for real-time updates
-  useEffect(() => {
-    if (!currentUser) return
-
-    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    // Connect to backend WebSocket server on port 8000
-    const wsUrl = `${wsProtocol}//localhost:8000/ws/notifications/${currentUser.id}/`
-    
-    let ws = null
-    let reconnectAttempts = 0
-    const maxReconnectAttempts = 5
-    const reconnectDelay = 3000
-
-    const connectWebSocket = () => {
-      try {
-        ws = new WebSocket(wsUrl)
-        
-        ws.onopen = () => {
-          console.log('✅ WebSocket connected for real-time updates')
-          reconnectAttempts = 0
-        }
-        
-        ws.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data)
-            console.log('📨 WebSocket message received:', data)
-            
-            // Handle review cycle status updates
-            if (data.type === 'review_cycle_update' && data.review_cycle_id === reviewCycleId) {
-              console.log('🔄 Review cycle status updated:', data.status)
-              // Refresh asset data to get updated status
-              fetchAssetData()
-              // Show toast notification
-              if (data.status === 'in_progress') {
-                toast.success('Proof review started')
-              }
-            }
-            
-            // Handle notification messages
-            if (data.type === 'notification_message') {
-              console.log('🔔 Notification received:', data.notification)
-              toast.info(data.notification.title)
-            }
-          } catch (error) {
-            console.error('Failed to parse WebSocket message:', error)
-          }
-        }
-        
-        ws.onerror = (error) => {
-          console.error('❌ WebSocket error:', error)
-        }
-        
-        ws.onclose = () => {
-          console.log('❌ WebSocket disconnected')
-          // Attempt to reconnect
-          if (reconnectAttempts < maxReconnectAttempts) {
-            reconnectAttempts++
-            console.log(`Attempting to reconnect (${reconnectAttempts}/${maxReconnectAttempts})...`)
-            setTimeout(connectWebSocket, reconnectDelay)
-          }
-        }
-      } catch (error) {
-        console.error('Failed to connect WebSocket:', error)
-      }
-    }
-
-    connectWebSocket()
-
-    // Cleanup on unmount
-    return () => {
-      if (ws) {
-        ws.close()
-      }
-    }
-  }, [currentUser, reviewCycleId])
+  }, [reviewCycleId])
 
   const fetchCurrentUser = async () => {
     try {
@@ -166,32 +90,10 @@ function FileViewer() {
 
   const trackView = async () => {
     try {
-      const response = await api.post(`/workflows/review-cycles/${reviewCycleId}/track_view/`)
-      console.log('✅ View tracked successfully:', response.data)
-      console.log('📊 Review cycle status updated to:', response.data.review_cycle_status)
-      console.log('👤 User is member:', response.data.user_is_member)
-      
-      setViewTracked(true)
-      
-      // If status changed, show immediate feedback
-      if (response.data.status_changed) {
-        toast.success('Proof review started!')
-        // Refresh asset data immediately to get updated status
-        fetchAssetData()
-      }
-      
-      // Also refresh after a short delay to ensure all updates are captured
-      setTimeout(() => {
-        fetchAssetData()
-      }, 1000)
+      await api.post(`/workflows/review-cycles/${reviewCycleId}/track_view/`)
+      console.log('View tracked successfully')
     } catch (error) {
-      console.error('❌ Failed to track view:', error)
-      console.error('Error details:', error.response?.data)
-      if (error.response?.status === 403) {
-        toast.error('You do not have permission to view this proof')
-      } else {
-        toast.error('Failed to track view')
-      }
+      console.error('Failed to track view:', error)
     }
   }
 
@@ -247,13 +149,7 @@ function FileViewer() {
       if (response.data?.review_cycles && response.data.review_cycles.length > 0) {
         // Get the most recent review cycle
         const activeReview = response.data.review_cycles[0]
-        console.log('📋 Active review cycle:', activeReview)
-        console.log('📊 Review cycle status:', activeReview.status)
         setReviewCycleId(activeReview.id)
-      } else {
-        // No review cycle exists, create one automatically
-        console.log('📋 No review cycle found, creating one automatically...')
-        await createReviewCycleForAsset(response.data.id)
       }
       
       // Fetch annotations if it's a PDF
@@ -294,36 +190,6 @@ function FileViewer() {
       setAnnotations(response.data.results || response.data || [])
     } catch (error) {
       console.error('Failed to fetch annotations:', error)
-    }
-  }
-
-  const createReviewCycleForAsset = async (assetId) => {
-    try {
-      console.log('🔄 Creating review cycle for asset:', assetId)
-      const response = await api.post('/workflows/review-cycles/auto_create/', {
-        asset_id: assetId
-      })
-      
-      console.log('✅ Review cycle created:', response.data)
-      
-      if (response.data.review_cycle) {
-        setReviewCycleId(response.data.review_cycle.id)
-        console.log('📋 Set review cycle ID:', response.data.review_cycle.id)
-        
-        // Show success message
-        toast.success('Review cycle created automatically')
-        
-        // Refresh asset data to get the updated review cycle
-        await fetchAssetData()
-      }
-    } catch (error) {
-      console.error('❌ Failed to create review cycle:', error)
-      console.error('Error details:', error.response?.data)
-      
-      // Don't show error to user unless it's critical, as this is background functionality
-      if (error.response?.status !== 400) {
-        toast.error('Failed to create review cycle')
-      }
     }
   }
 

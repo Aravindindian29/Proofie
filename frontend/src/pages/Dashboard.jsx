@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react'
 import CrushLoader from '../components/CrushLoader'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { FolderOpen, FileText, CheckCircle, Clock, ArrowRight, Plus, Users, Calendar, Hourglass, Trash2 } from 'lucide-react'
+import { FolderOpen, FileText, CheckCircle, Clock, ArrowRight, Plus, Users, Calendar, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../services/api'
 import { useAuthStore } from '../stores/authStore'
 import ProjectDetailsTray from '../components/ProjectDetailsTray'
 import CreateProofModal from '../components/CreateProofModal'
 import DeleteConfirmationModal from '../components/DeleteConfirmationModal'
+import StatusBadge from '../components/StatusBadge'
 
 const colors = [
   'linear-gradient(135deg,#0A84FF,#5E5CE6)',
@@ -76,6 +77,119 @@ function Dashboard() {
   }
 
   useEffect(() => { fetchDashboardData() }, [])
+
+  // Setup WebSocket listener for real-time updates
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      try {
+        const response = await api.get('/accounts/users/me/')
+        const user = response.data
+        
+        if (!user) return
+
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+        const wsUrl = `${wsProtocol}//localhost:8000/ws/notifications/${user.id}/`
+        
+        let ws = null
+        let reconnectAttempts = 0
+        const maxReconnectAttempts = 5
+        const reconnectDelay = 3000
+
+        const connectWebSocket = () => {
+          try {
+            ws = new WebSocket(wsUrl)
+            
+            ws.onopen = () => {
+              console.log('✅ Dashboard WebSocket connected')
+              reconnectAttempts = 0
+            }
+            
+            ws.onmessage = (event) => {
+              try {
+                const data = JSON.parse(event.data)
+                console.log('📨 Dashboard WebSocket message:', data)
+                
+                // Handle review cycle status updates
+                if (data.type === 'review_cycle_update') {
+                  console.log('🔄 Dashboard: Review cycle updated:', data.review_cycle_id, 'Status:', data.status)
+                  
+                  // Update the specific project in recentProjects if it has this review cycle
+                  setRecentProjects(prevProjects => 
+                    prevProjects.map(project => {
+                      // Check if this project has the updated review cycle
+                      const hasUpdatedCycle = project.review_cycles && 
+                        project.review_cycles.some(rc => rc.id === data.review_cycle_id)
+                      
+                      if (hasUpdatedCycle) {
+                        // Update the review cycle status within the project
+                        return {
+                          ...project,
+                          review_cycles: project.review_cycles.map(rc => 
+                            rc.id === data.review_cycle_id 
+                              ? { ...rc, status: data.status }
+                              : rc
+                          )
+                        }
+                      }
+                      return project
+                    })
+                  )
+                  
+                  // Refresh dashboard data to get updated stats
+                  fetchDashboardData()
+                }
+              } catch (error) {
+                console.error('Failed to parse WebSocket message:', error)
+              }
+            }
+            
+            ws.onerror = (error) => {
+              console.error('❌ Dashboard WebSocket error:', error)
+            }
+            
+            ws.onclose = () => {
+              console.log('❌ Dashboard WebSocket disconnected')
+              // Attempt to reconnect
+              if (reconnectAttempts < maxReconnectAttempts) {
+                reconnectAttempts++
+                console.log(`Dashboard attempting to reconnect (${reconnectAttempts}/${maxReconnectAttempts})...`)
+                setTimeout(connectWebSocket, reconnectDelay)
+              }
+            }
+          } catch (error) {
+            console.error('Failed to connect Dashboard WebSocket:', error)
+          }
+        }
+
+        connectWebSocket()
+
+        // Cleanup on unmount
+        return () => {
+          if (ws) {
+            ws.close()
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch current user for WebSocket:', error)
+      }
+    }
+
+    fetchCurrentUser()
+  }, [])
+
+  // Refresh data when window regains focus (user returns from PDF viewer)
+  useEffect(() => {
+    const handleFocus = () => {
+      console.log('🔄 Dashboard: Window focused - refreshing dashboard data')
+      fetchDashboardData()
+    }
+
+    window.addEventListener('focus', handleFocus)
+
+    return () => {
+      window.removeEventListener('focus', handleFocus)
+    }
+  }, [])
 
   // Handle direct navigation to /dashboard/proof/:token
   useEffect(() => {
@@ -332,22 +446,7 @@ function Dashboard() {
                 {/* Content Area */}
                 <div style={{ padding: '8px 12px' }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', marginBottom: 4 }}>
-                    <span style={{
-                      padding: '3px 8px',
-                      borderRadius: '4px',
-                      fontSize: '0.7rem',
-                      fontWeight: 600,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      background: project.is_active ? 'rgba(255,214,10,0.15)' : 'rgba(255,55,95,0.15)',
-                      color: project.is_active ? '#FFD60A' : '#FF375F',
-                      border: project.is_active ? '2px solid rgba(255,214,10,0.4)' : '2px solid rgba(255,55,95,0.4)'
-                    }}>
-                      {project.is_active ? (
-                        <><Hourglass size={10} strokeWidth={2.5} /> In Progress</>
-                      ) : 'Inactive'}
-                    </span>
+                    <StatusBadge status={project.review_cycle_status || 'not_started'} size="small" />
                   </div>
                   <h3 style={{ 
                     fontSize: '0.9rem', 

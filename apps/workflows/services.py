@@ -1,6 +1,11 @@
 from django.utils import timezone
 from django.db.models import Q
 from .models import ApprovalGroup, GroupMember, ReviewCycle
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class WorkflowService:
@@ -346,3 +351,144 @@ class WorkflowService:
             'changes_requested': members.filter(decision='changes_requested').count(),
             'progress_percentage': int((members.filter(socd_status='decision_made').count() / total) * 100)
         }
+    
+    @staticmethod
+    def broadcast_review_cycle_update(review_cycle):
+        """
+        Broadcast review cycle status update via WebSocket to all relevant users.
+        Includes group members, creator, and managers/admins who can view the proof.
+        
+        Args:
+            review_cycle: ReviewCycle instance
+        """
+        try:
+            channel_layer = get_channel_layer()
+            
+            if not channel_layer:
+                logger.warning("Channel layer not configured for WebSocket broadcasting")
+                return
+            
+            # Collect all relevant users
+            users_to_notify = set()
+            
+            # Add all group members
+            for member in GroupMember.objects.filter(
+                group__review_cycle=review_cycle
+            ).select_related('user'):
+                users_to_notify.add(member.user)
+            
+            # Add the creator/initiator
+            if review_cycle.created_by:
+                users_to_notify.add(review_cycle.created_by)
+            if review_cycle.initiated_by:
+                users_to_notify.add(review_cycle.initiated_by)
+            
+            # Add managers and admins who might be viewing
+            from django.contrib.auth.models import User
+            from apps.accounts.models import UserProfile
+            managers_and_admins = User.objects.filter(
+                profile__role__in=['manager', 'admin']
+            )
+            users_to_notify.update(managers_and_admins)
+            
+            # Prepare update data
+            update_data = {
+                'type': 'review_cycle_update',
+                'review_cycle_id': review_cycle.id,
+                'status': review_cycle.status,
+                'current_stage_id': review_cycle.current_stage.id if review_cycle.current_stage else None,
+                'updated_at': review_cycle.updated_at.isoformat() if hasattr(review_cycle, 'updated_at') else timezone.now().isoformat(),
+                'asset_name': review_cycle.asset.name if review_cycle.asset else 'Untitled Proof',
+                'asset_id': review_cycle.asset.id if review_cycle.asset else None,
+            }
+            
+            # Send update to each user's notification channel
+            success_count = 0
+            for user in users_to_notify:
+                try:
+                    async_to_sync(channel_layer.group_send)(
+                        f'notifications_{user.id}',
+                        update_data
+                    )
+                    success_count += 1
+                except Exception as e:
+                    logger.error(f"Failed to send update to user {user.id}: {e}")
+            
+            logger.info(f"Broadcasted review cycle {review_cycle.id} update to {success_count}/{len(users_to_notify)} users")
+            
+        except Exception as e:
+            logger.error(f"Failed to broadcast review cycle update: {e}")
+
+    @staticmethod
+    def create_review_cycle_for_asset(asset, user):
+        """
+        Automatically create a review cycle for an asset with default settings
+        
+        Args:
+            asset: CreativeAsset instance
+            user: User instance creating the review cycle
+            
+        Returns:
+            ReviewCycle: The created review cycle
+        """
+        try:
+            # Get the default active workflow template
+            from apps.workflows.models import WorkflowTemplate
+            template = WorkflowTemplate.objects.filter(is_active=True).first()
+            if not template:
+                raise ValueError("No active workflow template found")
+            
+            # Create review cycle
+            review_cycle = ReviewCycle.objects.create(
+                asset=asset,
+                template=template,
+                status='not_started',
+                initiated_by=user,
+                created_by=user
+            )
+            
+            logger.info(f"Created review cycle {review_cycle.id} for asset {asset.id}")
+            
+            # Get the first stage of the template
+            from apps.workflows.models import WorkflowStage
+            stage = WorkflowStage.objects.filter(template=template).order_by('order').first()
+            if stage:
+                # Create approval group
+                group = ApprovalGroup.objects.create(
+                    review_cycle=review_cycle,
+                    stage=stage,
+                    name='Review Group',
+                    order=1,
+                    status='unlocked'
+                )
+                
+                logger.info(f"Created approval group {group.id} for review cycle {review_cycle.id}")
+                
+                # Add the creating user as a member if they're not already a stage approver
+                from apps.workflows.models import WorkflowStageApprover
+                if WorkflowStageApprover.objects.filter(stage=stage, user=user).exists():
+                    # User is already a stage approver, add them as group member
+                    member = GroupMember.objects.create(
+                        group=group,
+                        user=user,
+                        socd_status='sent'
+                    )
+                    logger.info(f"Added user {user.username} as group member with SOCD status: sent")
+                else:
+                    # Add user as stage approver and group member
+                    WorkflowStageApprover.objects.create(
+                        stage=stage,
+                        user=user
+                    )
+                    member = GroupMember.objects.create(
+                        group=group,
+                        user=user,
+                        socd_status='sent'
+                    )
+                    logger.info(f"Added user {user.username} as stage approver and group member")
+            
+            return review_cycle
+            
+        except Exception as e:
+            logger.error(f"Failed to create review cycle for asset {asset.id}: {e}")
+            raise

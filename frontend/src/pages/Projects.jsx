@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react'
 import CrushLoader from '../components/CrushLoader'
 import Pagination from '../components/Pagination'
 import { Link, useNavigate, useParams, useLocation } from 'react-router-dom'
-import { Plus, FolderOpen, Users, Calendar, Clock, Hourglass, Trash2, X, Folder, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, FolderOpen, Users, Calendar, Clock, Trash2, X, Folder, ChevronLeft, ChevronRight } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../services/api'
 import { useAuthStore } from '../stores/authStore'
 import ProjectDetailsTray from '../components/ProjectDetailsTray'
 import CreateProofModal from '../components/CreateProofModal'
 import DeleteConfirmationModal from '../components/DeleteConfirmationModal'
+import StatusBadge from '../components/StatusBadge'
 
 const colors = [
   'linear-gradient(135deg,#0A84FF,#5E5CE6)',
@@ -39,6 +40,108 @@ function Projects() {
   useEffect(() => { 
     fetchCurrentUser()
     fetchProjects() 
+  }, [])
+
+  // Setup WebSocket listener for real-time updates
+  useEffect(() => {
+    if (!currentUser) return
+
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    const wsUrl = `${wsProtocol}//localhost:8000/ws/notifications/${currentUser.id}/`
+    
+    let ws = null
+    let reconnectAttempts = 0
+    const maxReconnectAttempts = 5
+    const reconnectDelay = 3000
+
+    const connectWebSocket = () => {
+      try {
+        ws = new WebSocket(wsUrl)
+        
+        ws.onopen = () => {
+          console.log('✅ Projects WebSocket connected')
+          reconnectAttempts = 0
+        }
+        
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data)
+            console.log('📨 Projects WebSocket message:', data)
+            
+            // Handle review cycle status updates
+            if (data.type === 'review_cycle_update') {
+              console.log('🔄 Projects: Review cycle updated:', data.review_cycle_id, 'Status:', data.status)
+              
+              // Update the specific project in the list
+              setProjects(prevProjects => 
+                prevProjects.map(project => {
+                  // Check if this project has the updated review cycle
+                  const hasUpdatedCycle = project.review_cycles && 
+                    project.review_cycles.some(rc => rc.id === data.review_cycle_id)
+                  
+                  if (hasUpdatedCycle) {
+                    // Update the review cycle status within the project
+                    return {
+                      ...project,
+                      review_cycles: project.review_cycles.map(rc => 
+                        rc.id === data.review_cycle_id 
+                          ? { ...rc, status: data.status }
+                          : rc
+                      )
+                    }
+                  }
+                  return project
+                })
+              )
+              
+              // Refresh projects data to ensure consistency
+              fetchProjects()
+            }
+          } catch (error) {
+            console.error('Failed to parse WebSocket message:', error)
+          }
+        }
+        
+        ws.onerror = (error) => {
+          console.error('❌ Projects WebSocket error:', error)
+        }
+        
+        ws.onclose = () => {
+          console.log('❌ Projects WebSocket disconnected')
+          // Attempt to reconnect
+          if (reconnectAttempts < maxReconnectAttempts) {
+            reconnectAttempts++
+            console.log(`Projects attempting to reconnect (${reconnectAttempts}/${maxReconnectAttempts})...`)
+            setTimeout(connectWebSocket, reconnectDelay)
+          }
+        }
+      } catch (error) {
+        console.error('Failed to connect Projects WebSocket:', error)
+      }
+    }
+
+    connectWebSocket()
+
+    // Cleanup on unmount
+    return () => {
+      if (ws) {
+        ws.close()
+      }
+    }
+  }, [currentUser])
+
+  // Refresh data when window regains focus (user returns from PDF viewer)
+  useEffect(() => {
+    const handleFocus = () => {
+      console.log('🔄 Projects: Window focused - refreshing projects data')
+      fetchProjects()
+    }
+
+    window.addEventListener('focus', handleFocus)
+
+    return () => {
+      window.removeEventListener('focus', handleFocus)
+    }
   }, [])
 
   // Handle folder filter from URL query parameter
@@ -410,22 +513,7 @@ function Projects() {
               {/* Content Area */}
               <div style={{ padding: '8px 12px' }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', marginBottom: 4 }}>
-                  <span style={{
-                    padding: '3px 8px',
-                    borderRadius: '4px',
-                    fontSize: '0.7rem',
-                    fontWeight: 600,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    background: project.is_active ? 'rgba(255,214,10,0.15)' : 'rgba(255,55,95,0.15)',
-                    color: project.is_active ? '#FFD60A' : '#FF375F',
-                    border: project.is_active ? '2px solid rgba(255,214,10,0.4)' : '2px solid rgba(255,55,95,0.4)'
-                  }}>
-                    {project.is_active ? (
-                      <><Hourglass size={10} strokeWidth={2.5} /> In Progress</>
-                    ) : 'Inactive'}
-                  </span>
+                  <StatusBadge status={project.review_cycle_status || 'not_started'} size="small" />
                 </div>
                 <h3 style={{ 
                   fontSize: '0.9rem', 

@@ -12,6 +12,99 @@ const WorkflowDashboard = () => {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [currentUser, setCurrentUser] = useState(null)
+
+  // Fetch current user
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      try {
+        const token = localStorage.getItem('token')
+        const response = await axios.get(
+          'http://localhost:8000/api/accounts/users/me/',
+          {
+            headers: { Authorization: `Token ${token}` }
+          }
+        )
+        setCurrentUser(response.data)
+      } catch (error) {
+        console.error('Failed to fetch current user:', error)
+      }
+    }
+    fetchCurrentUser()
+  }, [])
+
+  // Setup WebSocket listener for real-time updates
+  useEffect(() => {
+    if (!currentUser) return
+
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    const wsUrl = `${wsProtocol}//localhost:8000/ws/notifications/${currentUser.id}/`
+    
+    let ws = null
+    let reconnectAttempts = 0
+    const maxReconnectAttempts = 5
+    const reconnectDelay = 3000
+
+    const connectWebSocket = () => {
+      try {
+        ws = new WebSocket(wsUrl)
+        
+        ws.onopen = () => {
+          console.log('✅ WorkflowDashboard WebSocket connected')
+          reconnectAttempts = 0
+        }
+        
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data)
+            console.log('📨 WorkflowDashboard WebSocket message:', data)
+            
+            // Handle review cycle status updates
+            if (data.type === 'review_cycle_update') {
+              console.log('🔄 WorkflowDashboard: Review cycle updated:', data.review_cycle_id, 'Status:', data.status)
+              // Update the specific review cycle in the list
+              setProofs(prevProofs => 
+                prevProofs.map(proof => 
+                  proof.id === data.review_cycle_id 
+                    ? { ...proof, status: data.status }
+                    : proof
+                )
+              )
+              // Also refresh the data to ensure consistency
+              fetchProofs()
+            }
+          } catch (error) {
+            console.error('Failed to parse WebSocket message:', error)
+          }
+        }
+        
+        ws.onerror = (error) => {
+          console.error('❌ WorkflowDashboard WebSocket error:', error)
+        }
+        
+        ws.onclose = () => {
+          console.log('❌ WorkflowDashboard WebSocket disconnected')
+          // Attempt to reconnect
+          if (reconnectAttempts < maxReconnectAttempts) {
+            reconnectAttempts++
+            console.log(`WorkflowDashboard attempting to reconnect (${reconnectAttempts}/${maxReconnectAttempts})...`)
+            setTimeout(connectWebSocket, reconnectDelay)
+          }
+        }
+      } catch (error) {
+        console.error('Failed to connect WorkflowDashboard WebSocket:', error)
+      }
+    }
+
+    connectWebSocket()
+
+    // Cleanup on unmount
+    return () => {
+      if (ws) {
+        ws.close()
+      }
+    }
+  }, [currentUser])
 
   useEffect(() => {
     fetchProofs()
