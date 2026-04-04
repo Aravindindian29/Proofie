@@ -141,6 +141,15 @@ function Dashboard() {
             Dashboard
           </h1>
         </div>
+        {recentProjects.length > 0 && (
+          <button
+            onClick={openModal}
+            className="btn-primary"
+            style={{ borderRadius: 14, display: 'flex', alignItems: 'center', gap: 8 }}
+          >
+            <Plus size={18} /> Create New Proof
+          </button>
+        )}
       </div>
 
       {/* Stat Cards */}
@@ -193,23 +202,14 @@ function Dashboard() {
       <div className="glass-card-static" style={{ padding: '28px 28px', minHeight: '280px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
           <h2 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#fff' }}>Recent Proofs</h2>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            {recentProjects.length > 0 && (
-              <button
-                onClick={openModal}
-                className="btn-primary"
-                style={{ borderRadius: 14, display: 'flex', alignItems: 'center', gap: 8 }}
-              >
-                <Plus size={18} /> Create New Proof
-              </button>
-            )}
+          {recentProjects.length > 0 && (
             <Link to="/proofs" style={{
               display: 'flex', alignItems: 'center', gap: 6,
               color: '#0A84FF', textDecoration: 'none', fontSize: '0.85rem', fontWeight: 700,
             }}>
               <span style={{ fontWeight: 700 }}>View all</span> <ArrowRight size={14} strokeWidth={2.5} />
             </Link>
-          </div>
+          )}
         </div>
 
         {loading ? (

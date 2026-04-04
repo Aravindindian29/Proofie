@@ -500,7 +500,7 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted }) {
               <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '36px' }}>
                 <span style={{ fontSize: '1rem', color: 'rgba(255,255,255,0.4)', fontWeight: 500, width: '80px' }}>Folder</span>
                 <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 600 }}>
-                  {displayProject?.folder?.name || displayProject?.folder_name || '—'}
+                  {displayProject?.folder?.name || displayProject?.folder_name || 'N/A'}
                 </span>
               </div>
 
