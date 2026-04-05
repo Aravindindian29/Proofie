@@ -14,6 +14,7 @@ class Notification(models.Model):
         ('review_completed', 'Review Completed'),
         ('mentioned', 'Mentioned'),
         ('version_uploaded', 'Version Uploaded'),
+        ('new_proof_assigned', 'New Proof Assigned'),
     ]
 
     recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')

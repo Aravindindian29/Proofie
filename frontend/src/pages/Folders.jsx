@@ -4,9 +4,11 @@ import CrushLoader from '../components/CrushLoader'
 
 import Pagination from '../components/Pagination'
 
-import { Folder, Plus, Trash2, Edit2, X, ChevronDown, ChevronRight, FileText, Hourglass, Search, XCircle, ChevronLeft } from 'lucide-react'
+import { Folder, Plus, Trash2, Edit2, X, ChevronDown, ChevronRight, FileText, Search, XCircle, ChevronLeft } from 'lucide-react'
 
 import toast from 'react-hot-toast'
+
+import StatusBadge from '../components/StatusBadge'
 
 import api from '../services/api'
 
@@ -78,6 +80,7 @@ function Folders() {
   const [showFolderDeleteModal, setShowFolderDeleteModal] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
   const foldersPerPage = 5
+  const [currentUser, setCurrentUser] = useState(null)
 
 
 
@@ -123,6 +126,134 @@ function Folders() {
   }
 
 
+
+  // Fetch current user
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      try {
+        const response = await api.get('/accounts/users/me/')
+        setCurrentUser(response.data)
+      } catch (error) {
+        console.error('Failed to fetch current user:', error)
+      }
+    }
+    fetchCurrentUser()
+  }, [])
+
+  // Setup WebSocket listener for real-time updates
+  useEffect(() => {
+    if (!currentUser) return
+
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    const wsUrl = `${wsProtocol}//localhost:8000/ws/notifications/${currentUser.id}/`
+    
+    let ws = null
+    let reconnectAttempts = 0
+    const maxReconnectAttempts = 5
+    const reconnectDelay = 3000
+
+    const connectWebSocket = () => {
+      try {
+        ws = new WebSocket(wsUrl)
+        
+        ws.onopen = () => {
+          console.log('✅ Folders WebSocket connected')
+          reconnectAttempts = 0
+        }
+        
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data)
+            console.log('📨 Folders WebSocket message:', data)
+            
+            // Handle review cycle status updates
+            if (data.type === 'review_cycle_update') {
+              console.log('🔄 Folders: Review cycle updated:', data.review_cycle_id, 'Status:', data.status)
+              
+              // Update folder projects data directly if available
+              setFolderProjects(prevProjects => {
+                const updatedProjects = { ...prevProjects }
+                Object.keys(updatedProjects).forEach(folderId => {
+                  updatedProjects[folderId] = updatedProjects[folderId].map(project => {
+                    // Check if this project has the updated review cycle
+                    const hasUpdatedCycle = project.review_cycles && 
+                      project.review_cycles.some(rc => rc.id === data.review_cycle_id)
+                    
+                    if (hasUpdatedCycle) {
+                      // Update the review cycle status within the project
+                      return {
+                        ...project,
+                        review_cycles: project.review_cycles.map(rc => 
+                          rc.id === data.review_cycle_id 
+                            ? { ...rc, status: data.status }
+                            : rc
+                        )
+                      }
+                    }
+                    return project
+                  })
+                })
+                return updatedProjects
+              })
+              
+              // Refresh folder projects if expanded
+              if (expandedFolder) {
+                fetchFolderProjects(expandedFolder)
+              }
+              
+              // Also refresh folders to get updated counts/stats
+              fetchFolders()
+            }
+          } catch (error) {
+            console.error('Failed to parse WebSocket message:', error)
+          }
+        }
+        
+        ws.onerror = (error) => {
+          console.error('❌ Folders WebSocket error:', error)
+        }
+        
+        ws.onclose = () => {
+          console.log('❌ Folders WebSocket disconnected')
+          // Attempt to reconnect
+          if (reconnectAttempts < maxReconnectAttempts) {
+            reconnectAttempts++
+            console.log(`Folders attempting to reconnect (${reconnectAttempts}/${maxReconnectAttempts})...`)
+            setTimeout(connectWebSocket, reconnectDelay)
+          }
+        }
+      } catch (error) {
+        console.error('Failed to connect Folders WebSocket:', error)
+      }
+    }
+
+    connectWebSocket()
+
+    // Cleanup on unmount
+    return () => {
+      if (ws) {
+        ws.close()
+      }
+    }
+  }, [currentUser, expandedFolder])
+
+  // Refresh data when window regains focus (user returns from PDF viewer)
+  useEffect(() => {
+    const handleFocus = () => {
+      console.log('🔄 Folders: Window focused - refreshing folders data')
+      fetchFolders()
+      // Also refresh expanded folder projects if a folder is expanded
+      if (expandedFolder) {
+        fetchFolderProjects(expandedFolder)
+      }
+    }
+
+    window.addEventListener('focus', handleFocus)
+
+    return () => {
+      window.removeEventListener('focus', handleFocus)
+    }
+  }, [expandedFolder])
 
   useEffect(() => {
 
@@ -1056,7 +1187,12 @@ function Folders() {
 
                             transition: 'background 0.2s',
 
-                            borderLeft: `4px solid ${project.is_active ? '#FFD60A' : '#FF375F'}`,
+                            borderLeft: `4px solid ${
+                              project.review_cycle_status === 'not_started' ? '#9CA3AF' :
+                              project.review_cycle_status === 'in_progress' ? '#FFD60A' :
+                              project.review_cycle_status === 'approved' ? '#10B981' :
+                              project.review_cycle_status === 'rejected' ? '#EF4444' : '#9CA3AF'
+                            }`,
 
                             ':hover': {
 
@@ -1186,12 +1322,6 @@ function Folders() {
 
                                 fontWeight: 600,
 
-                                background: project.is_active ? 'rgba(255,214,10,0.15)' : 'rgba(255,55,95,0.15)',
-
-                                color: project.is_active ? '#FFD60A' : '#FF375F',
-
-                                border: project.is_active ? '2px solid rgba(255,214,10,0.5)' : '2px solid rgba(255,55,95,0.5)',
-
                                 display: 'inline-flex',
 
                                 alignItems: 'center',
@@ -1212,9 +1342,7 @@ function Folders() {
 
                             >
 
-                              {project.is_active && <Hourglass size={12} strokeWidth={2.5} />}
-
-                              {project.is_active ? 'In Progress' : 'Inactive'}
+                              <StatusBadge status={project.review_cycle_status || 'not_started'} size="small" />
 
                             </span>
 

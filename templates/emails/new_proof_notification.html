@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Proof Available for Review</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: #ffffff;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: #0A84FF;
+            margin-bottom: 10px;
+        }
+        h1 {
+            color: #1a1a1a;
+            font-size: 22px;
+            margin: 0 0 10px 0;
+        }
+        .proof-details {
+            background-color: #f8f9fa;
+            border-left: 4px solid #0A84FF;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .proof-name {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1a1a1a;
+            margin-bottom: 8px;
+        }
+        .group-name {
+            font-size: 14px;
+            color: #666;
+        }
+        .button {
+            display: inline-block;
+            background-color: #0A84FF;
+            color: #ffffff;
+            text-decoration: none;
+            padding: 12px 30px;
+            border-radius: 6px;
+            font-weight: 500;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .button:hover {
+            background-color: #0066cc;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #f0f0f0;
+            font-size: 12px;
+            color: #999;
+        }
+        .footer a {
+            color: #0A84FF;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">Proofie</div>
+            <h1>New Proof Available for Review</h1>
+        </div>
+        
+        <p>Hi {{ user.first_name|default:user.username }},</p>
+        
+        <p>A new proof has been assigned to you for review. Please review it at your earliest convenience.</p>
+        
+        <div class="proof-details">
+            <div class="proof-name">{{ asset_name }}</div>
+            <div class="group-name">Group: {{ group_name }}</div>
+        </div>
+        
+        <p style="text-align: center;">
+            <a href="{{ frontend_url }}" class="button">Review Proof</a>
+        </p>
+        
+        <p>If you have any questions or need assistance, please contact our support team at <a href="mailto:{{ support_email }}">{{ support_email }}</a>.</p>
+        
+        <div class="footer">
+            <p>Thanks,<br>The Proofie Team</p>
+            <p style="font-size: 11px; margin-top: 15px;">
+                This is an automated message from Proofie. Please do not reply to this email.
+            </p>
+        </div>
+    </div>
+</body>
+</html>

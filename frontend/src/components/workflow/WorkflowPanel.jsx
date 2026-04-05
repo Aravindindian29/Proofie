@@ -11,6 +11,76 @@ const WorkflowPanel = ({ reviewCycleId, isOpen, onClose, currentUser }) => {
   const [expandedGroups, setExpandedGroups] = useState([])
   const [refreshing, setRefreshing] = useState(false)
 
+  // Setup WebSocket listener for real-time updates
+  useEffect(() => {
+    if (!currentUser || !reviewCycleId) return
+
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    const wsUrl = `${wsProtocol}//localhost:8000/ws/notifications/${currentUser.id}/`
+    
+    let ws = null
+    let reconnectAttempts = 0
+    const maxReconnectAttempts = 5
+    const reconnectDelay = 3000
+
+    const connectWebSocket = () => {
+      try {
+        ws = new WebSocket(wsUrl)
+        
+        ws.onopen = () => {
+          console.log('✅ WorkflowPanel WebSocket connected')
+          reconnectAttempts = 0
+        }
+        
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data)
+            console.log('📨 WorkflowPanel WebSocket message:', data)
+            
+            // Handle review cycle status updates
+            if (data.type === 'review_cycle_update' && data.review_cycle_id === reviewCycleId) {
+              console.log('🔄 WorkflowPanel: Status updated to:', data.status)
+              // Update local state immediately
+              setReviewCycle(prev => ({ 
+                ...prev, 
+                status: data.status 
+              }))
+              // Refresh full data to get updated group information
+              fetchWorkflowData()
+            }
+          } catch (error) {
+            console.error('Failed to parse WebSocket message:', error)
+          }
+        }
+        
+        ws.onerror = (error) => {
+          console.error('❌ WorkflowPanel WebSocket error:', error)
+        }
+        
+        ws.onclose = () => {
+          console.log('❌ WorkflowPanel WebSocket disconnected')
+          // Attempt to reconnect
+          if (reconnectAttempts < maxReconnectAttempts) {
+            reconnectAttempts++
+            console.log(`WorkflowPanel attempting to reconnect (${reconnectAttempts}/${maxReconnectAttempts})...`)
+            setTimeout(connectWebSocket, reconnectDelay)
+          }
+        }
+      } catch (error) {
+        console.error('Failed to connect WorkflowPanel WebSocket:', error)
+      }
+    }
+
+    connectWebSocket()
+
+    // Cleanup on unmount
+    return () => {
+      if (ws) {
+        ws.close()
+      }
+    }
+  }, [currentUser, reviewCycleId])
+
   const fetchWorkflowData = async () => {
     if (!reviewCycleId) return
 
@@ -45,7 +115,7 @@ const WorkflowPanel = ({ reviewCycleId, isOpen, onClose, currentUser }) => {
     if (isOpen && reviewCycleId) {
       fetchWorkflowData()
       
-      // Poll for updates every 10 seconds
+      // Poll for updates every 10 seconds as fallback
       const interval = setInterval(fetchWorkflowData, 10000)
       return () => clearInterval(interval)
     }

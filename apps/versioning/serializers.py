@@ -42,16 +42,34 @@ class ProjectSerializer(serializers.ModelSerializer):
     thumbnail_url = serializers.SerializerMethodField()
     folder = FolderSerializer(read_only=True)
     folder_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
+    review_cycle_status = serializers.SerializerMethodField()
 
     class Meta:
         model = Project
         fields = ['id', 'name', 'description', 'owner', 'members', 'member_count', 
                   'created_at', 'updated_at', 'is_active', 
                   'asset_file_url', 'asset_file_type', 'asset_filename', 'thumbnail_url',
-                  'folder', 'folder_id', 'share_token']
+                  'folder', 'folder_id', 'share_token', 'review_cycle_status']
 
     def get_member_count(self, obj):
         return obj.members.count()
+    
+    def get_review_cycle_status(self, obj):
+        """Get review cycle status from the first asset's active review cycle"""
+        try:
+            # Get first asset
+            asset = obj.assets.filter(is_archived=False).first()
+            if asset:
+                # Get the most recent review cycle
+                review_cycle = asset.review_cycles.order_by('-initiated_at').first()
+                if review_cycle:
+                    return review_cycle.status
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error getting review_cycle_status: {e}")
+        
+        return 'not_started'
     
     def get_thumbnail_url(self, obj):
         """Get thumbnail URL from the first asset with a thumbnail"""

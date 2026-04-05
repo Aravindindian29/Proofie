@@ -28,6 +28,18 @@ class NotificationConsumer(AsyncWebsocketConsumer):
             'data': event['message']
         }))
 
+    async def review_cycle_update(self, event):
+        """Handle review cycle status updates"""
+        await self.send(text_data=json.dumps({
+            'type': 'review_cycle_update',
+            'review_cycle_id': event.get('review_cycle_id'),
+            'status': event.get('status'),
+            'current_stage_id': event.get('current_stage_id'),
+            'updated_at': event.get('updated_at'),
+            'asset_name': event.get('asset_name'),
+            'asset_id': event.get('asset_id')
+        }))
+
     async def send_notification(self, notification_data):
         await self.channel_layer.group_send(
             self.room_group_name,

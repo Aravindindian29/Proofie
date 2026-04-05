@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react'
-import { X, ChevronLeft, Link, Send, Download, MoreHorizontal, Eye, Users, Calendar, Clock, Hourglass, User, Trash2 } from 'lucide-react'
+import { X, ChevronLeft, Link, Send, Download, MoreHorizontal, Eye, Users, Calendar, Clock, Hourglass, User, Trash2, MessageSquare, CheckCircle, XCircle, RefreshCw, Lock, ArrowRight } from 'lucide-react'
 import api from '../services/api'
 import toast from 'react-hot-toast'
 import DeleteConfirmationModal from './DeleteConfirmationModal'
+import DecisionModal from './workflow/DecisionModal'
 
 const colors = [
   'linear-gradient(135deg,#0A84FF,#5E5CE6)',
@@ -18,6 +19,14 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted }) {
   const [loadingAssets, setLoadingAssets] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [activeSubTab, setActiveSubTab] = useState('workflow')
+  const [reviewCycle, setReviewCycle] = useState(null)
+  const [myMember, setMyMember] = useState(null)
+  const [groups, setGroups] = useState([])
+  const [currentUser, setCurrentUser] = useState(null)
+  const [loadingWorkflow, setLoadingWorkflow] = useState(false)
+  const [showDecisionModal, setShowDecisionModal] = useState(false)
+  const [preselectedDecision, setPreselectedDecision] = useState(null)
 
   const handleDeleteClick = (e) => {
     e.stopPropagation()
@@ -45,14 +54,202 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted }) {
     setShowDeleteModal(false)
   }
 
+  // Fetch current user
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      try {
+        const response = await api.get('/accounts/users/me/')
+        setCurrentUser(response.data)
+      } catch (error) {
+        console.error('Failed to fetch current user:', error)
+      }
+    }
+    if (isOpen) {
+      fetchCurrentUser()
+    }
+  }, [isOpen])
+
+  // Setup WebSocket listener for real-time updates
+  useEffect(() => {
+    if (!currentUser || !isOpen || !reviewCycle?.id) return
+
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    const wsUrl = `${wsProtocol}//localhost:8000/ws/notifications/${currentUser.id}/`
+    
+    let ws = null
+    let reconnectAttempts = 0
+    const maxReconnectAttempts = 5
+    const reconnectDelay = 3000
+
+    const connectWebSocket = () => {
+      try {
+        ws = new WebSocket(wsUrl)
+        
+        ws.onopen = () => {
+          console.log('✅ ProjectDetailsTray WebSocket connected')
+          reconnectAttempts = 0
+        }
+        
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data)
+            console.log('📨 ProjectDetailsTray WebSocket message:', data)
+            
+            // Handle review cycle status updates
+            if (data.type === 'review_cycle_update') {
+              console.log('🔄 ProjectDetailsTray: Review cycle update received:', data.review_cycle_id, 'Status:', data.status)
+              
+              // Check if this update is for our current review cycle
+              if (reviewCycle && data.review_cycle_id === reviewCycle.id) {
+                console.log('✅ Update matches current review cycle - updating state')
+                // Update local state immediately
+                setReviewCycle(prev => ({ 
+                  ...prev, 
+                  status: data.status 
+                }))
+              }
+              
+              // Always refresh workflow data to ensure we have the latest information
+              // This handles cases where review cycle was just created or updated
+              console.log('🔄 Refreshing workflow data...')
+              fetchWorkflowData()
+            }
+          } catch (error) {
+            console.error('Failed to parse WebSocket message:', error)
+          }
+        }
+        
+        ws.onerror = (error) => {
+          console.error('❌ ProjectDetailsTray WebSocket error:', error)
+        }
+        
+        ws.onclose = () => {
+          console.log('❌ ProjectDetailsTray WebSocket disconnected')
+          // Attempt to reconnect
+          if (reconnectAttempts < maxReconnectAttempts) {
+            reconnectAttempts++
+            console.log(`ProjectDetailsTray attempting to reconnect (${reconnectAttempts}/${maxReconnectAttempts})...`)
+            setTimeout(connectWebSocket, reconnectDelay)
+          }
+        }
+      } catch (error) {
+        console.error('Failed to connect ProjectDetailsTray WebSocket:', error)
+      }
+    }
+
+    connectWebSocket()
+
+    // Cleanup on unmount
+    return () => {
+      if (ws) {
+        ws.close()
+      }
+    }
+  }, [currentUser, isOpen, reviewCycle?.id])
+
   // Fetch project assets when tray opens or project changes
   useEffect(() => {
     if (isOpen && project?.id) {
       fetchProjectAssets()
+      fetchWorkflowData()
     } else if (!isOpen) {
       setProjectWithAssets(null)
+      setReviewCycle(null)
+      setMyMember(null)
+      setGroups([])
+      setActiveSubTab('workflow')
     }
   }, [isOpen, project?.id])
+
+  // Refresh data when window regains focus (user returns from PDF viewer)
+  useEffect(() => {
+    if (!isOpen) return
+
+    const handleFocus = () => {
+      console.log('🔄 Window focused - refreshing tray data')
+      fetchWorkflowData()
+    }
+
+    window.addEventListener('focus', handleFocus)
+
+    return () => {
+      window.removeEventListener('focus', handleFocus)
+    }
+  }, [isOpen, project?.id])
+
+  // Fetch workflow data
+  const fetchWorkflowData = async () => {
+    if (!project?.id) return
+    
+    setLoadingWorkflow(true)
+    try {
+      // Get the first asset from the project
+      const assetsResponse = await api.get(`/versioning/projects/${project.id}/assets/`)
+      const assets = assetsResponse.data
+      
+      if (assets && assets.length > 0) {
+        const firstAsset = assets[0]
+        
+        // Check if asset has review cycles
+        if (firstAsset.review_cycles && firstAsset.review_cycles.length > 0) {
+          const activeReview = firstAsset.review_cycles[0]
+          setReviewCycle(activeReview)
+          
+          // Fetch my status
+          try {
+            const statusResponse = await api.get(`/workflows/review-cycles/${activeReview.id}/my_status/`)
+            if (statusResponse.data.is_member) {
+              setMyMember(statusResponse.data.member)
+            }
+          } catch (error) {
+            console.error('Failed to fetch member status:', error)
+          }
+          
+          // Fetch group status
+          try {
+            const groupResponse = await api.get(`/workflows/review-cycles/${activeReview.id}/group_status/`)
+            setGroups(groupResponse.data.groups.map(g => g.group))
+          } catch (error) {
+            console.error('Failed to fetch group status:', error)
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch workflow data:', error)
+    } finally {
+      setLoadingWorkflow(false)
+    }
+  }
+
+  // Action handlers
+  const handleAddComment = () => {
+    // Navigate to FileViewer with the first asset
+    if (projectWithAssets?.assets?.length > 0) {
+      const firstAsset = projectWithAssets.assets[0]
+      window.open(`/files/${firstAsset.id}`, '_blank')
+    }
+  }
+
+  const handleApprove = () => {
+    setPreselectedDecision('approved')
+    setShowDecisionModal(true)
+  }
+
+  const handleReject = () => {
+    setPreselectedDecision('rejected')
+    setShowDecisionModal(true)
+  }
+
+  const handleRequestChanges = () => {
+    setPreselectedDecision('changes_requested')
+    setShowDecisionModal(true)
+  }
+
+  const handleDecisionSuccess = () => {
+    setShowDecisionModal(false)
+    fetchWorkflowData()
+    toast.success('Decision submitted successfully')
+  }
 
   const fetchProjectAssets = async () => {
     setLoadingAssets(true)
@@ -507,29 +704,69 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted }) {
               {/* Status */}
               <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '36px' }}>
                 <span style={{ fontSize: '1rem', color: 'rgba(255,255,255,0.4)', fontWeight: 500, width: '80px' }}>Status</span>
-                <span style={{ 
-                  fontSize: '0.75rem', 
-                  color: displayProject?.is_active ? '#FFD60A' : '#FF375F', 
-                  fontWeight: 600,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '4px 10px',
-                  background: displayProject?.is_active ? 'rgba(255,214,10,0.15)' : 'rgba(255,55,95,0.15)',
-                  borderRadius: '6px',
-                  border: displayProject?.is_active ? '1px solid rgba(255,214,10,0.4)' : '1px solid rgba(255,55,95,0.4)'
-                }}>
-                  {displayProject?.is_active ? (
-                    <Hourglass size={14} color="#FFD60A" strokeWidth={3.5} />
-                  ) : (
+                {(() => {
+                  const status = reviewCycle?.status || 'not_started'
+                  const statusConfig = {
+                    not_started: {
+                      color: '#9CA3AF',
+                      background: 'rgba(156,163,175,0.15)',
+                      border: '1px solid rgba(156,163,175,0.4)',
+                      icon: '💤',
+                      label: 'Not Started'
+                    },
+                    in_progress: {
+                      color: '#FFD60A',
+                      background: 'rgba(255,214,10,0.15)',
+                      border: '1px solid rgba(255,214,10,0.4)',
+                      icon: <Hourglass size={14} color="#FFD60A" strokeWidth={3.5} />,
+                      label: 'In Progress'
+                    },
+                    approved: {
+                      color: '#10B981',
+                      background: 'rgba(16,185,129,0.15)',
+                      border: '1px solid rgba(16,185,129,0.4)',
+                      icon: '✅',
+                      label: 'Approved'
+                    },
+                    approved_with_changes: {
+                      color: '#3B82F6',
+                      background: 'rgba(59,130,246,0.15)',
+                      border: '1px solid rgba(59,130,246,0.4)',
+                      icon: '✓',
+                      label: 'Approved with Changes'
+                    },
+                    rejected: {
+                      color: '#EF4444',
+                      background: 'rgba(239,68,68,0.15)',
+                      border: '1px solid rgba(239,68,68,0.4)',
+                      icon: '❌',
+                      label: 'Rejected'
+                    }
+                  }
+                  const config = statusConfig[status] || statusConfig.not_started
+                  
+                  return (
                     <span style={{ 
-                      width: 8, height: 8, borderRadius: '50%', 
-                      background: '#FF375F',
-                      display: 'inline-block'
-                    }} />
-                  )}
-                  {displayProject?.is_active ? 'In Progress' : 'Inactive'}
-                </span>
+                      fontSize: '0.75rem', 
+                      color: config.color, 
+                      fontWeight: 600,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '4px 10px',
+                      background: config.background,
+                      borderRadius: '6px',
+                      border: config.border
+                    }}>
+                      {typeof config.icon === 'string' ? (
+                        <span style={{ fontSize: '14px' }}>{config.icon}</span>
+                      ) : (
+                        config.icon
+                      )}
+                      {config.label}
+                    </span>
+                  )
+                })()}
               </div>
 
               {/* Owner */}
@@ -614,8 +851,518 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted }) {
               </div>
             </div>
           ) : null}
+
+          {/* Workflow Section Divider */}
+          <div style={{
+            width: '100%',
+            height: '1px',
+            background: 'rgba(255, 255, 255, 0.15)',
+            margin: '32px 0 24px 0'
+          }} />
+
+          {/* Sub-Tab Navigation */}
+          <div style={{
+            display: 'flex',
+            gap: '4px',
+            marginBottom: '20px',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+            paddingBottom: '0'
+          }}>
+            {['workflow', 'brief', 'integrations', 'settings', 'activity', 'emails'].map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveSubTab(tab)}
+                style={{
+                  padding: '10px 16px',
+                  background: activeSubTab === tab ? 'rgba(10, 132, 255, 0.1)' : 'transparent',
+                  border: 'none',
+                  borderBottom: activeSubTab === tab ? '2px solid #0A84FF' : '2px solid transparent',
+                  color: activeSubTab === tab ? '#0A84FF' : 'rgba(255, 255, 255, 0.6)',
+                  fontSize: '0.85rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  textTransform: 'capitalize',
+                  borderRadius: '6px 6px 0 0'
+                }}
+                onMouseEnter={(e) => {
+                  if (activeSubTab !== tab) {
+                    e.target.style.background = 'rgba(255, 255, 255, 0.05)'
+                    e.target.style.color = 'rgba(255, 255, 255, 0.8)'
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (activeSubTab !== tab) {
+                    e.target.style.background = 'transparent'
+                    e.target.style.color = 'rgba(255, 255, 255, 0.6)'
+                  }
+                }}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
+
+          {/* Sub-Tab Content */}
+          {activeSubTab === 'workflow' ? (
+            <div>
+              {loadingWorkflow ? (
+                <div style={{ textAlign: 'center', padding: '40px 0' }}>
+                  <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px' }}>
+                    Loading workflow...
+                  </div>
+                </div>
+              ) : !reviewCycle ? (
+                <div style={{ textAlign: 'center', padding: '40px 0' }}>
+                  <div style={{ fontSize: '48px', marginBottom: '16px' }}>📋</div>
+                  <h3 style={{ color: '#fff', fontSize: '1.2rem', fontWeight: 600, marginBottom: '8px' }}>
+                    No Active Workflow
+                  </h3>
+                  <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.9rem' }}>
+                    This proof doesn't have an active workflow yet.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {/* Workflow Status Overview */}
+                  <div style={{
+                    background: 'rgba(255,255,255,0.03)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: '12px',
+                    padding: '16px 20px',
+                    marginBottom: '24px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
+                  }}>
+                    <div>
+                      <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.5)', marginBottom: '6px' }}>
+                        Overall Status
+                      </div>
+                      {(() => {
+                        const status = reviewCycle?.status || 'not_started'
+                        const statusConfig = {
+                          not_started: {
+                            color: '#9CA3AF',
+                            background: 'rgba(156,163,175,0.15)',
+                            border: '1px solid rgba(156,163,175,0.4)',
+                            icon: '💤',
+                            label: 'Not Started'
+                          },
+                          in_progress: {
+                            color: '#FFD60A',
+                            background: 'rgba(255,214,10,0.15)',
+                            border: '1px solid rgba(255,214,10,0.4)',
+                            icon: <Hourglass size={14} color="#FFD60A" strokeWidth={3.5} />,
+                            label: 'In Progress'
+                          },
+                          approved: {
+                            color: '#10B981',
+                            background: 'rgba(16,185,129,0.15)',
+                            border: '1px solid rgba(16,185,129,0.4)',
+                            icon: '✅',
+                            label: 'Approved'
+                          },
+                          approved_with_changes: {
+                            color: '#3B82F6',
+                            background: 'rgba(59,130,246,0.15)',
+                            border: '1px solid rgba(59,130,246,0.4)',
+                            icon: '✓',
+                            label: 'Approved with Changes'
+                          },
+                          rejected: {
+                            color: '#EF4444',
+                            background: 'rgba(239,68,68,0.15)',
+                            border: '1px solid rgba(239,68,68,0.4)',
+                            icon: '❌',
+                            label: 'Rejected'
+                          }
+                        }
+                        const config = statusConfig[status] || statusConfig.not_started
+                        
+                        return (
+                          <span style={{ 
+                            fontSize: '0.85rem', 
+                            color: config.color, 
+                            fontWeight: 600,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            padding: '6px 12px',
+                            background: config.background,
+                            borderRadius: '8px',
+                            border: config.border,
+                            width: 'fit-content'
+                          }}>
+                            {typeof config.icon === 'string' ? (
+                              <span style={{ fontSize: '16px' }}>{config.icon}</span>
+                            ) : (
+                              config.icon
+                            )}
+                            {config.label}
+                          </span>
+                        )
+                      })()}
+                    </div>
+                  </div>
+
+                  {/* User Status Card */}
+                  {myMember && (
+                    <div style={{
+                      background: 'rgba(255,255,255,0.05)',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      borderRadius: '12px',
+                      padding: '20px',
+                      marginBottom: '24px'
+                    }}>
+                      <div style={{ marginBottom: '16px' }}>
+                        <div style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)', marginBottom: '8px' }}>
+                          Your Status
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <span style={{
+                            padding: '6px 12px',
+                            borderRadius: '6px',
+                            fontSize: '0.85rem',
+                            fontWeight: 600,
+                            background: myMember.socd_status === 'sent' ? 'rgba(156,163,175,0.2)' :
+                                       myMember.socd_status === 'open' ? 'rgba(16,185,129,0.2)' :
+                                       myMember.socd_status === 'commented' ? 'rgba(59,130,246,0.2)' :
+                                       'rgba(16,185,129,0.2)',
+                            color: myMember.socd_status === 'sent' ? '#9CA3AF' :
+                                   myMember.socd_status === 'open' ? '#10B981' :
+                                   myMember.socd_status === 'commented' ? '#3B82F6' :
+                                   '#10B981',
+                            border: myMember.socd_status === 'sent' ? '1px solid rgba(156,163,175,0.3)' :
+                                    myMember.socd_status === 'open' ? '1px solid rgba(16,185,129,0.3)' :
+                                    myMember.socd_status === 'commented' ? '1px solid rgba(59,130,246,0.3)' :
+                                    '1px solid rgba(16,185,129,0.3)'
+                          }}>
+                            {myMember.socd_status === 'sent' ? '⚪ Sent' :
+                             myMember.socd_status === 'open' ? '🟢 Opened' :
+                             myMember.socd_status === 'commented' ? '🔵 Commented' :
+                             '✅ Decision Made'}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <div style={{ marginBottom: '16px' }}>
+                        <div style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)', marginBottom: '8px' }}>
+                          Group
+                        </div>
+                        <div style={{ fontSize: '1rem', color: '#fff', fontWeight: 600 }}>
+                          {myMember.group?.name || 'Unknown Group'}
+                        </div>
+                      </div>
+
+                      {myMember.group?.status === 'locked' && (
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          padding: '12px',
+                          background: 'rgba(251,191,36,0.1)',
+                          border: '1px solid rgba(251,191,36,0.3)',
+                          borderRadius: '8px',
+                          color: '#FBB F24',
+                          fontSize: '0.85rem'
+                        }}>
+                          <Lock size={16} />
+                          <span>Group is locked - waiting for previous stage</span>
+                        </div>
+                      )}
+
+                      {myMember.decision !== 'pending' && (
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          padding: '12px',
+                          background: 'rgba(16,185,129,0.1)',
+                          border: '1px solid rgba(16,185,129,0.3)',
+                          borderRadius: '8px',
+                          color: '#10B981',
+                          fontSize: '0.85rem'
+                        }}>
+                          <CheckCircle size={16} />
+                          <span>You have made your decision: {myMember.decision}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Action Buttons */}
+                  {myMember && currentUser?.profile?.role !== 'lite_user' && (
+                    <div style={{ marginBottom: '24px' }}>
+                      <div style={{ fontSize: '0.9rem', color: 'rgba(255,255,255,0.6)', marginBottom: '12px', fontWeight: 600 }}>
+                        Actions
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        <button
+                          onClick={handleAddComment}
+                          disabled={myMember.group?.status === 'locked' || myMember.decision !== 'pending'}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            padding: '14px 18px',
+                            background: myMember.group?.status === 'locked' || myMember.decision !== 'pending' 
+                              ? 'rgba(255,255,255,0.05)' 
+                              : 'rgba(59,130,246,0.15)',
+                            border: myMember.group?.status === 'locked' || myMember.decision !== 'pending'
+                              ? '1px solid rgba(255,255,255,0.1)'
+                              : '1px solid rgba(59,130,246,0.3)',
+                            borderRadius: '10px',
+                            color: myMember.group?.status === 'locked' || myMember.decision !== 'pending'
+                              ? 'rgba(255,255,255,0.4)'
+                              : '#3B82F6',
+                            fontSize: '0.95rem',
+                            fontWeight: 600,
+                            cursor: myMember.group?.status === 'locked' || myMember.decision !== 'pending' ? 'not-allowed' : 'pointer',
+                            transition: 'all 0.2s'
+                          }}
+                          onMouseEnter={(e) => {
+                            if (myMember.group?.status !== 'locked' && myMember.decision === 'pending') {
+                              e.target.style.background = 'rgba(59,130,246,0.25)'
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (myMember.group?.status !== 'locked' && myMember.decision === 'pending') {
+                              e.target.style.background = 'rgba(59,130,246,0.15)'
+                            }
+                          }}
+                        >
+                          <MessageSquare size={20} />
+                          <span>Add Comment</span>
+                        </button>
+
+                        <button
+                          onClick={handleApprove}
+                          disabled={myMember.group?.status === 'locked' || myMember.decision !== 'pending'}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            padding: '14px 18px',
+                            background: myMember.group?.status === 'locked' || myMember.decision !== 'pending'
+                              ? 'rgba(255,255,255,0.05)'
+                              : 'rgba(16,185,129,0.15)',
+                            border: myMember.group?.status === 'locked' || myMember.decision !== 'pending'
+                              ? '1px solid rgba(255,255,255,0.1)'
+                              : '1px solid rgba(16,185,129,0.3)',
+                            borderRadius: '10px',
+                            color: myMember.group?.status === 'locked' || myMember.decision !== 'pending'
+                              ? 'rgba(255,255,255,0.4)'
+                              : '#10B981',
+                            fontSize: '0.95rem',
+                            fontWeight: 600,
+                            cursor: myMember.group?.status === 'locked' || myMember.decision !== 'pending' ? 'not-allowed' : 'pointer',
+                            transition: 'all 0.2s'
+                          }}
+                          onMouseEnter={(e) => {
+                            if (myMember.group?.status !== 'locked' && myMember.decision === 'pending') {
+                              e.target.style.background = 'rgba(16,185,129,0.25)'
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (myMember.group?.status !== 'locked' && myMember.decision === 'pending') {
+                              e.target.style.background = 'rgba(16,185,129,0.15)'
+                            }
+                          }}
+                        >
+                          <CheckCircle size={20} />
+                          <span>Approve</span>
+                        </button>
+
+                        <button
+                          onClick={handleReject}
+                          disabled={myMember.group?.status === 'locked' || myMember.decision !== 'pending'}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            padding: '14px 18px',
+                            background: myMember.group?.status === 'locked' || myMember.decision !== 'pending'
+                              ? 'rgba(255,255,255,0.05)'
+                              : 'rgba(239,68,68,0.15)',
+                            border: myMember.group?.status === 'locked' || myMember.decision !== 'pending'
+                              ? '1px solid rgba(255,255,255,0.1)'
+                              : '1px solid rgba(239,68,68,0.3)',
+                            borderRadius: '10px',
+                            color: myMember.group?.status === 'locked' || myMember.decision !== 'pending'
+                              ? 'rgba(255,255,255,0.4)'
+                              : '#EF4444',
+                            fontSize: '0.95rem',
+                            fontWeight: 600,
+                            cursor: myMember.group?.status === 'locked' || myMember.decision !== 'pending' ? 'not-allowed' : 'pointer',
+                            transition: 'all 0.2s'
+                          }}
+                          onMouseEnter={(e) => {
+                            if (myMember.group?.status !== 'locked' && myMember.decision === 'pending') {
+                              e.target.style.background = 'rgba(239,68,68,0.25)'
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (myMember.group?.status !== 'locked' && myMember.decision === 'pending') {
+                              e.target.style.background = 'rgba(239,68,68,0.15)'
+                            }
+                          }}
+                        >
+                          <XCircle size={20} />
+                          <span>Reject</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Lite User View Only Message */}
+                  {currentUser?.profile?.role === 'lite_user' && (
+                    <div style={{
+                      padding: '20px',
+                      background: 'rgba(156,163,175,0.1)',
+                      border: '1px solid rgba(156,163,175,0.2)',
+                      borderRadius: '12px',
+                      textAlign: 'center',
+                      marginBottom: '24px'
+                    }}>
+                      <Eye size={32} style={{ color: '#9CA3AF', marginBottom: '12px' }} />
+                      <div style={{ color: '#9CA3AF', fontSize: '0.95rem', fontWeight: 600 }}>
+                        View Only Access
+                      </div>
+                      <div style={{ color: 'rgba(156,163,175,0.7)', fontSize: '0.85rem', marginTop: '4px' }}>
+                        You can view the workflow but cannot make decisions
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Workflow Progress */}
+                  {groups.length > 0 && (
+                    <div>
+                      <div style={{ fontSize: '0.9rem', color: 'rgba(255,255,255,0.6)', marginBottom: '12px', fontWeight: 600 }}>
+                        Workflow Progress
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        {groups.map((group, index) => (
+                          <div
+                            key={group.id}
+                            style={{
+                              padding: '16px',
+                              background: group.status === 'in_progress' || group.status === 'unlocked'
+                                ? 'rgba(10,132,255,0.1)'
+                                : group.status === 'completed'
+                                ? 'rgba(16,185,129,0.1)'
+                                : 'rgba(255,255,255,0.05)',
+                              border: group.status === 'in_progress' || group.status === 'unlocked'
+                                ? '1px solid rgba(10,132,255,0.3)'
+                                : group.status === 'completed'
+                                ? '1px solid rgba(16,185,129,0.3)'
+                                : '1px solid rgba(255,255,255,0.1)',
+                              borderRadius: '10px'
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <span style={{
+                                  width: '28px',
+                                  height: '28px',
+                                  borderRadius: '50%',
+                                  background: group.status === 'completed' ? '#10B981' : group.status === 'locked' ? '#6B7280' : '#0A84FF',
+                                  color: '#fff',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontSize: '0.85rem',
+                                  fontWeight: 700
+                                }}>
+                                  {group.status === 'completed' ? '✓' : index + 1}
+                                </span>
+                                <span style={{ color: '#fff', fontSize: '0.95rem', fontWeight: 600 }}>
+                                  {group.name}
+                                </span>
+                              </div>
+                              <span style={{
+                                padding: '4px 10px',
+                                borderRadius: '6px',
+                                fontSize: '0.75rem',
+                                fontWeight: 600,
+                                background: group.status === 'locked' ? 'rgba(107,114,128,0.2)' :
+                                           group.status === 'unlocked' ? 'rgba(251,191,36,0.2)' :
+                                           group.status === 'in_progress' ? 'rgba(10,132,255,0.2)' :
+                                           'rgba(16,185,129,0.2)',
+                                color: group.status === 'locked' ? '#6B7280' :
+                                       group.status === 'unlocked' ? '#FBB F24' :
+                                       group.status === 'in_progress' ? '#0A84FF' :
+                                       '#10B981'
+                              }}>
+                                {group.status === 'locked' ? '🔒 Locked' :
+                                 group.status === 'unlocked' ? 'Unlocked' :
+                                 group.status === 'in_progress' ? 'In Progress' :
+                                 'Completed'}
+                              </span>
+                            </div>
+                            {group.members && group.members.length > 0 && (
+                              <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                                <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.5)', marginBottom: '8px' }}>
+                                  Members ({group.members.length})
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                  {group.members.map(member => (
+                                    <div key={member.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                      <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.85rem' }}>
+                                        {member.user?.username || 'Unknown'}
+                                      </span>
+                                      <span style={{ fontSize: '0.75rem' }}>
+                                        {member.socd_status === 'sent' ? '⚪' :
+                                         member.socd_status === 'open' ? '🟢' :
+                                         member.socd_status === 'commented' ? '🔵' :
+                                         '✅'}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          ) : (
+            /* Placeholder for other sub-tabs */
+            <div style={{
+              textAlign: 'center',
+              padding: '60px 20px',
+              background: 'rgba(255,255,255,0.02)',
+              borderRadius: '12px',
+              border: '1px solid rgba(255,255,255,0.05)'
+            }}>
+              <div style={{ fontSize: '48px', marginBottom: '16px' }}>🚧</div>
+              <h3 style={{ color: '#fff', fontSize: '1.1rem', fontWeight: 600, marginBottom: '8px' }}>
+                Coming Soon
+              </h3>
+              <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.9rem' }}>
+                The {activeSubTab} section is under development
+              </p>
+            </div>
+          )}
         </div>
       </div>
+      
+      {/* Decision Modal */}
+      {showDecisionModal && reviewCycle && myMember && (
+        <DecisionModal
+          isOpen={showDecisionModal}
+          onClose={() => setShowDecisionModal(false)}
+          reviewCycleId={reviewCycle.id}
+          myMember={myMember}
+          onDecisionSuccess={handleDecisionSuccess}
+          preselectedDecision={preselectedDecision}
+        />
+      )}
+      
       <DeleteConfirmationModal
         isOpen={showDeleteModal}
         onClose={handleCancelDelete}

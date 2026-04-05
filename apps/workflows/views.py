@@ -13,6 +13,7 @@ from .serializers import (
     ApprovalGroupSerializer, GroupMemberSerializer
 )
 from .services import WorkflowService
+from apps.notifications.services import NotificationService
 
 
 class WorkflowTemplateViewSet(viewsets.ModelViewSet):
@@ -55,6 +56,14 @@ class ReviewCycleViewSet(viewsets.ModelViewSet):
         if review_cycle.template:
             # Use service to create groups
             WorkflowService.create_groups_for_review(review_cycle, review_cycle.template)
+            
+            # Send notifications to all assigned reviewers
+            try:
+                NotificationService.notify_reviewers_new_proof(review_cycle)
+            except Exception as e:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Failed to send reviewer notifications: {e}")
 
     @action(detail=True, methods=['post'])
     def approve_stage(self, request, pk=None):
@@ -154,21 +163,48 @@ class ReviewCycleViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def track_view(self, request, pk=None):
         """Track when a user views the proof (SOCD: Sent -> Open)"""
+        import logging
+        logger = logging.getLogger(__name__)
+        
         review_cycle = self.get_object()
         member = WorkflowService.get_member_for_user(review_cycle, request.user)
         
-        if not member:
-            return Response(
-                {'error': 'You are not a member of any group in this review cycle'},
-                status=status.HTTP_403_FORBIDDEN
-            )
+        # Update member SOCD status if they are a member
+        member_updated = False
+        if member:
+            WorkflowService.update_member_socd(member, 'view')
+            member_updated = True
+            logger.info(f"Updated SOCD status for user {request.user.username} in review cycle {review_cycle.id}")
         
-        WorkflowService.update_member_socd(member, 'view')
+        # Update review cycle status from 'not_started' to 'in_progress'
+        # Any authenticated user can trigger this transition
+        status_changed = False
+        if review_cycle.status == 'not_started':
+            review_cycle.status = 'in_progress'
+            review_cycle.save()
+            status_changed = True
+            logger.info(f"Review cycle {review_cycle.id} status changed from 'not_started' to 'in_progress' by user {request.user.username}")
         
-        return Response({
+        # Broadcast status change via WebSocket to all relevant users
+        if status_changed:
+            try:
+                WorkflowService.broadcast_review_cycle_update(review_cycle)
+                logger.info(f"Broadcasted status update for review cycle {review_cycle.id}")
+            except Exception as e:
+                logger.error(f"Failed to broadcast review cycle update: {e}")
+        
+        response_data = {
             'message': 'View tracked successfully',
-            'socd_status': member.socd_status
-        })
+            'review_cycle_status': review_cycle.status,
+            'status_changed': status_changed,
+            'user_is_member': member is not None
+        }
+        
+        # Include member SOCD status if they are a member
+        if member:
+            response_data['socd_status'] = member.socd_status
+        
+        return Response(response_data)
     
     @action(detail=True, methods=['post'])
     def member_decision(self, request, pk=None):
@@ -247,6 +283,49 @@ class ReviewCycleViewSet(viewsets.ModelViewSet):
         except Exception as e:
             return Response(
                 {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    @action(detail=False, methods=['post'])
+    def auto_create(self, request):
+        """Automatically create a review cycle for an asset if one doesn't exist"""
+        from apps.versioning.models import CreativeAsset
+        
+        asset_id = request.data.get('asset_id')
+        if not asset_id:
+            return Response(
+                {'error': 'asset_id is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            asset = CreativeAsset.objects.get(id=asset_id)
+        except CreativeAsset.DoesNotExist:
+            return Response(
+                {'error': 'Asset not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Check if review cycle already exists
+        existing_cycle = ReviewCycle.objects.filter(asset=asset).first()
+        if existing_cycle:
+            serializer = self.get_serializer(existing_cycle)
+            return Response({
+                'message': 'Review cycle already exists',
+                'review_cycle': serializer.data
+            })
+        
+        # Create review cycle
+        try:
+            review_cycle = WorkflowService.create_review_cycle_for_asset(asset, request.user)
+            serializer = self.get_serializer(review_cycle)
+            return Response({
+                'message': 'Review cycle created successfully',
+                'review_cycle': serializer.data
+            })
+        except Exception as e:
+            return Response(
+                {'error': f'Failed to create review cycle: {str(e)}'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
