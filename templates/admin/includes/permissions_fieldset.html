@@ -1,0 +1,67 @@
+{% extends "admin/includes/fieldset.html" %}
+
+{% block fieldset_content %}
+{% if fieldset.name %}<h2>{{ fieldset.name }}</h2>{% endif %}
+{% if fieldset.description %}<div class="description">{{ fieldset.description|safe }}</div>{% endif %}
+{% for line in fieldset %}
+    {% if "permissions-horizontal" in fieldset.classes %}
+        <!-- Custom permissions layout with category names -->
+        <div class="form-row{% if line.fields|length == 1 %} {{ line.fields.0 }}{% endif %}{% for field in line %} {{ field.name }}{% endfor %}{% if not line.fields|length %} form-row-wide{% endif %}">
+            {% if forloop.counter == 1 %}
+                <div class="permission-category-info">Folder</div>
+            {% elif forloop.counter == 2 %}
+                <div class="permission-category-info">Folder Tray</div>
+            {% elif forloop.counter == 3 %}
+                <div class="permission-category-info">Proof Preview</div>
+            {% endif %}
+            
+            {% for field in line %}
+                <div{% if not line.fields|length %} class="flex-container form-multiline"{% endif %}>
+                    {% if field.is_checkbox %}
+                        <div class="flex-container fieldBox {{ field.name }}">
+                            {{ field.field }}{{ field.label_tag }}
+                        </div>
+                    {% else %}
+                        {{ field.errors }}
+                        {% if field.is_readonly %}
+                            <div class="readonly">{{ field.contents }}</div>
+                        {% else %}
+                            {{ field.field }}
+                        {% endif %}
+                        {% if field.help_text %}
+                            <div class="help">{{ field.help_text|safe }}</div>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            {% endfor %}
+            
+            {% if forloop.counter == 2 %}
+                <div class="folder-tray-description">ie inside the folder tray after expanding</div>
+            {% endif %}
+        </div>
+    {% else %}
+        <!-- Default fieldset rendering for non-permission fieldsets -->
+        <div class="form-row{% if line.fields|length == 1 %} {{ line.fields.0 }}{% endif %}{% for field in line %} {{ field.name }}{% endfor %}{% if not line.fields|length %} form-row-wide{% endif %}">
+            {% for field in line %}
+                <div{% if not line.fields|length %} class="flex-container form-multiline"{% endif %}>
+                    {% if field.is_checkbox %}
+                        <div class="flex-container fieldBox {{ field.name }}">
+                            {{ field.field }}{{ field.label_tag }}
+                        </div>
+                    {% else %}
+                        {{ field.errors }}
+                        {% if field.is_readonly %}
+                            <div class="readonly">{{ field.contents }}</div>
+                        {% else %}
+                            {{ field.field }}
+                        {% endif %}
+                        {% if field.help_text %}
+                            <div class="help">{{ field.help_text|safe }}</div>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+{% endfor %}
+{% endblock %}

@@ -6,7 +6,18 @@ from .models import UserProfile, EmailVerification
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
-        fields = ['avatar', 'bio', 'phone', 'company', 'job_title', 'created_at', 'updated_at']
+        fields = [
+            'role', 'avatar', 'bio', 'phone', 'company', 'job_title', 
+            'created_at', 'updated_at', 'permissions_updated_at',
+            # Folder Permissions
+            'can_create_folder', 'can_add_member', 'can_edit_folder', 
+            'can_add_proof', 'can_delete_folder',
+            # Inside Folder Permissions
+            'can_delete_proof_in_folder',
+            # Proof Preview Permissions
+            'can_use_proofieplus', 'can_add_comment', 'can_delete_proof_in_preview',
+            'can_make_decisions'
+        ]
 
 
 class UserDetailSerializer(serializers.ModelSerializer):

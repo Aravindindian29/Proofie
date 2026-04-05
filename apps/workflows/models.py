@@ -3,6 +3,45 @@ from django.contrib.auth.models import User
 from apps.versioning.models import CreativeAsset
 
 
+class RolePermission(models.Model):
+    """Define default permissions for each user role"""
+    ROLE_CHOICES = [
+        ('admin', 'Admin'),
+        ('manager', 'Manager'),
+        ('approver', 'Approver'),
+        ('lite_user', 'Lite User'),
+    ]
+    
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, unique=True, verbose_name='Role')
+    
+    # Folder Permissions
+    can_create_folder = models.BooleanField(default=False, verbose_name='Create Folder')
+    can_add_member = models.BooleanField(default=False, verbose_name='Add Member')
+    can_edit_folder = models.BooleanField(default=False, verbose_name='Edit Folder')
+    can_add_proof = models.BooleanField(default=False, verbose_name='Add Proof')
+    can_delete_folder = models.BooleanField(default=False, verbose_name='Delete Folder')
+    
+    # Inside Folder Permissions
+    can_delete_proof_in_folder = models.BooleanField(default=False, verbose_name='Delete Proof')
+    
+    # Proof Preview Permissions
+    can_use_proofieplus = models.BooleanField(default=False, verbose_name='ProofiePlus')
+    can_add_comment = models.BooleanField(default=False, verbose_name='Add Comment')
+    can_delete_proof_in_preview = models.BooleanField(default=False, verbose_name='Delete Proof')
+    can_make_decisions = models.BooleanField(default=False, verbose_name='Make Decisions')
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = 'Role Permission'
+        verbose_name_plural = 'Role Permissions'
+        ordering = ['role']
+    
+    def __str__(self):
+        return f"{self.get_role_display()} Permissions"
+
+
 class WorkflowTemplate(models.Model):
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True)

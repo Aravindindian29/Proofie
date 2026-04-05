@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react'
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
-import { Toaster } from 'react-hot-toast'
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { Toaster, toast } from 'react-hot-toast'
 import { useAuthStore } from './stores/authStore'
 import Layout from './components/Layout'
 import Login from './pages/Login'
@@ -19,18 +19,51 @@ import WorkflowTemplateBuilder from './pages/WorkflowTemplateBuilder'
 import Notifications from './pages/Notifications'
 import Profile from './pages/Profile'
 import Settings from './pages/Settings'
+import Users from './pages/Users'
 
-function App() {
-  const { token, checkAuth } = useAuthStore()
+function AppContent() {
+  const { token, checkAuth, startPermissionPolling, stopPermissionPolling, refreshUserData } = useAuthStore()
+  const location = useLocation()
 
   useEffect(() => {
     checkAuth()
-  }, [])
+  }, [checkAuth])
+
+  // Clear all toasts when route changes
+  useEffect(() => {
+    toast.dismiss()
+  }, [location.pathname])
+
+  // Start/stop polling based on authentication
+  useEffect(() => {
+    if (token) {
+      startPermissionPolling()
+    } else {
+      stopPermissionPolling()
+    }
+    
+    return () => stopPermissionPolling()
+  }, [token, startPermissionPolling, stopPermissionPolling])
+
+  // Handle tab visibility - check permissions when tab becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && token) {
+        // Tab became visible, refresh permissions immediately
+        refreshUserData()
+      }
+    }
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [token, refreshUserData])
 
   return (
-    <Router>
+    <>
       <Toaster 
         position="top-center"
+        limit={3}
+        reverseOrder={true}
         toastOptions={{
           duration: 4000,
           style: {
@@ -46,6 +79,7 @@ function App() {
             border: '1px solid rgba(255, 255, 255, 0.2)',
             minWidth: '300px',
             maxWidth: '500px',
+            textAlign: 'center',
           },
           success: {
             iconTheme: {
@@ -108,11 +142,20 @@ function App() {
             <Route path="/notifications" element={<Notifications />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/users" element={<Users />} />
           </Route>
         ) : (
           <Route path="*" element={<Navigate to="/login" />} />
         )}
       </Routes>
+    </>
+  )
+}
+
+function App() {
+  return (
+    <Router>
+      <AppContent />
     </Router>
   )
 }

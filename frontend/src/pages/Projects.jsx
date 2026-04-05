@@ -3,7 +3,7 @@ import CrushLoader from '../components/CrushLoader'
 import Pagination from '../components/Pagination'
 import { Link, useNavigate, useParams, useLocation } from 'react-router-dom'
 import { Plus, FolderOpen, Users, Calendar, Clock, Trash2, X, Folder, ChevronLeft, ChevronRight } from 'lucide-react'
-import toast from 'react-hot-toast'
+import { toastManager } from '../utils/toastManager'
 import api from '../services/api'
 import { useAuthStore } from '../stores/authStore'
 import ProjectDetailsTray from '../components/ProjectDetailsTray'
@@ -21,7 +21,7 @@ const colors = [
 ]
 
 function Projects() {
-  const { user } = useAuthStore()
+  const { user, canDeleteContent, canAddProof } = useAuthStore()
   const [projects, setProjects] = useState([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
@@ -153,7 +153,7 @@ function Projects() {
       api.get(`/versioning/folders/${folderId}/`).then(response => {
         setSelectedFolder(response.data)
       }).catch(() => {
-        toast.error('Failed to load folder', { id: 'projects-toast' })
+        toastManager.fetchError('Failed to load folder')
         setSelectedFolder(null)
       })
     } else {
@@ -225,7 +225,7 @@ function Projects() {
       setProjects(projectsData)
     } catch (err) { 
       console.error('Failed to fetch projects:', err)
-      toast.error('Failed to fetch projects', { id: 'projects-toast' }) 
+      toastManager.fetchError('Failed to fetch projects') 
     }
     finally { setLoading(false) }
   }
@@ -260,19 +260,15 @@ function Projects() {
   }, [projects, location.pathname])
 
   const openModal = () => {
+    if (!canAddProof()) {
+      toastManager.permission('You do not have permission to perform this action.\nPlease contact your administrator for assistance.')
+      return
+    }
     setShowModal(true)
   }
 
   const handleDeleteClick = (e, project) => {
     e.stopPropagation()
-    
-    // Check ownership
-    const isOwner = project.owner?.id === currentUser.id || project.owner?.username === currentUser.username
-    if (!isOwner) {
-      toast.error('You can only delete proofs you created', { id: 'projects-toast' })
-      return
-    }
-    
     setProjectToDelete(project)
     setShowDeleteModal(true)
   }
@@ -285,7 +281,7 @@ function Projects() {
       const shouldGoToPreviousPage = isOnlyItemOnPage && currentPage > 1
       
       await api.delete(`/versioning/projects/${projectToDelete.id}/`)
-      toast.success('Proof deleted successfully', { id: 'proof-action-toast' })
+      toastManager.success('Proof deleted successfully')
       setShowDeleteModal(false)
       setProjectToDelete(null)
       
@@ -299,7 +295,13 @@ function Projects() {
         setCurrentPage(currentPage - 1)
       }
     } catch (error) {
-      toast.error('Failed to delete proof: ' + (error.response?.data?.error || error.message), { id: 'proof-action-toast' })
+      console.error('Delete error:', error)
+      // Check for 403 Forbidden error and show appropriate message
+      if (error.response?.status === 403) {
+        toastManager.permission('You do not have permission to perform this action.\nPlease contact your administrator for assistance.')
+      } else {
+        toastManager.deleteError('Failed to delete proof: ' + (error.response?.data?.error || error.message))
+      }
     } finally {
       setDeleting(false)
     }

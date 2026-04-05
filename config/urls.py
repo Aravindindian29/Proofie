@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-from rest_framework.authtoken.views import obtain_auth_token
+from apps.accounts.views import CustomObtainAuthToken
 from django.http import HttpResponse, Http404
 import os
 import mimetypes
@@ -35,7 +35,7 @@ def serve_media_direct(request, file_path):
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/auth/token/', obtain_auth_token, name='api_token_auth'),
+    path('api/auth/token/', CustomObtainAuthToken.as_view(), name='api_token_auth'),
     path('api/versioning/', include('apps.versioning.urls')),
     path('api/annotations/', include('apps.annotations.urls')),
     path('api/workflows/', include('apps.workflows.urls')),

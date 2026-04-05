@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react'
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, ClipboardList, Folder, GitBranch, Bell, User, Settings, Menu, ChevronLeft } from 'lucide-react'
+import { LayoutDashboard, ClipboardList, Folder, Bell, User, Settings, Menu, ChevronLeft, Users } from 'lucide-react'
 
 const mainNavItems = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', color: '#0A84FF' },
   { to: '/proofs', icon: ClipboardList, label: 'Proofs', color: '#FF375F' },
   { to: '/folders', icon: Folder, label: 'Folders', color: '#8E44AD' },
-  { to: '/workflows', icon: GitBranch, label: 'Users', color: '#30D158' },
+  { to: '/users', icon: Users, label: 'Users', color: '#30D158' },
   { to: '/notifications', icon: Bell, label: 'Notifications', color: '#FF9F0A' },
   { to: '/profile', icon: User, label: 'Profile', color: '#8E44AD' },
   { to: '/settings', icon: Settings, label: 'Settings', color: '#FF6B35' },

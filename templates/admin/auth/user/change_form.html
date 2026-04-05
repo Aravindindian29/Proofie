@@ -1,6 +1,61 @@
 {% extends "admin/change_form.html" %}
 {% load i18n admin_urls %}
 
+{% block extrahead %}
+{{ block.super }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Permissions script loaded');
+    
+    // Find the permissions fieldset
+    const permissionsFieldset = document.querySelector('.permissions-horizontal');
+    console.log('Permissions fieldset found:', !!permissionsFieldset);
+    
+    if (!permissionsFieldset) {
+        console.log('Permissions fieldset not found');
+        return;
+    }
+    
+    // Find all form rows within the permissions fieldset
+    const formRows = permissionsFieldset.querySelectorAll('.form-row');
+    console.log('Form rows found:', formRows.length);
+    
+    const categories = ['Folder', 'Folder Tray', 'Proof Preview'];
+    
+    // Add category names to each form row
+    formRows.forEach((row, index) => {
+        console.log(`Processing row ${index}:`, row.className);
+        
+        if (index < categories.length) {
+            // Create category name element
+            const categoryName = document.createElement('div');
+            categoryName.className = 'permission-category-name';
+            categoryName.textContent = categories[index];
+            categoryName.style.cssText = 'font-weight: 500; color: #666; font-size: 12px; min-width: 80px; margin-right: 1rem; flex-shrink: 0;';
+            
+            // Insert at the beginning of the form row
+            row.insertBefore(categoryName, row.firstChild);
+            
+            console.log(`Added category "${categories[index]}" to row ${index}`);
+        }
+    });
+    
+    // Add description text to Folder Tray row (second row)
+    if (formRows.length > 1) {
+        const folderTrayRow = formRows[1];
+        const description = document.createElement('div');
+        description.className = 'folder-tray-description';
+        description.textContent = 'ie inside the folder tray after expanding';
+        description.style.cssText = 'font-size: 11px; color: #999; font-style: italic; margin-left: 140px; margin-top: 0.25rem; width: 100%;';
+        folderTrayRow.appendChild(description);
+        console.log('Added folder tray description');
+    }
+    
+    console.log('Permissions script completed');
+});
+</script>
+{% endblock %}
+
 {% block object-tools-items %}
     {{ block.super }}
     <li>

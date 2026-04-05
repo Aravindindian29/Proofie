@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import api from '../services/api'
+import { toastManager } from '../utils/toastManager'
 import { CheckCircle, XCircle, Clock, Mail } from 'lucide-react'
 
 function EmailVerification() {
@@ -19,7 +20,7 @@ function EmailVerification() {
       const response = await api.get(`/accounts/verify-email/${token}/`)
       setMessage(response.data.message)
       setStatus('success')
-      toast.success('Email verified successfully!')
+      toastManager.success('Email verified successfully!')
     } catch (error) {
       if (error.response?.data?.error) {
         const errorMsg = error.response.data.error

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { MessageSquare, Reply, Check, X, Send, Trash2 } from 'lucide-react'
 import api from '../services/api'
+import { getUserDisplayName, getUserInitials } from '../utils/userDisplay'
 
 const CommentSidebar = ({ versionId, currentPage, onCommentClick, activeCommentId }) => {
   const [comments, setComments] = useState([])
@@ -232,7 +233,7 @@ const CommentSidebar = ({ versionId, currentPage, onCommentClick, activeCommentI
                       width: '32px',
                       height: '32px',
                       borderRadius: '50%',
-                      background: 'linear-gradient(135deg, #0A84FF, #5E5CE6)',
+                      background: comment.author ? 'linear-gradient(135deg, #0A84FF, #5E5CE6)' : 'linear-gradient(135deg, #8E8E93, #636366)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -241,7 +242,7 @@ const CommentSidebar = ({ versionId, currentPage, onCommentClick, activeCommentI
                       fontWeight: 600,
                       flexShrink: 0
                     }}>
-                      {comment.author?.username?.[0]?.toUpperCase() || 'U'}
+                      {getUserInitials(comment.author)}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{
@@ -303,11 +304,12 @@ const CommentSidebar = ({ versionId, currentPage, onCommentClick, activeCommentI
                             marginBottom: '4px'
                           }}>
                             <span style={{
-                              color: '#fff',
+                              color: reply.author ? '#fff' : 'rgba(255,255,255,0.5)',
                               fontSize: '13px',
-                              fontWeight: 600
+                              fontWeight: 600,
+                              fontStyle: reply.author ? 'normal' : 'italic'
                             }}>
-                              {reply.author?.username || 'Unknown'}
+                              {getUserDisplayName(reply.author)}
                             </span>
                             <span style={{
                               color: 'rgba(255,255,255,0.5)',

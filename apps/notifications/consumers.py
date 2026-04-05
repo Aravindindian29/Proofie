@@ -39,6 +39,16 @@ class NotificationConsumer(AsyncWebsocketConsumer):
             'asset_name': event.get('asset_name'),
             'asset_id': event.get('asset_id')
         }))
+    
+    async def folder_update(self, event):
+        """Handle folder update notifications"""
+        await self.send(text_data=json.dumps({
+            'type': 'folder_update',
+            'folder_id': event.get('folder_id'),
+            'folder_name': event.get('folder_name'),
+            'update_type': event.get('update_type'),
+            'data': event.get('data', {})
+        }))
 
     async def send_notification(self, notification_data):
         await self.channel_layer.group_send(

@@ -1,15 +1,26 @@
 from rest_framework import viewsets, status, permissions, views
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.authtoken.models import Token
+from rest_framework.pagination import PageNumberPagination
 from django.contrib.auth.models import User
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
 from django.core.mail import send_mail
 from django.conf import settings
+from django.contrib.auth import authenticate
+from django.db.models import Q
 from .models import UserProfile, EmailVerification
 from .serializers import UserDetailSerializer, UserRegistrationSerializer, UserProfileSerializer
 from .services import RegistrationService, EmailService
+
+
+class UsersPagination(PageNumberPagination):
+    """Custom pagination for users list - 5 users per page"""
+    page_size = 5
+    page_size_query_param = 'page_size'
+    max_page_size = 100
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -17,7 +28,7 @@ class UserViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return User.objects.all()
+        return User.objects.filter(is_superuser=False)
 
     @action(detail=False, methods=['post'], permission_classes=[permissions.AllowAny])
     def register(self, request):
@@ -65,6 +76,89 @@ class UserViewSet(viewsets.ModelViewSet):
             return Response(user_serializer.data)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=False, methods=['get'])
+    def permissions_version(self, request):
+        """Lightweight endpoint for permission polling - returns only permissions_updated_at timestamp"""
+        try:
+            permissions_updated_at = request.user.profile.permissions_updated_at
+            return Response({
+                'permissions_updated_at': permissions_updated_at.isoformat() if permissions_updated_at else None
+            })
+        except AttributeError:
+            return Response({'permissions_updated_at': None})
+
+    @action(detail=False, methods=['get'], pagination_class=UsersPagination)
+    def list_all_users(self, request):
+        """
+        List all users with pagination, search, and sorting capabilities.
+        Available to all authenticated users.
+        """
+        queryset = User.objects.filter(is_superuser=False).select_related('profile')
+        
+        # Search functionality
+        search_query = request.query_params.get('search', '')
+        if search_query:
+            queryset = queryset.filter(
+                Q(username__icontains=search_query) |
+                Q(email__icontains=search_query) |
+                Q(first_name__icontains=search_query) |
+                Q(last_name__icontains=search_query)
+            )
+        
+        # Sorting functionality
+        sort_by = request.query_params.get('sort', 'username')
+        sort_order = request.query_params.get('order', 'asc')
+        
+        # Validate sort field
+        valid_sort_fields = ['username', 'first_name', 'last_name', 'email', 'date_joined', 'is_active', 'role']
+        if sort_by not in valid_sort_fields:
+            sort_by = 'username'
+        
+        # Apply sorting
+        if sort_order == 'desc':
+            sort_by = f'-{sort_by}'
+        
+        queryset = queryset.order_by(sort_by)
+        
+        # Paginate results
+        paginator = UsersPagination()
+        page = paginator.paginate_queryset(queryset, request)
+        
+        if page is not None:
+            # Serialize users with their profile data
+            users_data = []
+            for user in page:
+                user_data = {
+                    'id': user.id,
+                    'username': user.username,
+                    'first_name': user.first_name,
+                    'last_name': user.last_name,
+                    'email': user.email,
+                    'is_active': user.is_active,
+                    'date_joined': user.date_joined,
+                    'role': getattr(user.profile, 'role', 'lite_user') if hasattr(user, 'profile') else 'lite_user'
+                }
+                users_data.append(user_data)
+            
+            return paginator.get_paginated_response(users_data)
+        
+        # Fallback for no pagination
+        users_data = []
+        for user in queryset:
+            user_data = {
+                'id': user.id,
+                'username': user.username,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'email': user.email,
+                'is_active': user.is_active,
+                'date_joined': user.date_joined,
+                'role': getattr(user.profile, 'role', 'lite_user') if hasattr(user, 'profile') else 'lite_user'
+            }
+            users_data.append(user_data)
+        
+        return Response(users_data)
 
 
 class PasswordResetRequestView(views.APIView):
@@ -181,3 +275,40 @@ class EmailVerificationView(views.APIView):
                 {'error': verification_result['message']},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+
+class CustomObtainAuthToken(views.APIView):
+    permission_classes = [permissions.AllowAny]
+    
+    def post(self, request):
+        username = request.data.get('username')
+        password = request.data.get('password')
+        
+        if not username or not password:
+            return Response(
+                {'error': 'Username and password are required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        user = authenticate(request, username=username, password=password)
+        
+        if user is None:
+            return Response(
+                {'error': 'Invalid credentials'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+        
+        # Block superusers from frontend access
+        if user.is_superuser:
+            return Response(
+                {'error': 'This account is restricted to backend administration only. Please use the admin panel at /admin/'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Create or get token for regular users
+        token, created = Token.objects.get_or_create(user=user)
+        
+        return Response(
+            {'token': token.key},
+            status=status.HTTP_200_OK
+        )

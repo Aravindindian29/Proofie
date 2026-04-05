@@ -2,8 +2,37 @@ from django.contrib import admin
 from .models import (
     WorkflowTemplate, WorkflowStage, WorkflowStageApprover, 
     ReviewCycle, StageApproval, WorkflowTransition,
-    ApprovalGroup, GroupMember
+    ApprovalGroup, GroupMember, RolePermission
 )
+
+
+@admin.register(RolePermission)
+class RolePermissionAdmin(admin.ModelAdmin):
+    list_display = ['role', 'can_create_folder', 'can_add_member', 'can_edit_folder', 'can_delete_folder', 'can_use_proofieplus']
+    list_filter = ['role']
+    search_fields = ['role']
+    
+    fieldsets = (
+        ('Role Information', {
+            'fields': ('role',)
+        }),
+        ('Permissions', {
+            'fields': (
+                ('can_create_folder', 'can_add_member', 'can_edit_folder', 'can_add_proof', 'can_delete_folder'),
+                ('can_delete_proof_in_folder',),
+                ('can_use_proofieplus', 'can_add_comment', 'can_delete_proof_in_preview'),
+            ),
+            'description': 'Configure role-specific permissions',
+            'classes': ('permissions-horizontal',)
+        }),
+    )
+    
+    readonly_fields = ['created_at', 'updated_at']
+    
+    class Media:
+        css = {
+            'all': ('admin/css/permissions_layout.css',)
+        }
 
 
 class GroupMemberInline(admin.TabularInline):

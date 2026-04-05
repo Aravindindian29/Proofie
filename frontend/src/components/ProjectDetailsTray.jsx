@@ -4,6 +4,7 @@ import api from '../services/api'
 import toast from 'react-hot-toast'
 import DeleteConfirmationModal from './DeleteConfirmationModal'
 import DecisionModal from './workflow/DecisionModal'
+import { useAuthStore } from '../stores/authStore'
 
 const colors = [
   'linear-gradient(135deg,#0A84FF,#5E5CE6)',
@@ -15,6 +16,7 @@ const colors = [
 ]
 
 function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted }) {
+  const { canDeleteContent } = useAuthStore()
   const [projectWithAssets, setProjectWithAssets] = useState(null)
   const [loadingAssets, setLoadingAssets] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
@@ -44,7 +46,13 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted }) {
         onProjectDeleted(displayProject.id)
       }
     } catch (error) {
-      toast.error('Failed to delete proof: ' + (error.response?.data?.error || error.message), { id: 'proof-action-toast' })
+      console.error('Delete error:', error)
+      // Check for 403 Forbidden error and show appropriate message
+      if (error.response?.status === 403) {
+        toast.error('You do not have permission to perform this action.\nPlease contact your administrator for assistance.', { id: 'delete-access-denied' })
+      } else {
+        toast.error('Failed to delete proof: ' + (error.response?.data?.error || error.message), { id: 'proof-action-toast' })
+      }
     } finally {
       setDeleting(false)
     }

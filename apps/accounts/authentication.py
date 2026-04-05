@@ -18,7 +18,12 @@ class EmailVerificationBackend(BaseBackend):
             return None
         
         if user.check_password(password):
-            # Check if email is verified
+            # Superusers bypass email verification (backend-only access)
+            if user.is_superuser:
+                print(f"Login successful: {user.username} - Superuser (backend-only)")
+                return user
+            
+            # Regular users need email verification
             try:
                 verification = EmailVerification.objects.get(user=user)
                 if not verification.is_verified:

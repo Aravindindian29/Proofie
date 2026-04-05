@@ -26,7 +26,7 @@ const statCards = [
 ]
 
 function Dashboard() {
-  const { user } = useAuthStore()
+  const { user, canDeleteProofInPreview, canAddProof } = useAuthStore()
   const navigate = useNavigate()
   const location = useLocation()
   const [stats, setStats] = useState({ projects: 0, assets: 0, reviewCycles: 0, pendingApprovals: 0 })
@@ -206,6 +206,13 @@ function Dashboard() {
   }, [recentProjects, location.pathname])
 
   const openModal = () => {
+    if (!canAddProof()) {
+      toast.error(
+        'You do not have permission to perform this action.\nPlease contact your administrator for assistance.',
+        { id: 'create-access-denied' }
+      )
+      return
+    }
     setShowModal(true)
   }
 
@@ -225,7 +232,13 @@ function Dashboard() {
       // Refresh the list to show next available proof
       await fetchDashboardData()
     } catch (error) {
-      toast.error('Failed to delete proof: ' + (error.response?.data?.error || error.message), { id: 'proof-action-toast' })
+      console.error('Delete error:', error)
+      // Check for 403 Forbidden error and show appropriate message
+      if (error.response?.status === 403) {
+        toast.error('You do not have permission to perform this action.\nPlease contact your administrator for assistance.', { id: 'delete-access-denied' })
+      } else {
+        toast.error('Failed to delete proof: ' + (error.response?.data?.error || error.message), { id: 'proof-action-toast' })
+      }
     } finally {
       setDeleting(false)
     }

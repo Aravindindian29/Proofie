@@ -10,6 +10,7 @@ import WorkflowPanel from '../components/workflow/WorkflowPanel'
 import DecisionModal from '../components/workflow/DecisionModal'
 import DeleteProofButton from '../components/workflow/DeleteProofButton'
 import ProofiePlusModal from '../components/ProofiePlusModal'
+import { useAuthStore } from '../stores/authStore'
 
 const getMediaUrl = (fileUrl) => {
   console.log('🔗 getMediaUrl input:', fileUrl)
@@ -44,6 +45,7 @@ const getMediaUrl = (fileUrl) => {
 function FileViewer() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { canMakeDecisions, canUseProofiePlus } = useAuthStore()
   const [asset, setAsset] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -543,35 +545,37 @@ function FileViewer() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             {asset.file_type === 'pdf' && (
               <>
-                <button
-                  onClick={() => setShowProofiePlus(true)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    padding: '8px 16px',
-                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                    border: 'none',
-                    borderRadius: 6,
-                    color: '#fff',
-                    cursor: 'pointer',
-                    fontSize: '0.85rem',
-                    fontWeight: 600,
-                    boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)',
-                    transition: 'transform 0.2s, box-shadow 0.2s'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = 'translateY(-2px)'
-                    e.currentTarget.style.boxShadow = '0 6px 16px rgba(102, 126, 234, 0.6)'
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = 'translateY(0)'
-                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.4)'
-                  }}
-                >
-                  <Sparkles size={16} />
-                  ProofiePlus
-                </button>
+                {canUseProofiePlus() && (
+                  <button
+                    onClick={() => setShowProofiePlus(true)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      padding: '8px 16px',
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      border: 'none',
+                      borderRadius: 6,
+                      color: '#fff',
+                      cursor: 'pointer',
+                      fontSize: '0.85rem',
+                      fontWeight: 600,
+                      boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)',
+                      transition: 'transform 0.2s, box-shadow 0.2s'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = 'translateY(-2px)'
+                      e.currentTarget.style.boxShadow = '0 6px 16px rgba(102, 126, 234, 0.6)'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'translateY(0)'
+                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.4)'
+                    }}
+                  >
+                    <Sparkles size={16} />
+                    ProofiePlus
+                  </button>
+                )}
                 <button
                   onClick={() => setCommentMode(!commentMode)}
                   style={{
@@ -593,7 +597,7 @@ function FileViewer() {
               </>
             )}
             
-            {myMember && myMember.decision === 'pending' && (
+            {myMember && myMember.decision === 'pending' && canMakeDecisions() && (
               <button
                 onClick={() => setShowDecisionModal(true)}
                 style={{
@@ -665,10 +669,16 @@ function FileViewer() {
                   if (!confirm('Delete this proof? This action cannot be undone.')) return
                   try {
                     await api.delete(`/versioning/assets/${id}/`)
-                    alert('Proof deleted successfully')
+                    toast.success('Proof deleted successfully')
                     navigate('/proofs')
                   } catch (error) {
-                    alert('Failed to delete proof: ' + (error.response?.data?.error || error.message))
+                    console.error('Delete error:', error)
+                    // Check for 403 Forbidden error and show appropriate message
+                    if (error.response?.status === 403) {
+                      toast.error('You do not have permission to perform this action.\nPlease contact your administrator for assistance.', { id: 'delete-access-denied' })
+                    } else {
+                      toast.error('Failed to delete proof: ' + (error.response?.data?.error || error.message), { id: 'file-viewer-delete-toast' })
+                    }
                   }
                 }}
                 style={{

@@ -8,11 +8,14 @@ from django.http import HttpResponse, JsonResponse
 from django.conf import settings
 from django.contrib.auth.models import User
 import os
-from .models import Project, ProjectMember, CreativeAsset, FileVersion, VersionComment, Folder
+from .models import Project, ProjectMember, CreativeAsset, FileVersion, VersionComment, Folder, FolderMember
 from .serializers import (
     ProjectSerializer, ProjectMemberSerializer, CreativeAssetSerializer,
     FileVersionSerializer, FileVersionUploadSerializer, VersionCommentSerializer,
-    FolderSerializer
+    FolderSerializer, FolderMemberSerializer
+)
+from .permissions import (
+    CanCreateContent, CanEditContent, CanDeleteContent, CanViewContent
 )
 
 
@@ -21,6 +24,19 @@ class ProjectViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
     parser_classes = (JSONParser, MultiPartParser, FormParser)
 
+    def get_permissions(self):
+        """Apply different permissions based on action"""
+        if self.action in ['create']:
+            return [permissions.IsAuthenticated(), CanCreateContent()]
+        elif self.action in ['update', 'partial_update']:
+            return [permissions.IsAuthenticated(), CanEditContent()]
+        elif self.action in ['destroy']:
+            return [permissions.IsAuthenticated(), CanDeleteContent()]
+        elif self.action in ['retrieve', 'list']:
+            return [permissions.IsAuthenticated(), CanViewContent()]
+        else:
+            return [permissions.IsAuthenticated()]
+
     def get_serializer_context(self):
         """Pass request context to serializer for building absolute URIs"""
         context = super().get_serializer_context()
@@ -28,13 +44,60 @@ class ProjectViewSet(viewsets.ModelViewSet):
         return context
 
     def get_queryset(self):
-        user = self.request.user
-        return Project.objects.filter(
-            Q(owner=user) | Q(members__user=user)
-        ).distinct().prefetch_related('members', 'assets', 'assets__versions')
+        """Return projects based on user role and permissions"""
+        from .permissions import get_user_accessible_projects
+        return get_user_accessible_projects(self.request.user).prefetch_related('members', 'assets', 'assets__versions')
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
+    
+    def update(self, request, *args, **kwargs):
+        """Update project and broadcast folder changes if folder_id changed"""
+        project = self.get_object()
+        old_folder_id = project.folder_id
+        
+        response = super().update(request, *args, **kwargs)
+        project.refresh_from_db()
+        new_folder_id = project.folder_id
+        
+        # If folder changed, broadcast updates
+        if old_folder_id != new_folder_id:
+            from .services import FolderUpdateService
+            
+            # Broadcast removal from old folder
+            if old_folder_id:
+                try:
+                    old_folder = Folder.objects.get(id=old_folder_id)
+                    FolderUpdateService.broadcast_folder_update(
+                        old_folder,
+                        'proof_removed',
+                        {'project_id': project.id, 'project_name': project.name}
+                    )
+                except Folder.DoesNotExist:
+                    pass
+            
+            # Broadcast addition to new folder and auto-add reviewers
+            if new_folder_id:
+                try:
+                    new_folder = Folder.objects.get(id=new_folder_id)
+                    
+                    # Auto-add project reviewers as folder members
+                    for member in project.members.all():
+                        FolderMember.objects.get_or_create(
+                            folder=new_folder,
+                            user=member.user,
+                            defaults={'role': 'viewer', 'added_by': request.user}
+                        )
+                    
+                    FolderUpdateService.broadcast_folder_update(
+                        new_folder,
+                        'proof_added',
+                        {'project_id': project.id, 'project_name': project.name}
+                    )
+                except Folder.DoesNotExist:
+                    pass
+        
+        return response
 
     def create(self, request, *args, **kwargs):
         try:
@@ -79,8 +142,25 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         user=user,
                         defaults={'role': 'reviewer'}
                     )
+                    
+                    # Auto-add reviewers as folder members if project is in a folder
+                    if folder:
+                        FolderMember.objects.get_or_create(
+                            folder=folder,
+                            user=user,
+                            defaults={'role': 'viewer', 'added_by': request.user}
+                        )
                 except User.DoesNotExist:
                     pass  # Skip if user doesn't exist
+            
+            # Broadcast proof addition to folder members if folder exists
+            if folder:
+                from .services import FolderUpdateService
+                FolderUpdateService.broadcast_folder_update(
+                    folder,
+                    'proof_added',
+                    {'project_id': project.id, 'project_name': project.name}
+                )
             
             # Refresh serializer to include updated member data
             serializer = self.get_serializer(project)
@@ -125,10 +205,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def list_users(self, request):
-        users = User.objects.all().order_by('username')
+        users = User.objects.filter(is_superuser=False).order_by('username')
         user_list = []
         for user in users:
             user_list.append({
+                'id': user.id,
                 'username': user.username,
                 'full_name': f"{user.first_name} {user.last_name}".strip() or user.username,
                 'email': user.email
@@ -153,10 +234,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        exists = User.objects.filter(username=username).exists()
+        exists = User.objects.filter(username=username, is_superuser=False).exists()
         
         if exists:
-            user = User.objects.get(username=username)
+            user = User.objects.get(username=username, is_superuser=False)
             return Response({
                 'exists': True,
                 'message': f'User "{username}" found',
@@ -211,10 +292,15 @@ class CreativeAssetViewSet(viewsets.ModelViewSet):
             ) | CreativeAsset.objects.filter(
                 project_id=project_id,
                 project__owner=user
+            ) | CreativeAsset.objects.filter(
+                project_id=project_id,
+                project__folder__members__user=user
             )
         
         return CreativeAsset.objects.filter(
-            Q(project__owner=user) | Q(project__members__user=user)
+            Q(project__owner=user) | 
+            Q(project__members__user=user) | 
+            Q(project__folder__members__user=user)
         ).distinct()
 
     def perform_create(self, serializer):
@@ -634,18 +720,239 @@ class FolderViewSet(viewsets.ModelViewSet):
     serializer_class = FolderSerializer
     permission_classes = [permissions.IsAuthenticated]
     
+    def get_permissions(self):
+        """Apply different permissions based on action"""
+        if self.action in ['create']:
+            return [permissions.IsAuthenticated(), CanCreateContent()]
+        elif self.action in ['update', 'partial_update']:
+            return [permissions.IsAuthenticated(), CanEditContent()]
+        elif self.action in ['destroy']:
+            return [permissions.IsAuthenticated(), CanDeleteContent()]
+        elif self.action in ['retrieve', 'list']:
+            return [permissions.IsAuthenticated(), CanViewContent()]
+        else:
+            return [permissions.IsAuthenticated()]
+    
     def get_queryset(self):
-        """Return folders owned by the current user"""
-        return Folder.objects.filter(owner=self.request.user, is_active=True)
+        """Return folders based on user role and permissions"""
+        from .permissions import get_user_accessible_folders
+        return get_user_accessible_folders(self.request.user).prefetch_related('members', 'members__user', 'projects')
     
     def perform_create(self, serializer):
-        """Set the owner to the current user when creating a folder"""
-        serializer.save(owner=self.request.user)
+        """Set the owner to the current user and create owner membership"""
+        folder = serializer.save(owner=self.request.user)
+        # Automatically add creator as owner member
+        FolderMember.objects.create(
+            folder=folder,
+            user=self.request.user,
+            role='owner',
+            added_by=self.request.user
+        )
+    
+    def update(self, request, *args, **kwargs):
+        """Update folder and broadcast changes"""
+        response = super().update(request, *args, **kwargs)
+        folder = self.get_object()
+        # Broadcast folder update to all members
+        from .services import FolderUpdateService
+        FolderUpdateService.broadcast_folder_update(
+            folder, 
+            'folder_updated',
+            {'name': folder.name, 'description': folder.description}
+        )
+        return response
+    
+    def destroy(self, request, *args, **kwargs):
+        """Delete folder and broadcast to members"""
+        folder = self.get_object()
+        folder_id = folder.id
+        # Broadcast deletion before actually deleting
+        from .services import FolderUpdateService
+        FolderUpdateService.broadcast_folder_update(
+            folder,
+            'folder_deleted',
+            {'folder_id': folder_id}
+        )
+        return super().destroy(request, *args, **kwargs)
     
     @action(detail=True, methods=['get'])
     def projects(self, request, pk=None):
-        """Get all projects in this folder"""
+        """Get all projects in this folder - applies reviewer visibility restrictions"""
         folder = self.get_object()
-        projects = folder.projects.all()
+        from .permissions import get_user_accessible_projects
+        projects = get_user_accessible_projects(request.user).filter(folder=folder)
         serializer = ProjectSerializer(projects, many=True, context={'request': request})
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['get'])
+    def members(self, request, pk=None):
+        """Get all members of this folder"""
+        folder = self.get_object()
+        members = folder.members.all()
+        serializer = FolderMemberSerializer(members, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['post'])
+    def add_member(self, request, pk=None):
+        """Add a member to the folder"""
+        folder = self.get_object()
+        
+        # Check if user has permission to add members
+        from .permissions import can_manage_folder_members, is_folder_owner
+        permissions = can_manage_folder_members(request.user, folder)
+        
+        # Allow if user has elevated system role (Admin/Manager/Approver)
+        # or if user is folder owner
+        if not permissions['can_add'] and not is_folder_owner(request.user, folder):
+            return Response(
+                {'detail': 'You do not have permission to add members to this folder.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        user_id = request.data.get('user_id')
+        role = request.data.get('role', 'viewer')
+        
+        if not user_id:
+            return Response(
+                {'detail': 'user_id is required.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response(
+                {'detail': 'User not found.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Check if user is already a member
+        if folder.members.filter(user=user).exists():
+            return Response(
+                {'detail': 'User is already a member of this folder.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Create folder member
+        member = FolderMember.objects.create(
+            folder=folder,
+            user=user,
+            role=role,
+            added_by=request.user
+        )
+        
+        # Broadcast member addition
+        from .services import FolderUpdateService
+        FolderUpdateService.broadcast_folder_update(
+            folder,
+            'member_added',
+            {
+                'member_id': member.id,
+                'user': {'id': user.id, 'username': user.username},
+                'role': role
+            }
+        )
+        
+        serializer = FolderMemberSerializer(member)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    
+    @action(detail=True, methods=['delete'])
+    def remove_member(self, request, pk=None):
+        """Remove a member from the folder"""
+        folder = self.get_object()
+        
+        member_id = request.data.get('member_id')
+        if not member_id:
+            return Response(
+                {'detail': 'member_id is required.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            member = FolderMember.objects.get(id=member_id, folder=folder)
+        except FolderMember.DoesNotExist:
+            return Response(
+                {'detail': 'Member not found.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Check if user has permission to remove this member
+        from .permissions import can_remove_folder_member
+        if not can_remove_folder_member(request.user, member.user, folder):
+            return Response(
+                {'detail': 'You do not have permission to remove this member.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Additional check: prevent removing the last owner
+        if member.role == 'owner':
+            remaining_owners = folder.members.filter(role='owner').exclude(id=member.id).count()
+            if remaining_owners == 0:
+                return Response(
+                    {'detail': 'Cannot remove the last owner of the folder.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        removed_user_id = member.user.id
+        member.delete()
+        
+        # Broadcast member removal
+        from .services import FolderUpdateService
+        FolderUpdateService.broadcast_folder_update(
+            folder,
+            'member_removed',
+            {'member_id': member_id, 'user_id': removed_user_id}
+        )
+        
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    
+    @action(detail=True, methods=['patch'])
+    def update_member_role(self, request, pk=None):
+        """Update a member's role in the folder"""
+        folder = self.get_object()
+        
+        # Check if user has permission (must be owner)
+        user_member = folder.members.filter(user=request.user).first()
+        if not user_member or user_member.role != 'owner':
+            return Response(
+                {'detail': 'Only folder owners can update member roles.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        member_id = request.data.get('member_id')
+        new_role = request.data.get('role')
+        
+        if not member_id or not new_role:
+            return Response(
+                {'detail': 'member_id and role are required.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            member = FolderMember.objects.get(id=member_id, folder=folder)
+        except FolderMember.DoesNotExist:
+            return Response(
+                {'detail': 'Member not found.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Cannot change owner role
+        if member.role == 'owner':
+            return Response(
+                {'detail': 'Cannot change folder owner role.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        member.role = new_role
+        member.save()
+        
+        # Broadcast role update
+        from .services import FolderUpdateService
+        FolderUpdateService.broadcast_folder_update(
+            folder,
+            'member_role_updated',
+            {'member_id': member_id, 'role': new_role}
+        )
+        
+        serializer = FolderMemberSerializer(member)
         return Response(serializer.data)

@@ -26,6 +26,7 @@ function Login() {
   const navigate = useNavigate()
   const { showToast } = usePreventDuplicateToast()
 
+  
   const clearErr = (field) => setErrors(p => ({ ...p, [field]: '' }))
 
   const validate = () => {
@@ -53,10 +54,11 @@ function Login() {
       showToast('success', 'Login successful!')
       navigate('/dashboard')
     } catch (error) {
-      // Use the custom toast hook to prevent duplicates
-      showToast('error', 'Unable to log in. Please check your credentials and verify your email if you haven\'t already.', {
+      // Use consistent toast ID to prevent duplicates
+      toast.error('Unable to log in. Please check your credentials\nAnd verify your email if you haven\'t already.', {
         id: 'login-error',
         duration: 5000,
+        position: 'top-center',
       })
     } finally {
       setLoading(false)

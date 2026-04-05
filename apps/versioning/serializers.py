@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Project, ProjectMember, CreativeAsset, FileVersion, VersionComment, Folder
+from .models import Project, ProjectMember, CreativeAsset, FileVersion, VersionComment, Folder, FolderMember
 from django.contrib.auth.models import User
 
 
@@ -9,16 +9,40 @@ class UserBasicSerializer(serializers.ModelSerializer):
         fields = ['id', 'username', 'email', 'first_name', 'last_name']
 
 
+class FolderMemberSerializer(serializers.ModelSerializer):
+    user = UserBasicSerializer(read_only=True)
+    user_id = serializers.IntegerField(write_only=True)
+    added_by = UserBasicSerializer(read_only=True)
+    
+    class Meta:
+        model = FolderMember
+        fields = ['id', 'user', 'user_id', 'role', 'added_at', 'added_by']
+
+
 class FolderSerializer(serializers.ModelSerializer):
     owner = UserBasicSerializer(read_only=True)
     project_count = serializers.SerializerMethodField()
+    members = FolderMemberSerializer(many=True, read_only=True)
+    member_count = serializers.SerializerMethodField()
+    user_role = serializers.SerializerMethodField()
     
     class Meta:
         model = Folder
-        fields = ['id', 'name', 'description', 'owner', 'project_count', 'created_at', 'updated_at', 'is_active']
+        fields = ['id', 'name', 'description', 'owner', 'project_count', 'members', 'member_count', 'user_role', 'created_at', 'updated_at', 'is_active']
     
     def get_project_count(self, obj):
         return obj.project_count
+    
+    def get_member_count(self, obj):
+        return obj.members.count()
+    
+    def get_user_role(self, obj):
+        """Get current user's role in this folder"""
+        request = self.context.get('request')
+        if request and request.user:
+            member = obj.members.filter(user=request.user).first()
+            return member.role if member else None
+        return None
     
     def validate_name(self, value):
         if not value or not value.strip():

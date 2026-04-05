@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { XCircle, CheckCircle } from 'lucide-react'
 import api from '../services/api'
-import { usePreventDuplicateToast } from '../hooks/usePreventDuplicateToast'
+import { toastManager } from '../utils/toastManager'
 
 const FieldError = ({ msg }) => msg ? (
   <p style={{
@@ -37,8 +37,7 @@ function Register() {
   const [focusedFields, setFocusedFields] = useState({})
   const [hasSubmitted, setHasSubmitted] = useState(false)
   const navigate = useNavigate()
-  const { showToast } = usePreventDuplicateToast()
-
+  
   const clearErr = (field) => setErrors(p => ({ ...p, [field]: '' }))
 
   const validate = () => {
@@ -81,16 +80,15 @@ function Register() {
     
     try {
       await api.post('/accounts/users/register/', formData)
-      showToast('success', 'Registration successful! Please check your email for verification link.')
-      navigate('/login')
+      toastManager.success('Registration successful!\nPlease check your email for verification link.')
+      setTimeout(() => {
+        navigate('/login')
+      }, 1000)
     } catch (error) {
       console.log('Registration error:', error.response?.data)
       
       // Always show "Registration failed" message
-      showToast('error', 'Registration failed', {
-        id: 'registration-error',
-        duration: 5000,
-      })
+      toastManager.error('Registration failed', 'registration-error')
       
       // Set field errors if they exist
       const errors = error.response?.data

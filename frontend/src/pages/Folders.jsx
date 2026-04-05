@@ -4,9 +4,9 @@ import CrushLoader from '../components/CrushLoader'
 
 import Pagination from '../components/Pagination'
 
-import { Folder, Plus, Trash2, Edit2, X, ChevronDown, ChevronRight, FileText, Search, XCircle, ChevronLeft } from 'lucide-react'
+import { Folder, Plus, Trash2, Edit2, X, ChevronDown, ChevronRight, FileText, Search, XCircle, ChevronLeft, Users } from 'lucide-react'
 
-import toast from 'react-hot-toast'
+import { toastManager } from '../utils/toastManager'
 
 import StatusBadge from '../components/StatusBadge'
 
@@ -17,6 +17,10 @@ import { useNavigate } from 'react-router-dom'
 import DeleteConfirmationModal from '../components/DeleteConfirmationModal'
 
 import ProjectDetailsTray from '../components/ProjectDetailsTray'
+
+import FolderMembersModal from '../components/FolderMembersModal'
+
+import { useAuthStore } from '../stores/authStore'
 
 const FOLDER_COLORS = [
   { gradient: 'linear-gradient(135deg, #FF9500, #FF8C00)', label: 'Orange' },
@@ -33,6 +37,17 @@ const getFolderColor = (folderId) => {
 function Folders() {
 
   const navigate = useNavigate()
+  
+  const { 
+    canCreateContent, 
+    canEditContent, 
+    canDeleteContent,
+    canViewContent,
+    canAddMember,
+    canCreateFolder,
+    canAddProof,
+    user 
+  } = useAuthStore()
 
   const [folders, setFolders] = useState([])
 
@@ -81,6 +96,8 @@ function Folders() {
   const [currentPage, setCurrentPage] = useState(1)
   const foldersPerPage = 5
   const [currentUser, setCurrentUser] = useState(null)
+  const [showMembersModal, setShowMembersModal] = useState(false)
+  const [selectedFolderForMembers, setSelectedFolderForMembers] = useState(null)
 
 
 
@@ -113,7 +130,7 @@ function Folders() {
 
     } catch (error) {
 
-      toast.error('Failed to fetch folders', { id: 'folders-toast' })
+      toastManager.fetchError('Failed to fetch folders')
 
       console.error('Error fetching folders:', error)
 
@@ -123,6 +140,15 @@ function Folders() {
 
     }
 
+  }
+
+  const fetchFolderProjects = async (folderId) => {
+    try {
+      const response = await api.get(`/versioning/folders/${folderId}/projects/`)
+      setFolderProjects(prev => ({ ...prev, [folderId]: response.data }))
+    } catch (error) {
+      console.error('Failed to fetch folder projects:', error)
+    }
   }
 
 
@@ -203,6 +229,61 @@ function Folders() {
               
               // Also refresh folders to get updated counts/stats
               fetchFolders()
+            }
+            
+            // Handle folder updates
+            if (data.type === 'folder_update') {
+              console.log('🔄 Folders: Folder update received:', data.update_type, 'Folder:', data.folder_id)
+              
+              const updateType = data.update_type
+              const folderId = data.folder_id
+              
+              if (updateType === 'folder_updated') {
+                // Folder name or description changed
+                toast.info(`Folder "${data.folder_name}" was updated`, { id: 'folder-update' })
+                fetchFolders()
+              } else if (updateType === 'folder_deleted') {
+                // Folder was deleted
+                toast.info(`Folder "${data.folder_name}" was deleted`, { id: 'folder-delete' })
+                setFolders(prev => prev.filter(f => f.id !== folderId))
+                if (expandedFolder === folderId) {
+                  setExpandedFolder(null)
+                }
+              } else if (updateType === 'proof_added') {
+                // Proof was added to folder
+                toast.info(`Proof added to "${data.folder_name}"`, { id: 'proof-added' })
+                if (expandedFolder === folderId) {
+                  fetchFolderProjects(folderId)
+                }
+                fetchFolders()
+              } else if (updateType === 'proof_removed') {
+                // Proof was removed from folder
+                toast.info(`Proof removed from "${data.folder_name}"`, { id: 'proof-removed' })
+                if (expandedFolder === folderId) {
+                  fetchFolderProjects(folderId)
+                }
+                fetchFolders()
+              } else if (updateType === 'member_added') {
+                // Member was added to folder
+                toast.info(`New member added to "${data.folder_name}"`, { id: 'member-added' })
+                fetchFolders()
+              } else if (updateType === 'member_removed') {
+                // Member was removed from folder
+                if (data.data.user_id === currentUser.id) {
+                  toast.warning(`You were removed from "${data.folder_name}"`, { id: 'member-removed' })
+                  setFolders(prev => prev.filter(f => f.id !== folderId))
+                  if (expandedFolder === folderId) {
+                    setExpandedFolder(null)
+                  }
+                } else {
+                  toast.info(`Member removed from "${data.folder_name}"`, { id: 'member-removed' })
+                  fetchFolders()
+                }
+              } else if (updateType === 'member_role_updated') {
+                // Member role was updated
+                toast.info(`Member role updated in "${data.folder_name}"`, { id: 'role-updated' })
+                fetchFolders()
+              }
             }
           } catch (error) {
             console.error('Failed to parse WebSocket message:', error)
@@ -285,7 +366,7 @@ function Folders() {
 
     if (existingFolder) {
 
-      toast.error('Folder Already Exists', { id: 'folders-toast' })
+      toastManager.error('Folder Already Exists', 'folder-exists')
 
       return
 
@@ -303,7 +384,7 @@ function Folders() {
 
       })
 
-      toast.success('Folder created successfully', { id: 'folders-toast' })
+      toastManager.success('Folder created successfully')
 
       setShowCreateModal(false)
 
@@ -319,7 +400,7 @@ function Folders() {
 
     } catch (error) {
 
-      toast.error('Folder Already Exists', { id: 'folders-toast' })
+      toastManager.error('Folder Already Exists', 'folder-exists')
 
     }
 
@@ -341,7 +422,7 @@ function Folders() {
       const shouldGoToPreviousPage = isOnlyItemOnPage && currentPage > 1
       
       await api.delete(`/versioning/folders/${folderToDelete}/`)
-      toast.success('Folder deleted successfully', { id: 'folders-toast' })
+      toastManager.success('Folder deleted successfully')
       
       // Fetch updated folders
       const response = await api.get('/versioning/folders/')
@@ -353,7 +434,7 @@ function Folders() {
         setCurrentPage(currentPage - 1)
       }
     } catch (error) {
-      toast.error('Failed to delete folder', { id: 'folders-toast' })
+      toastManager.deleteError('Failed to delete folder')
     } finally {
       setShowFolderDeleteModal(false)
       setFolderToDelete(null)
@@ -391,7 +472,7 @@ function Folders() {
 
       })
 
-      toast.success('Folder updated successfully', { id: 'folders-toast' })
+      toastManager.success('Folder updated successfully')
 
       setEditingFolder(null)
 
@@ -407,7 +488,7 @@ function Folders() {
 
       const errorMsg = error.response?.data?.name?.[0] || error.response?.data?.detail || 'Failed to update folder'
 
-      toast.error(errorMsg, { id: 'folders-toast' })
+      toastManager.error(errorMsg, 'folder-update-error')
 
     }
 
@@ -462,7 +543,7 @@ function Folders() {
 
         } catch (error) {
 
-          toast.error('Failed to load folder projects', { id: 'folders-toast' })
+          toastManager.fetchError('Failed to load folder projects')
 
         }
 
@@ -529,7 +610,7 @@ function Folders() {
       const afterCheck = await api.get(`/versioning/projects/${projectId}/`)
       console.log('[Remove] Project after update:', afterCheck.data)
       
-      toast.success('Proof removed from folder', { id: 'folders-toast' })
+      toastManager.success('Proof removed from folder')
       setShowDeleteModal(false)
       setProjectToDelete(null)
       
@@ -561,7 +642,13 @@ function Folders() {
     } catch (error) {
       console.error('[Remove] Error:', error)
       console.error('[Remove] Response:', error.response?.data)
-      toast.error('Failed to remove proof: ' + (error.response?.data?.error || error.message), { id: 'folders-toast' })
+      
+      // Check for 403 Forbidden error and show appropriate message
+      if (error.response?.status === 403) {
+        toastManager.permission('You do not have permission to perform this action.\nPlease contact your administrator for assistance.')
+      } else {
+        toastManager.deleteError('Failed to remove proof: ' + (error.response?.data?.error || error.message))
+      }
     } finally {
       setDeleting(false)
     }
@@ -588,7 +675,7 @@ function Folders() {
       const availableProofs = proofs.filter(p => !currentFolderProofIds.includes(p.id) && p.folder_id !== expandedFolder)
       setAllProofs(availableProofs)
     } catch (error) {
-      toast.error('Failed to fetch proofs', { id: 'folders-toast' })
+      toastManager.fetchError('Failed to fetch proofs')
       console.error('Error fetching proofs:', error)
     } finally {
       setProofsLoading(false)
@@ -623,7 +710,7 @@ function Folders() {
 
   const handleAddProofsToFolder = async () => {
     if (selectedProofsToAdd.length === 0) {
-      toast.error('Please select at least one proof', { id: 'folders-toast' })
+      toastManager.error('Please select at least one proof', 'proof-selection-error')
       return
     }
 
@@ -636,14 +723,14 @@ function Folders() {
           })
         )
       )
-      toast.success(`Added ${selectedProofsToAdd.length} proof${selectedProofsToAdd.length > 1 ? 's' : ''} to folder`, { id: 'folders-toast' })
+      toastManager.success(`Added ${selectedProofsToAdd.length} proof${selectedProofsToAdd.length > 1 ? 's' : ''} to folder`)
       closeAddProofsModal()
       const response = await api.get(`/versioning/folders/${expandedFolder}/projects/`)
       setFolderProjects(prev => ({ ...prev, [expandedFolder]: response.data }))
       fetchFolders()
     } catch (error) {
       console.error('Error adding proofs:', error)
-      toast.error('Failed to add proofs to folder', { id: 'folders-toast' })
+      toastManager.error('Failed to add proofs to folder', 'add-proofs-error')
     } finally {
       setAddingProofs(false)
     }
@@ -693,6 +780,10 @@ function Folders() {
           <button
 
             onClick={() => {
+              if (!canCreateFolder()) {
+                toastManager.permission('You do not have permission to perform this action.\nPlease contact your administrator for assistance.')
+                return
+              }
               setShowCreateModal(true)
               setNewFolderNameError('')
             }}
@@ -913,7 +1004,9 @@ function Folders() {
 
                       e.stopPropagation()
 
-                      openEditModal(folder)
+                      setSelectedFolderForMembers(folder)
+
+                      setShowMembersModal(true)
 
                     }}
 
@@ -945,9 +1038,9 @@ function Folders() {
 
                     onMouseEnter={(e) => {
 
-                      e.currentTarget.style.background = 'rgba(10,132,255,0.2)'
+                      e.currentTarget.style.background = 'rgba(142,68,173,0.2)'
 
-                      e.currentTarget.style.color = '#0A84FF'
+                      e.currentTarget.style.color = '#8E44AD'
 
                     }}
 
@@ -959,17 +1052,56 @@ function Folders() {
 
                     }}
 
+                    title="Manage Members"
+
                   >
 
-                    <Edit2 size={14} />
+                    <Users size={14} />
 
                   </button>
+
+                  {canEditContent(folder) && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        openEditModal(folder)
+                      }}
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: 8,
+                        background: 'rgba(255,255,255,0.08)',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        color: 'rgba(255,255,255,0.6)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        transition: 'all 0.2s'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = 'rgba(10,132,255,0.2)'
+                        e.currentTarget.style.color = '#0A84FF'
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'rgba(255,255,255,0.08)'
+                        e.currentTarget.style.color = 'rgba(255,255,255,0.6)'
+                      }}
+                    >
+                      <Edit2 size={14} />
+                    </button>
+                  )}
 
                   <button
 
                     onClick={(e) => {
 
                       e.stopPropagation()
+
+                      if (!canAddProof()) {
+                        toastManager.permission('You do not have permission to perform this action.\nPlease contact your administrator for assistance.')
+                        return
+                      }
 
                       setExpandedFolder(folder.id)
 
@@ -1025,63 +1157,37 @@ function Folders() {
 
                   </button>
 
-                  <button
-
-                    onClick={(e) => {
-
-                      e.stopPropagation()
-
-                      handleDeleteFolder(folder.id)
-
-                    }}
-
-                    style={{
-
-                      width: 32,
-
-                      height: 32,
-
-                      borderRadius: 8,
-
-                      background: 'rgba(255,255,255,0.08)',
-
-                      border: '1px solid rgba(255,255,255,0.1)',
-
-                      color: 'rgba(255,255,255,0.6)',
-
-                      cursor: 'pointer',
-
-                      display: 'flex',
-
-                      alignItems: 'center',
-
-                      justifyContent: 'center',
-
-                      transition: 'all 0.2s'
-
-                    }}
-
-                    onMouseEnter={(e) => {
-
-                      e.currentTarget.style.background = 'rgba(255,55,95,0.2)'
-
-                      e.currentTarget.style.color = '#FF375F'
-
-                    }}
-
-                    onMouseLeave={(e) => {
-
-                      e.currentTarget.style.background = 'rgba(255,255,255,0.08)'
-
-                      e.currentTarget.style.color = 'rgba(255,255,255,0.6)'
-
-                    }}
-
-                  >
-
-                    <Trash2 size={14} />
-
-                  </button>
+                  {canDeleteContent(folder) && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleDeleteFolder(folder.id)
+                      }}
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: 8,
+                        background: 'rgba(255,255,255,0.08)',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        color: 'rgba(255,255,255,0.6)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        transition: 'all 0.2s'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = 'rgba(255,55,95,0.2)'
+                        e.currentTarget.style.color = '#FF375F'
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'rgba(255,255,255,0.08)'
+                        e.currentTarget.style.color = 'rgba(255,255,255,0.6)'
+                      }}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
 
                 </div>
 
@@ -2149,6 +2255,7 @@ function Folders() {
         </div>
       )}
 
+      
       {/* Project Details Tray */}
       <ProjectDetailsTray
         isOpen={isTrayOpen}
@@ -2172,6 +2279,16 @@ function Folders() {
             setCurrentPage(currentPage - 1)
           }
         }}
+      />
+
+      {/* Folder Members Modal */}
+      <FolderMembersModal
+        isOpen={showMembersModal}
+        onClose={() => {
+          setShowMembersModal(false)
+          setSelectedFolderForMembers(null)
+        }}
+        folder={selectedFolderForMembers}
       />
 
     </div>

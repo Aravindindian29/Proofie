@@ -2,18 +2,16 @@ import React, { useState } from 'react'
 import { Trash2 } from 'lucide-react'
 import axios from 'axios'
 import { useNavigate } from 'react-router-dom'
+import toast from 'react-hot-toast'
+import { useAuthStore } from '../../stores/authStore'
 
 const DeleteProofButton = ({ reviewCycleId, reviewCycle, currentUser }) => {
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
+  const { canDeleteProofInPreview } = useAuthStore()
 
-  // Check if user can delete
-  const canDelete = 
-    currentUser?.profile?.role === 'admin' ||
-    (currentUser?.profile?.role === 'manager' && 
-     reviewCycle?.created_by?.id === currentUser?.id)
-
-  if (!canDelete) return null
+  // Check if user can delete using permission system
+  if (!canDeleteProofInPreview()) return null
 
   const handleDelete = async () => {
     const confirmed = window.confirm(
@@ -32,11 +30,16 @@ const DeleteProofButton = ({ reviewCycleId, reviewCycle, currentUser }) => {
         }
       )
 
-      alert('Proof deleted successfully')
+      toast.success('Proof deleted successfully')
       navigate('/projects')
     } catch (error) {
       console.error('Failed to delete proof:', error)
-      alert(error.response?.data?.error || 'Failed to delete proof')
+      // Check for 403 Forbidden error and show appropriate message
+      if (error.response?.status === 403) {
+        toast.error('You do not have permission to perform this action.\nPlease contact your administrator for assistance.', { id: 'delete-access-denied' })
+      } else {
+        toast.error(error.response?.data?.error || 'Failed to delete proof', { id: 'delete-proof-toast' })
+      }
       setLoading(false)
     }
   }

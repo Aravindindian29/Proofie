@@ -1,9 +1,10 @@
 import toast from 'react-hot-toast'
 
+// Store active toasts globally to persist across renders
+const activeToasts = new Set()
+
 // Custom toast hook to prevent duplicate notifications
 export const usePreventDuplicateToast = () => {
-  const activeToasts = new Set()
-
   const showToast = (type, message, options = {}) => {
     const toastId = options.id || `${type}-${message}`
     

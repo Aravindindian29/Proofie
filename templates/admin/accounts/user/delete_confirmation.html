@@ -1,0 +1,278 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+    .delete-confirmation-container {
+        max-width: 1200px;
+        margin: 20px auto;
+        padding: 20px;
+    }
+    
+    .warning-box {
+        background-color: #fff3cd;
+        border: 2px solid #ffc107;
+        border-radius: 5px;
+        padding: 15px;
+        margin-bottom: 20px;
+    }
+    
+    .warning-box h3 {
+        color: #856404;
+        margin-top: 0;
+    }
+    
+    .users-list {
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 5px;
+        padding: 15px;
+        margin-bottom: 20px;
+    }
+    
+    .user-item {
+        padding: 10px;
+        margin-bottom: 10px;
+        background-color: white;
+        border-left: 4px solid #dc3545;
+        border-radius: 3px;
+    }
+    
+    .owned-content {
+        margin-top: 10px;
+        padding-left: 20px;
+        font-size: 0.9em;
+        color: #6c757d;
+    }
+    
+    .owned-content-item {
+        margin: 5px 0;
+    }
+    
+    .reassignment-section {
+        background-color: #e7f3ff;
+        border: 2px solid #0d6efd;
+        border-radius: 5px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .reassignment-section h3 {
+        color: #084298;
+        margin-top: 0;
+    }
+    
+    .form-group {
+        margin-bottom: 15px;
+    }
+    
+    .form-group label {
+        display: block;
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+    
+    .form-group select {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+    
+    .info-box {
+        background-color: #d1ecf1;
+        border: 1px solid #bee5eb;
+        border-radius: 5px;
+        padding: 15px;
+        margin-bottom: 20px;
+    }
+    
+    .info-box h4 {
+        color: #0c5460;
+        margin-top: 0;
+    }
+    
+    .info-box ul {
+        margin: 10px 0;
+        padding-left: 20px;
+    }
+    
+    .button-group {
+        margin-top: 20px;
+        display: flex;
+        gap: 10px;
+    }
+    
+    .btn-delete {
+        background-color: #dc3545;
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: bold;
+    }
+    
+    .btn-delete:hover {
+        background-color: #c82333;
+    }
+    
+    .btn-cancel {
+        background-color: #6c757d;
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        text-decoration: none;
+        display: inline-block;
+    }
+    
+    .btn-cancel:hover {
+        background-color: #5a6268;
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="delete-confirmation-container">
+    <h1>{{ title }}</h1>
+    
+    <div class="warning-box">
+        <h3>⚠️ Warning: User Deletion with Ownership Reassignment</h3>
+        <p>You are about to delete the following user(s). This action cannot be undone.</p>
+    </div>
+    
+    <div class="users-list">
+        <h3>Users to be deleted:</h3>
+        {% for user in users %}
+        <div class="user-item">
+            <strong>{{ user.username }}</strong> ({{ user.email }})
+            {% if user.first_name or user.last_name %}
+                - {{ user.first_name }} {{ user.last_name }}
+            {% endif %}
+            
+            {% with content=owned_content|dict_get:user %}
+            {% if content.total_count > 0 %}
+            <div class="owned-content">
+                <strong>Owned Content:</strong>
+                {% if content.folders.count > 0 %}
+                <div class="owned-content-item">
+                    📁 <strong>{{ content.folders.count }}</strong> Folder(s)
+                    {% if content.folders.items %}
+                    <ul>
+                        {% for folder in content.folders.items|slice:":5" %}
+                        <li>{{ folder.name }}</li>
+                        {% endfor %}
+                        {% if content.folders.count > 5 %}
+                        <li><em>... and {{ content.folders.count|add:"-5" }} more</em></li>
+                        {% endif %}
+                    </ul>
+                    {% endif %}
+                </div>
+                {% endif %}
+                
+                {% if content.projects.count > 0 %}
+                <div class="owned-content-item">
+                    📋 <strong>{{ content.projects.count }}</strong> Project(s)
+                    {% if content.projects.items %}
+                    <ul>
+                        {% for project in content.projects.items|slice:":5" %}
+                        <li>{{ project.name }}</li>
+                        {% endfor %}
+                        {% if content.projects.count > 5 %}
+                        <li><em>... and {{ content.projects.count|add:"-5" }} more</em></li>
+                        {% endif %}
+                    </ul>
+                    {% endif %}
+                </div>
+                {% endif %}
+                
+                {% if content.assets.count > 0 %}
+                <div class="owned-content-item">
+                    🎨 <strong>{{ content.assets.count }}</strong> Asset(s)
+                    {% if content.assets.items %}
+                    <ul>
+                        {% for asset in content.assets.items|slice:":5" %}
+                        <li>{{ asset.name }}</li>
+                        {% endfor %}
+                        {% if content.assets.count > 5 %}
+                        <li><em>... and {{ content.assets.count|add:"-5" }} more</em></li>
+                        {% endif %}
+                    </ul>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+            {% else %}
+            <div class="owned-content">
+                <em>No owned content</em>
+            </div>
+            {% endif %}
+            {% endwith %}
+        </div>
+        {% endfor %}
+    </div>
+    
+    <div class="info-box">
+        <h4>ℹ️ What happens during deletion:</h4>
+        <ul>
+            <li><strong>Ownership Reassignment:</strong> All folders, projects, and assets owned by the deleted user(s) will be reassigned to the selected user below.</li>
+            <li><strong>Historical Records Preserved:</strong> Annotations, comments, and version upload history will remain but show "Deleted User" in the frontend.</li>
+            <li><strong>Automatic Cleanup:</strong> User profile, notifications, memberships, and tokens will be automatically deleted.</li>
+            <li><strong>Audit Trail:</strong> Historical action records (who uploaded versions, created annotations, etc.) are preserved with null references to maintain data integrity.</li>
+        </ul>
+    </div>
+    
+    <form method="post">
+        {% csrf_token %}
+        
+        <div class="reassignment-section">
+            <h3>Select Reassignment User</h3>
+            <p>Choose a user who will receive ownership of all folders, projects, and assets currently owned by the user(s) being deleted.</p>
+            
+            <div class="form-group">
+                <label for="reassignment_user">Reassignment User: *</label>
+                <select name="reassignment_user" id="reassignment_user" required>
+                    <option value="">-- Select a user --</option>
+                    {% for available_user in available_users %}
+                    <option value="{{ available_user.id }}">
+                        {{ available_user.username }} - {{ available_user.email }}
+                        {% if available_user.first_name or available_user.last_name %}
+                            ({{ available_user.first_name }} {{ available_user.last_name }})
+                        {% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        
+        <div class="button-group">
+            <button type="submit" class="btn-delete" onclick="return confirm('Are you sure you want to delete these users? This action cannot be undone.');">
+                Delete Users and Reassign Ownership
+            </button>
+            <a href="{% url 'admin:auth_user_changelist' %}" class="btn-cancel">Cancel</a>
+        </div>
+    </form>
+</div>
+
+<script>
+// Custom template filter for dict access
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('form');
+    form.addEventListener('submit', function(e) {
+        const select = document.getElementById('reassignment_user');
+        if (!select.value) {
+            e.preventDefault();
+            alert('Please select a user to reassign ownership to.');
+            return false;
+        }
+    });
+});
+</script>
+{% endblock %}

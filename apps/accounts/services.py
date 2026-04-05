@@ -297,6 +297,160 @@ The Proofie Team
             }
 
 
+class UserDeletionService:
+    """Service for handling user deletion and ownership reassignment"""
+    
+    @staticmethod
+    def get_owned_content_summary(user):
+        """
+        Get summary of content owned by a user
+        
+        Args:
+            user: User object
+            
+        Returns:
+            dict: Summary of owned content with counts and querysets
+        """
+        from apps.versioning.models import Folder, Project, CreativeAsset
+        
+        folders = Folder.objects.filter(owner=user)
+        projects = Project.objects.filter(owner=user)
+        assets = CreativeAsset.objects.filter(created_by=user)
+        
+        return {
+            'folders': {
+                'count': folders.count(),
+                'queryset': folders,
+                'items': list(folders.values('id', 'name', 'created_at'))
+            },
+            'projects': {
+                'count': projects.count(),
+                'queryset': projects,
+                'items': list(projects.values('id', 'name', 'created_at'))
+            },
+            'assets': {
+                'count': assets.count(),
+                'queryset': assets,
+                'items': list(assets.values('id', 'name', 'created_at'))
+            },
+            'total_count': folders.count() + projects.count() + assets.count()
+        }
+    
+    @staticmethod
+    def reassign_ownership(user, reassignment_user):
+        """
+        Reassign all owned content from one user to another
+        
+        Args:
+            user: User object whose content will be reassigned
+            reassignment_user: User object who will receive ownership
+            
+        Returns:
+            dict: Result with counts of reassigned items
+        """
+        from apps.versioning.models import Folder, Project, CreativeAsset
+        
+        if user.id == reassignment_user.id:
+            raise ValueError("Cannot reassign ownership to the same user")
+        
+        # Reassign ONLY ownership fields
+        folders_count = Folder.objects.filter(owner=user).update(owner=reassignment_user)
+        projects_count = Project.objects.filter(owner=user).update(owner=reassignment_user)
+        assets_count = CreativeAsset.objects.filter(created_by=user).update(created_by=reassignment_user)
+        
+        return {
+            'folders_reassigned': folders_count,
+            'projects_reassigned': projects_count,
+            'assets_reassigned': assets_count,
+            'total_reassigned': folders_count + projects_count + assets_count
+        }
+    
+    @staticmethod
+    def can_delete_user_profile(profile):
+        """
+        Check if a user profile can be deleted (has no owned content or reassignment is required)
+        
+        Args:
+            profile: UserProfile object
+            
+        Returns:
+            dict: Result with can_delete flag and owned content summary
+        """
+        return profile.can_delete_safely()
+    
+    @staticmethod
+    def delete_user_profile(profile, reassignment_user=None):
+        """
+        Delete a user profile with optional ownership reassignment
+        
+        Args:
+            profile: UserProfile object to delete
+            reassignment_user: User object to reassign ownership to (if needed)
+            
+        Returns:
+            dict: Result with success status and details
+        """
+        from django.db import transaction
+        
+        with transaction.atomic():
+            try:
+                # If reassignment user provided, reassign ownership first
+                if reassignment_user and profile.user:
+                    reassignment_result = UserDeletionService.reassign_ownership(profile.user, reassignment_user)
+                    
+                    # Now delete the profile (which will delete the user)
+                    profile.delete()
+                    
+                    return {
+                        'success': True,
+                        'message': f'User profile for {profile.user.username} deleted successfully',
+                        'reassigned_content': reassignment_result,
+                        'user_deleted': True
+                    }
+                else:
+                    # No reassignment needed or provided, just delete
+                    profile.delete()
+                    
+                    return {
+                        'success': True,
+                        'message': f'User profile for {profile.user.username if profile.user else "Unknown"} deleted successfully',
+                        'reassigned_content': None,
+                        'user_deleted': True
+                    }
+                    
+            except ValidationError as e:
+                return {
+                    'success': False,
+                    'message': str(e),
+                    'error_type': 'ValidationError'
+                }
+            except Exception as e:
+                return {
+                    'success': False,
+                    'message': f'Error deleting user profile: {str(e)}',
+                    'error_type': 'UnexpectedError'
+                }
+
+    @staticmethod
+    def can_delete_user(user):
+        """
+        Check if a user can be deleted (has no owned content or reassignment is required)
+        
+        Args:
+            user: User object
+            
+        Returns:
+            dict: Result with can_delete flag and owned content summary
+        """
+        summary = UserDeletionService.get_owned_content_summary(user)
+        
+        return {
+            'can_delete': summary['total_count'] == 0,
+            'requires_reassignment': summary['total_count'] > 0,
+            'owned_content': summary
+        }
+
+
 class RegistrationService:
     """Service for handling user registration and email verification"""
     

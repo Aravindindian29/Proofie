@@ -31,6 +31,28 @@ class Folder(models.Model):
         return self.projects.count()
 
 
+class FolderMember(models.Model):
+    """Model for managing folder membership and access control"""
+    ROLE_CHOICES = [
+        ('owner', 'Owner'),
+        ('editor', 'Editor'),
+        ('viewer', 'Viewer'),
+    ]
+    
+    folder = models.ForeignKey(Folder, on_delete=models.CASCADE, related_name='members')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='folder_memberships')
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='viewer')
+    added_at = models.DateTimeField(auto_now_add=True)
+    added_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='added_folder_members')
+    
+    class Meta:
+        unique_together = ('folder', 'user')
+        ordering = ['-added_at']
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.folder.name} ({self.role})"
+
+
 class Project(models.Model):
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True)
