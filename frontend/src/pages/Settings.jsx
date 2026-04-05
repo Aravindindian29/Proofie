@@ -79,7 +79,6 @@ function Settings() {
                   gap: '12px',
                   padding: '12px 16px',
                   borderRadius: '12px',
-                  border: 'none',
                   background: activeTab === id 
                     ? 'linear-gradient(135deg, #0A84FF33, #0A84FF18)'
                     : 'transparent',

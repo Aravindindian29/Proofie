@@ -8,4 +8,7 @@ urlpatterns = [
     path('compare/', views.compare_versions, name='compare'),
     path('analyze-content/', views.analyze_content, name='analyze_content'),
     path('analyses/', views.list_analyses, name='list_analyses'),
+    path('test-jira/', views.test_jira_connection, name='test_jira'),
+    path('jira-post/', views.post_to_jira, name='post_to_jira'),
+    path('generate-tests/', views.generate_test_cases, name='generate_tests'),
 ]

@@ -66,8 +66,29 @@ class PDFExtractor:
             logger.error(f"Error extracting text with coordinates: {e}")
             raise
     
+    def find_cpi_id_from_filename(self, pdf_path):
+        """Extract CPI ID from filename using pattern CPI-XXX"""
+        try:
+            import os
+            filename = os.path.basename(pdf_path)
+            
+            # Pattern: CPI-XXX (any number of digits after CPI-)
+            pattern = r'CPI-\d+'
+            
+            match = re.search(pattern, filename, re.IGNORECASE)
+            if match:
+                cpi_id = match.group(0).upper()
+                logger.info(f"Found CPI ID from filename: {cpi_id}")
+                return cpi_id
+            
+            logger.warning(f"No CPI ID found in filename: {filename}")
+            return None
+        except Exception as e:
+            logger.error(f"Error extracting CPI ID from filename: {e}")
+            return None
+    
     def find_cpi_id(self, pdf_path):
-        """Search for CPI ID pattern in PDF"""
+        """Search for CPI ID pattern in PDF content (fallback method)"""
         try:
             doc = fitz.open(pdf_path)
             
@@ -80,11 +101,11 @@ class PDFExtractor:
                 if match:
                     cpi_id = match.group(0)
                     doc.close()
-                    logger.info(f"Found CPI ID: {cpi_id}")
+                    logger.info(f"Found CPI ID in content: {cpi_id}")
                     return cpi_id
             
             doc.close()
-            logger.warning("No CPI ID found in PDF")
+            logger.warning("No CPI ID found in PDF content")
             return None
         except Exception as e:
             logger.error(f"Error finding CPI ID: {e}")
