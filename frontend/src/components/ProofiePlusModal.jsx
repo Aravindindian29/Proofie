@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import api from '../services/api';
 
 const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
+  console.log('🔥🔥🔥 ProofiePlusModal LOADED with NEW titles!!!');
   const [activeFeature, setActiveFeature] = useState(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
@@ -15,9 +16,9 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
   const features = [
     {
       id: 'summarize',
-      title: '✨ UPDATED: Document Summarization',
+      title: 'Document Summarization',
       icon: FileText,
-      description: 'Gen AI powered summary of document content',
+      description: 'Document Summarization',
       color: 'blue',
       endpoint: '/ai-engine/summarize/'
     },
@@ -25,16 +26,16 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
       id: 'compare',
       title: 'Version Comparison',
       icon: GitCompare,
-      description: 'Analyse Difference between AS-Is and TO-BE',
+      description: 'Version Comparison',
       color: 'purple',
       endpoint: '/ai-engine/compare/',
       disabled: false
     },
     {
       id: 'analyze',
-      title: 'Content Analysis + Compliance Checks',
+      title: 'Content Analysis + Compliance Checks. ',
       icon: CheckCircle,
-      description: 'Language Improvements and Compliance checks',
+      description: 'Content Analysis + Compliance Checks. ',
       color: 'green',
       endpoint: '/ai-engine/analyze-content/'
     },
@@ -50,7 +51,7 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
       id: 'testcases',
       title: 'Test Case Generation',
       icon: FileSpreadsheet,
-      description: 'Create test cases and attach to Jira',
+      description: 'Test Case Generation',
       color: 'pink',
       disabled: false
     }
@@ -776,7 +777,7 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
           <div className="flex items-center gap-3">
             <Sparkles className="w-8 h-8" />
             <div>
-              <h2 className="text-2xl font-bold">🚀 ProofiePlus AI - UPDATED</h2>
+              <h2 className="text-2xl font-bold">ProofiePlus</h2>
               <p className="text-purple-100">Intelligent Document Analysis - New Features</p>
             </div>
           </div>
