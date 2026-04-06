@@ -778,7 +778,7 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
             <Sparkles className="w-8 h-8" />
             <div>
               <h2 className="text-2xl font-bold">ProofiePlus</h2>
-              <p className="text-purple-100">Intelligent Document Analysis - New Features</p>
+              <p className="text-purple-100">Intelligent Document Analysis</p>
             </div>
           </div>
           <button
