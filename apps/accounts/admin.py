@@ -23,13 +23,25 @@ class UserProfileInline(admin.StackedInline):
         ('Basic Information', {
             'fields': ('role', 'avatar', 'bio', 'phone', 'company', 'job_title')
         }),
-        ('Permissions', {
+        ('Proof Permissions', {
             'fields': (
-                ('can_create_folder', 'can_add_member', 'can_edit_folder', 'can_add_proof', 'can_delete_folder'),
-                ('can_add_proof_in_folder', 'can_delete_proof_in_folder'),
-                ('can_use_proofieplus', 'can_add_comment', 'can_delete_proof_in_preview'),
+                ('can_create_proof',),
             ),
-            'description': 'User-specific permissions (overrides role defaults)',
+            'description': 'Proof creation permissions',
+            'classes': ('permissions-horizontal',)
+        }),
+        ('Folder Permissions', {
+            'fields': (
+                ('can_create_folder', 'can_edit_folder', 'can_add_delete_member', 'can_add_delete_proof', 'can_delete_folder'),
+            ),
+            'description': 'Folder management permissions',
+            'classes': ('permissions-horizontal',)
+        }),
+        ('PDF Preview Permissions', {
+            'fields': (
+                ('can_use_proofieplus', 'can_add_comment', 'can_delete_proof_in_preview', 'can_make_decisions'),
+            ),
+            'description': 'PDF Preview management permissions',
             'classes': ('permissions-horizontal',)
         }),
     )
@@ -173,13 +185,25 @@ class UserProfileAdmin(admin.ModelAdmin):
         ('Profile Details', {
             'fields': ('avatar', 'bio', 'phone', 'company', 'job_title')
         }),
-        ('Permissions', {
+        ('Proof Permissions', {
             'fields': (
-                ('can_create_folder', 'can_add_member', 'can_edit_folder', 'can_add_proof', 'can_delete_folder'),
-                ('can_add_proof_in_folder', 'can_delete_proof_in_folder'),
-                ('can_use_proofieplus', 'can_add_comment', 'can_delete_proof_in_preview'),
+                ('can_create_proof',),
             ),
-            'description': 'User-specific permissions (overrides role defaults)',
+            'description': 'Proof creation permissions',
+            'classes': ('permissions-horizontal',)
+        }),
+        ('Folder Permissions', {
+            'fields': (
+                ('can_create_folder', 'can_edit_folder', 'can_add_delete_member', 'can_add_delete_proof', 'can_delete_folder'),
+            ),
+            'description': 'Folder management permissions',
+            'classes': ('permissions-horizontal',)
+        }),
+        ('PDF Preview Permissions', {
+            'fields': (
+                ('can_use_proofieplus', 'can_add_comment', 'can_delete_proof_in_preview', 'can_make_decisions'),
+            ),
+            'description': 'PDF Preview management permissions',
             'classes': ('permissions-horizontal',)
         }),
         ('Ownership Information', {

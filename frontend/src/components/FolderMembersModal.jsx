@@ -5,7 +5,7 @@ import api from '../services/api'
 import { useAuthStore } from '../stores/authStore'
 
 function FolderMembersModal({ isOpen, onClose, folder }) {
-  const { user } = useAuthStore()
+  const { user, canAddMember } = useAuthStore()
   const [members, setMembers] = useState([])
   const [loading, setLoading] = useState(false)
   const [showAddMember, setShowAddMember] = useState(false)
@@ -159,8 +159,8 @@ function FolderMembersModal({ isOpen, onClose, folder }) {
       
       await Promise.all(promises)
       
-      const count = selectedUsers.length
-      toast.success(`${count} member${count > 1 ? 's' : ''} added successfully`, { id: 'add-member-success' })
+      toast.dismiss() // Clear all existing toasts
+      toast.success('Members added successfully', { id: 'folder-toast' })
       setShowAddMember(false)
       setSelectedUsers([])
       setSelectedRole('viewer')
@@ -168,7 +168,23 @@ function FolderMembersModal({ isOpen, onClose, folder }) {
       fetchMembers()
     } catch (error) {
       const errorMsg = error.response?.data?.detail || 'Failed to add members'
-      toast.error(errorMsg, { id: 'add-member-error' })
+      
+      if (error.response?.status === 403) {
+        toast.dismiss() // Clear all existing toasts
+        toast.error(
+          'You do not have permission to perform this action.\nPlease contact your administrator for assistance.',
+          { 
+            id: 'folder-toast',
+            style: {
+              textAlign: 'center',
+              whiteSpace: 'pre-line'
+            }
+          }
+        )
+      } else {
+        toast.dismiss() // Clear all existing toasts
+        toast.error(errorMsg, { id: 'folder-toast' })
+      }
     }
   }
 
@@ -177,11 +193,28 @@ function FolderMembersModal({ isOpen, onClose, folder }) {
       await api.delete(`/versioning/folders/${folder.id}/remove_member/`, {
         data: { member_id: memberId }
       })
-      toast.success('Member removed successfully', { id: 'remove-member-success' })
+      toast.dismiss() // Clear all existing toasts
+      toast.success('Member removed successfully', { id: 'folder-toast' })
       fetchMembers()
     } catch (error) {
       const errorMsg = error.response?.data?.detail || 'Failed to remove member'
-      toast.error(errorMsg, { id: 'remove-member-error' })
+      
+      if (error.response?.status === 403) {
+        toast.dismiss() // Clear all existing toasts
+        toast.error(
+          'You do not have permission to perform this action.\nPlease contact your administrator for assistance.',
+          { 
+            id: 'folder-toast',
+            style: {
+              textAlign: 'center',
+              whiteSpace: 'pre-line'
+            }
+          }
+        )
+      } else {
+        toast.dismiss() // Clear all existing toasts
+        toast.error(errorMsg, { id: 'folder-toast' })
+      }
     }
   }
 
@@ -576,7 +609,7 @@ function FolderMembersModal({ isOpen, onClose, folder }) {
                         ? canRemoveOwner(member)
                         : canRemoveMember(member)
                       
-                      return canRemove && (
+                      return canRemove && canAddMember() && (
                         <button
                           onClick={() => handleRemoveMember(member.id)}
                           style={{

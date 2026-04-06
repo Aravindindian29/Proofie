@@ -26,7 +26,7 @@ const statCards = [
 ]
 
 function Dashboard() {
-  const { user, canDeleteProofInPreview, canAddProof } = useAuthStore()
+  const { user, canDeleteProofInPreview, canCreateProof } = useAuthStore()
   const navigate = useNavigate()
   const location = useLocation()
   const [stats, setStats] = useState({ projects: 0, assets: 0, reviewCycles: 0, pendingApprovals: 0 })
@@ -206,13 +206,6 @@ function Dashboard() {
   }, [recentProjects, location.pathname])
 
   const openModal = () => {
-    if (!canAddProof()) {
-      toast.error(
-        'You do not have permission to perform this action.\nPlease contact your administrator for assistance.',
-        { id: 'create-access-denied' }
-      )
-      return
-    }
     setShowModal(true)
   }
 

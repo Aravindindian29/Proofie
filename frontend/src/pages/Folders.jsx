@@ -130,7 +130,7 @@ function Folders() {
 
     } catch (error) {
 
-      toastManager.fetchError('Failed to fetch folders')
+      toastManager.fetchError('Failed to fetch folders', 'fetch-error')
 
       console.error('Error fetching folders:', error)
 
@@ -358,15 +358,17 @@ function Folders() {
 
 
 
-    // Check for case-insensitive duplicate folder name
+    // Only check for duplicate folder name if there's actually a name entered
 
-    const folderNameLower = newFolderName.trim().toLowerCase()
+    const folderNameTrimmed = newFolderName.trim()
+
+    const folderNameLower = folderNameTrimmed.toLowerCase()
 
     const existingFolder = folders.find(folder => folder.name.toLowerCase() === folderNameLower)
 
     if (existingFolder) {
 
-      toastManager.error('Folder Already Exists', 'folder-exists')
+      toastManager.error('Folder Already Exists', 'folder-toast')
 
       return
 
@@ -378,13 +380,15 @@ function Folders() {
 
       await api.post('/versioning/folders/', {
 
-        name: newFolderName.trim(),
+        name: folderNameTrimmed,
 
         description: newFolderDescription.trim()
 
       })
 
-      toastManager.success('Folder created successfully')
+      toastManager.clearAll() // Clear all existing toasts
+
+      toastManager.success('Folder created successfully', 'folder-toast')
 
       setShowCreateModal(false)
 
@@ -400,7 +404,23 @@ function Folders() {
 
     } catch (error) {
 
-      toastManager.error('Folder Already Exists', 'folder-exists')
+      // Show the actual error from backend
+      const errorMsg = error.response?.data?.detail || error.response?.data?.error || 'Failed to create folder'
+      
+      if (error.response?.status === 403) {
+        toastManager.error(
+          'You do not have permission to perform this action.\nPlease contact your administrator for assistance.',
+          'permission-denied',
+          {
+            style: {
+              textAlign: 'center',
+              whiteSpace: 'pre-line'
+            }
+          }
+        )
+      } else {
+        toastManager.error(errorMsg, 'folder-toast')
+      }
 
     }
 
@@ -422,7 +442,8 @@ function Folders() {
       const shouldGoToPreviousPage = isOnlyItemOnPage && currentPage > 1
       
       await api.delete(`/versioning/folders/${folderToDelete}/`)
-      toastManager.success('Folder deleted successfully')
+      toastManager.clearAll() // Clear all existing toasts
+      toastManager.success('Folder deleted successfully', 'folder-toast')
       
       // Fetch updated folders
       const response = await api.get('/versioning/folders/')
@@ -434,7 +455,22 @@ function Folders() {
         setCurrentPage(currentPage - 1)
       }
     } catch (error) {
-      toastManager.deleteError('Failed to delete folder')
+      const errorMsg = error.response?.data?.detail || error.response?.data?.error || 'Failed to delete folder'
+      
+      if (error.response?.status === 403) {
+        toastManager.error(
+          'You do not have permission to perform this action.\nPlease contact your administrator for assistance.',
+          'permission-denied',
+          {
+            style: {
+              textAlign: 'center',
+              whiteSpace: 'pre-line'
+            }
+          }
+        )
+      } else {
+        toastManager.deleteError(errorMsg, 'folder-toast')
+      }
     } finally {
       setShowFolderDeleteModal(false)
       setFolderToDelete(null)
@@ -472,7 +508,8 @@ function Folders() {
 
       })
 
-      toastManager.success('Folder updated successfully')
+      toastManager.clearAll() // Clear all existing toasts
+      toastManager.success('Folder updated successfully', 'folder-toast')
 
       setEditingFolder(null)
 
@@ -487,8 +524,21 @@ function Folders() {
     } catch (error) {
 
       const errorMsg = error.response?.data?.name?.[0] || error.response?.data?.detail || 'Failed to update folder'
-
-      toastManager.error(errorMsg, 'folder-update-error')
+      
+      if (error.response?.status === 403) {
+        toastManager.error(
+          'You do not have permission to perform this action.\nPlease contact your administrator for assistance.',
+          'permission-denied',
+          {
+            style: {
+              textAlign: 'center',
+              whiteSpace: 'pre-line'
+            }
+          }
+        )
+      } else {
+        toastManager.error(errorMsg, 'folder-toast')
+      }
 
     }
 
@@ -543,7 +593,7 @@ function Folders() {
 
         } catch (error) {
 
-          toastManager.fetchError('Failed to load folder projects')
+          toastManager.fetchError('Failed to load folder projects', 'fetch-error')
 
         }
 
@@ -591,6 +641,7 @@ function Folders() {
 
   const handleConfirmDelete = async () => {
     if (!projectToDelete) return
+    
     const projectId = projectToDelete.id
     setDeleting(true)
     try {
@@ -610,7 +661,8 @@ function Folders() {
       const afterCheck = await api.get(`/versioning/projects/${projectId}/`)
       console.log('[Remove] Project after update:', afterCheck.data)
       
-      toastManager.success('Proof removed from folder')
+      toastManager.clearAll() // Clear all existing toasts
+      toastManager.success('Proof removed from folder', 'folder-toast')
       setShowDeleteModal(false)
       setProjectToDelete(null)
       
@@ -645,9 +697,9 @@ function Folders() {
       
       // Check for 403 Forbidden error and show appropriate message
       if (error.response?.status === 403) {
-        toastManager.permission('You do not have permission to perform this action.\nPlease contact your administrator for assistance.')
+        toastManager.permission('You do not have permission to perform this action.\nPlease contact your administrator for assistance.', 'folder-toast')
       } else {
-        toastManager.deleteError('Failed to remove proof: ' + (error.response?.data?.error || error.message))
+        toastManager.deleteError('Failed to remove proof: ' + (error.response?.data?.error || error.message), 'folder-toast')
       }
     } finally {
       setDeleting(false)
@@ -675,7 +727,7 @@ function Folders() {
       const availableProofs = proofs.filter(p => !currentFolderProofIds.includes(p.id) && p.folder_id !== expandedFolder)
       setAllProofs(availableProofs)
     } catch (error) {
-      toastManager.fetchError('Failed to fetch proofs')
+      toastManager.fetchError('Failed to fetch proofs', 'fetch-error')
       console.error('Error fetching proofs:', error)
     } finally {
       setProofsLoading(false)
@@ -710,7 +762,8 @@ function Folders() {
 
   const handleAddProofsToFolder = async () => {
     if (selectedProofsToAdd.length === 0) {
-      toastManager.error('Please select at least one proof', 'proof-selection-error')
+      toastManager.clearAll() // Clear all existing toasts
+      toastManager.error('Please select at least one proof', 'folder-toast')
       return
     }
 
@@ -723,14 +776,25 @@ function Folders() {
           })
         )
       )
-      toastManager.success(`Added ${selectedProofsToAdd.length} proof${selectedProofsToAdd.length > 1 ? 's' : ''} to folder`)
+      toastManager.clearAll() // Clear all existing toasts
+      toastManager.success('Added proofs to folder', 'folder-toast')
       closeAddProofsModal()
       const response = await api.get(`/versioning/folders/${expandedFolder}/projects/`)
       setFolderProjects(prev => ({ ...prev, [expandedFolder]: response.data }))
       fetchFolders()
     } catch (error) {
       console.error('Error adding proofs:', error)
-      toastManager.error('Failed to add proofs to folder', 'add-proofs-error')
+      toastManager.clearAll() // Clear all existing toasts
+      toastManager.error(
+        'You do not have permission to perform this action.\nPlease contact your administrator for assistance.',
+        'folder-toast',
+        {
+          style: {
+            textAlign: 'center',
+            whiteSpace: 'pre-line'
+          }
+        }
+      )
     } finally {
       setAddingProofs(false)
     }
@@ -780,10 +844,6 @@ function Folders() {
           <button
 
             onClick={() => {
-              if (!canCreateFolder()) {
-                toastManager.permission('You do not have permission to perform this action.\nPlease contact your administrator for assistance.')
-                return
-              }
               setShowCreateModal(true)
               setNewFolderNameError('')
             }}
@@ -1060,37 +1120,36 @@ function Folders() {
 
                   </button>
 
-                  {canEditContent(folder) && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        openEditModal(folder)
-                      }}
-                      style={{
-                        width: 32,
-                        height: 32,
-                        borderRadius: 8,
-                        background: 'rgba(255,255,255,0.08)',
-                        border: '1px solid rgba(255,255,255,0.1)',
-                        color: 'rgba(255,255,255,0.6)',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        transition: 'all 0.2s'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background = 'rgba(10,132,255,0.2)'
-                        e.currentTarget.style.color = '#0A84FF'
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = 'rgba(255,255,255,0.08)'
-                        e.currentTarget.style.color = 'rgba(255,255,255,0.6)'
-                      }}
-                    >
-                      <Edit2 size={14} />
-                    </button>
-                  )}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      openEditModal(folder)
+                    }}
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 8,
+                      background: 'rgba(255,255,255,0.08)',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      color: 'rgba(255,255,255,0.6)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'rgba(10,132,255,0.2)'
+                      e.currentTarget.style.color = '#0A84FF'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'rgba(255,255,255,0.08)'
+                      e.currentTarget.style.color = 'rgba(255,255,255,0.6)'
+                    }}
+                    title="Edit Folder"
+                  >
+                    <Edit2 size={14} />
+                  </button>
 
                   <button
 
@@ -1098,16 +1157,13 @@ function Folders() {
 
                       e.stopPropagation()
 
-                      if (!canAddProof()) {
-                        toastManager.permission('You do not have permission to perform this action.\nPlease contact your administrator for assistance.')
-                        return
-                      }
-
                       setExpandedFolder(folder.id)
 
                       openAddProofsModal()
 
                     }}
+
+                    title="Add Proof"
 
                     style={{
 
@@ -1157,37 +1213,36 @@ function Folders() {
 
                   </button>
 
-                  {canDeleteContent(folder) && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleDeleteFolder(folder.id)
-                      }}
-                      style={{
-                        width: 32,
-                        height: 32,
-                        borderRadius: 8,
-                        background: 'rgba(255,255,255,0.08)',
-                        border: '1px solid rgba(255,255,255,0.1)',
-                        color: 'rgba(255,255,255,0.6)',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        transition: 'all 0.2s'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background = 'rgba(255,55,95,0.2)'
-                        e.currentTarget.style.color = '#FF375F'
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = 'rgba(255,255,255,0.08)'
-                        e.currentTarget.style.color = 'rgba(255,255,255,0.6)'
-                      }}
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  )}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleDeleteFolder(folder.id)
+                    }}
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 8,
+                      background: 'rgba(255,255,255,0.08)',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      color: 'rgba(255,255,255,0.6)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'rgba(255,55,95,0.2)'
+                      e.currentTarget.style.color = '#FF375F'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'rgba(255,255,255,0.08)'
+                      e.currentTarget.style.color = 'rgba(255,255,255,0.6)'
+                    }}
+                    title="Delete Folder"
+                  >
+                    <Trash2 size={14} />
+                  </button>
 
                 </div>
 
@@ -2164,7 +2219,7 @@ function Folders() {
                   cursor: selectedProofsToAdd.length === 0 || addingProofs ? 'not-allowed' : 'pointer'
                 }}
               >
-                {addingProofs ? 'Adding...' : `Add ${selectedProofsToAdd.length > 0 ? `(${selectedProofsToAdd.length})` : ''}`}
+                {`Add${selectedProofsToAdd.length > 0 ? ` (${selectedProofsToAdd.length})` : ''}`}
               </button>
             </div>
           </div>

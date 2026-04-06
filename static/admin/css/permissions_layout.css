@@ -21,54 +21,17 @@
     padding-left: 0;
 }
 
-.permissions-horizontal .form-row.field-can_create_folder::before {
-    content: "Folder";
-    font-weight: 500;
-    color: #eeeeee;
-    font-size: 12px;
-    flex: 0 0 100px;
-    margin-right: 20px;
-    text-align: left;
-    position: static;
-    transform: none;
-    display: inline-block;
-    line-height: 1;
-}
-
 .permissions-horizontal .form-row.field-can_add_proof_in_folder {
     padding-left: 0;
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+    margin-top: 20px;
 }
 
-.permissions-horizontal .form-row.field-can_add_proof_in_folder::before {
-    content: "Folder Tray";
-    font-weight: 500;
-    color: #eeeeee;
-    font-size: 12px;
-    flex: 0 0 100px;
-    margin-right: 20px;
-    text-align: left;
-    position: static;
-    transform: none;
-    display: inline-block;
-    line-height: 1;
-}
 
 .permissions-horizontal .form-row.field-can_use_proofieplus {
     padding-left: 0;
-}
-
-.permissions-horizontal .form-row.field-can_use_proofieplus::before {
-    content: "Proof Preview";
-    font-weight: 500;
-    color: #eeeeee;
-    font-size: 12px;
-    flex: 0 0 100px;
-    margin-right: 20px;
-    text-align: left;
-    position: static;
-    transform: none;
-    display: inline-block;
-    line-height: 1;
 }
 
 /* Flex container styling */

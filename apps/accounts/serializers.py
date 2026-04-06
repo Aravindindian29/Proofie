@@ -9,9 +9,11 @@ class UserProfileSerializer(serializers.ModelSerializer):
         fields = [
             'role', 'avatar', 'bio', 'phone', 'company', 'job_title', 
             'created_at', 'updated_at', 'permissions_updated_at',
+            # Proof Permissions
+            'can_create_proof',
             # Folder Permissions
-            'can_create_folder', 'can_add_member', 'can_edit_folder', 
-            'can_add_proof', 'can_delete_folder',
+            'can_create_folder', 'can_add_delete_member', 'can_edit_folder', 
+            'can_add_delete_proof', 'can_delete_folder',
             # Inside Folder Permissions
             'can_delete_proof_in_folder',
             # Proof Preview Permissions

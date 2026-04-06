@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { X, ChevronLeft, Link, Send, Download, MoreHorizontal, Eye, Users, Calendar, Clock, Hourglass, User, Trash2, MessageSquare, CheckCircle, XCircle, RefreshCw, Lock, ArrowRight } from 'lucide-react'
 import api from '../services/api'
-import toast from 'react-hot-toast'
+import { toastManager } from '../utils/toastManager'
 import DeleteConfirmationModal from './DeleteConfirmationModal'
 import DecisionModal from './workflow/DecisionModal'
 import { useAuthStore } from '../stores/authStore'
@@ -39,7 +39,7 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted }) {
     setDeleting(true)
     try {
       await api.delete(`/versioning/projects/${displayProject.id}/`)
-      toast.success('Proof deleted successfully', { id: 'proof-action-toast' })
+      toastManager.success('Proof deleted successfully', 'folder-toast')
       setShowDeleteModal(false)
       onClose()
       if (onProjectDeleted) {
@@ -49,9 +49,14 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted }) {
       console.error('Delete error:', error)
       // Check for 403 Forbidden error and show appropriate message
       if (error.response?.status === 403) {
-        toast.error('You do not have permission to perform this action.\nPlease contact your administrator for assistance.', { id: 'delete-access-denied' })
+        toastManager.error('You do not have permission to perform this action.\nPlease contact your administrator for assistance.', 'folder-toast', {
+          style: {
+            textAlign: 'center',
+            whiteSpace: 'pre-line'
+          }
+        })
       } else {
-        toast.error('Failed to delete proof: ' + (error.response?.data?.error || error.message), { id: 'proof-action-toast' })
+        toastManager.error('Failed to delete proof: ' + (error.response?.data?.error || error.message), 'folder-toast')
       }
     } finally {
       setDeleting(false)
@@ -256,7 +261,7 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted }) {
   const handleDecisionSuccess = () => {
     setShowDecisionModal(false)
     fetchWorkflowData()
-    toast.success('Decision submitted successfully')
+    toastManager.success('Decision submitted successfully', 'folder-toast')
   }
 
   const fetchProjectAssets = async () => {

@@ -14,6 +14,9 @@ class RolePermission(models.Model):
     
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, unique=True, verbose_name='Role')
     
+    # Proof Permissions
+    can_create_proof = models.BooleanField(default=False, verbose_name='Create Proof')
+    
     # Folder Permissions
     can_create_folder = models.BooleanField(default=False, verbose_name='Create Folder')
     can_add_member = models.BooleanField(default=False, verbose_name='Add Member')

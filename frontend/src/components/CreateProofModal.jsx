@@ -2,8 +2,10 @@ import React, { useState, useEffect, useRef } from 'react'
 import { X, Plus, Users, XCircle, Folder } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../services/api'
+import { useAuthStore } from '../stores/authStore'
 
 function CreateProofModal({ isOpen, onClose, onSuccess }) {
+  const { canCreateFolder } = useAuthStore()
   const [formData, setFormData] = useState({ name: '', description: '' })
   const [nameError, setNameError] = useState(false)
   const [selectedReviewers, setSelectedReviewers] = useState([])
@@ -92,6 +94,20 @@ function CreateProofModal({ isOpen, onClose, onSuccess }) {
       
       // Include folder_name if user entered one (will auto-create folder on backend)
       if (folderNameInput && folderNameInput.trim()) {
+        // Check if user has permission to create folders
+        if (!canCreateFolder()) {
+          toast.error(
+            'You do not have permission to perform this action.\nPlease contact your administrator for assistance.',
+            { 
+              id: 'folder-creation-denied',
+              style: {
+                textAlign: 'center',
+                whiteSpace: 'pre-line'
+              }
+            }
+          )
+          return
+        }
         projectPayload.folder_name = folderNameInput.trim()
       }
       
@@ -159,7 +175,21 @@ function CreateProofModal({ isOpen, onClose, onSuccess }) {
                           error.response?.data?.description?.[0] ||
                           error.message || 
                           'Failed to create proof'
-      toast.error(errorMessage, { id: 'proof-action-toast' })
+      
+      if (error.response?.status === 403) {
+        toast.error(
+          'You do not have permission to perform this action.\nPlease contact your administrator for assistance.',
+          { 
+            id: 'proof-action-toast',
+            style: {
+              textAlign: 'center',
+              whiteSpace: 'pre-line'
+            }
+          }
+        )
+      } else {
+        toast.error(errorMessage, { id: 'proof-action-toast' })
+      }
     }
   }
 
@@ -752,11 +782,17 @@ function CreateProofModal({ isOpen, onClose, onSuccess }) {
                       <div style={{ marginBottom: 16 }}>
                         <input
                           type="text"
-                          placeholder="Enter Folder Name (optional)"
+                          placeholder={canCreateFolder() ? "Enter Folder Name (optional)" : "Folder creation requires permission"}
                           value={folderNameInput}
                           onChange={(e) => setFolderNameInput(e.target.value)}
                           className="input-field"
-                          style={{ width: '100%' }}
+                          style={{ 
+                            width: '100%',
+                            opacity: canCreateFolder() ? 1 : 0.5,
+                            cursor: canCreateFolder() ? 'text' : 'not-allowed'
+                          }}
+                          disabled={!canCreateFolder()}
+                          title={!canCreateFolder() ? "You do not have permission to create folders" : ""}
                         />
                       </div>
 

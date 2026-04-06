@@ -1,34 +1,34 @@
 import toast from 'react-hot-toast'
 
 export const toastManager = {
-  success: (message, id = 'success-action') => {
-    toast.dismiss(id) // Clear any existing with same ID
-    toast.success(message, { id, duration: 4000 })
+  success: (message, id = 'success-action', options = {}) => {
+    toast.dismiss() // Clear ALL existing toasts
+    toast.success(message, { id, duration: 4000, ...options })
   },
   
-  error: (message, id = 'error-general') => {
-    toast.dismiss(id) // Clear any existing with same ID
-    toast.error(message, { id, duration: 5000 })
+  error: (message, id = 'error-general', options = {}) => {
+    toast.dismiss() // Clear ALL existing toasts
+    toast.error(message, { id, duration: 5000, ...options })
   },
   
-  permission: (message) => {
-    toast.dismiss('permission-denied')
-    toast.error(message, { id: 'permission-denied', duration: 5000 })
+  permission: (message, id = 'permission-denied', options = {}) => {
+    toast.dismiss() // Clear ALL existing toasts
+    toast.error(message, { id, duration: 5000, ...options })
   },
   
-  deleteError: (message) => {
-    toast.dismiss('delete-error')
-    toast.error(message, { id: 'delete-error', duration: 5000 })
+  deleteError: (message, id = 'delete-error', options = {}) => {
+    toast.dismiss() // Clear ALL existing toasts
+    toast.error(message, { id, duration: 5000, ...options })
   },
   
-  createError: (message) => {
-    toast.dismiss('create-error')
-    toast.error(message, { id: 'create-error', duration: 5000 })
+  createError: (message, id = 'create-error', options = {}) => {
+    toast.dismiss() // Clear ALL existing toasts
+    toast.error(message, { id, duration: 5000, ...options })
   },
   
-  fetchError: (message) => {
-    toast.dismiss('fetch-error')
-    toast.error(message, { id: 'fetch-error', duration: 5000 })
+  fetchError: (message, id = 'fetch-error', options = {}) => {
+    toast.dismiss() // Clear ALL existing toasts
+    toast.error(message, { id, duration: 5000, ...options })
   },
   
   clearAll: () => toast.dismiss()

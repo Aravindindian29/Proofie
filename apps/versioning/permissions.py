@@ -54,6 +54,14 @@ class CanDeleteContent(permissions.BasePermission):
         return can_delete_content(request.user, obj)
 
 
+class CanCreateFolder(permissions.BasePermission):
+    """
+    Permission class that allows folder creation access based on user profile.
+    """
+    def has_permission(self, request, view):
+        return can_create_folder(request.user)
+
+
 class CanCreateContent(permissions.BasePermission):
     """
     Permission class that allows create access based on user role.
@@ -64,7 +72,7 @@ class CanCreateContent(permissions.BasePermission):
 
 def can_manage_folder_members(user, folder=None):
     """
-    Check if a user can manage folder members based on their system role.
+    Check if a user can manage folder members based on their profile permissions.
     
     Args:
         user: The user to check permissions for
@@ -77,10 +85,23 @@ def can_manage_folder_members(user, folder=None):
         from apps.accounts.models import UserProfile
         user_profile = UserProfile.objects.get(user=user)
         system_role = user_profile.role
+        can_add_delete_member = user_profile.can_add_delete_member
     except (UserProfile.DoesNotExist, AttributeError):
         # Fallback if profile doesn't exist
         system_role = 'lite_user'
+        can_add_delete_member = False
     
+    # Check granular permission first - this takes precedence over role-based permissions
+    if can_add_delete_member:
+        return {
+            'can_manage': True,
+            'can_add': True,
+            'can_remove': True,
+            'can_remove_owner': True,
+            'can_manage_all_folders': True
+        }
+    
+    # If granular permission is not set, fall back to role-based permissions
     # Admin and Manager have global management rights
     global_roles = ['admin', 'manager']
     
@@ -134,12 +155,26 @@ def can_remove_folder_member(user, target_user, folder):
     Returns:
         bool: True if removal is allowed
     """
-    # Check system permissions first
+    # Check if user has Add/Delete Member permission from profile - this takes precedence
+    try:
+        profile = user.profile
+        print(f"DEBUG: User {user.username}, can_add_delete_member: {profile.can_add_delete_member}")
+        if profile.can_add_delete_member:
+            print(f"DEBUG: User {user.username} has can_add_delete_member permission - ALLOWING removal")
+            return True
+        print(f"DEBUG: User {user.username} does not have can_add_delete_member permission, checking system permissions...")
+    except AttributeError as e:
+        print(f"DEBUG: AttributeError for user {user.username}: {e}, checking system permissions...")
+    
+    # Fall back to system permissions if checkbox permission is not set
     permissions = can_manage_folder_members(user, folder)
+    print(f"DEBUG: System permissions for user {user.username}: {permissions}")
     
     # Lite Users cannot remove anyone (including themselves)
     if not permissions['can_remove']:
+        print(f"DEBUG: User {user.username} failed system permission check")
         return False
+    print(f"DEBUG: User {user.username} passed system permission check")
     
     # Self-removal logic
     if user == target_user:
@@ -210,43 +245,66 @@ def can_edit_content(user, obj):
     try:
         profile = user.profile
         
-        # Check granular permission
-        if not profile.can_edit_folder:
-            return False
-        
-        # Admin and Manager (have all three core permissions) can edit everything
-        if profile.can_create_folder and profile.can_delete_folder and profile.can_edit_folder:
-            return True
-        
-        # Others cannot edit (Approver/Lite don't have can_edit_folder permission)
-        return False
+        # For adding/removing proofs to/from folders, check can_add_delete_proof permission
+        # For other edits, check can_edit_folder permission
+        if hasattr(obj, 'folder_id'):
+            # This is a project being added to or removed from a folder
+            if not profile.can_add_delete_proof:
+                return False
+            return profile.can_add_delete_proof
+        else:
+            # Other content edits (folders)
+            if not profile.can_edit_folder:
+                return False
+            return profile.can_edit_folder
         
     except AttributeError:
         return False
 
 
 def can_delete_content(user, obj):
-    """Check if user can delete content (folder or project) - Admin and Manager can delete all content"""
+    """Check if user can delete content (folder or project) - Only Admin/Manager can delete proofs, others check folder permissions"""
     try:
         profile = user.profile
         
-        # Check granular permission
-        if not profile.can_delete_folder:
+        # Check content type to determine which permission to use
+        if hasattr(obj, 'folder_id'):
+            # This is a project/proof - only Admin and Manager can delete
+            if profile.role in ['admin', 'manager']:
+                return True
+            # Lite and Approver users cannot delete proofs regardless of checkbox permissions
             return False
-        
-        # Admin and Manager (have all three core permissions) can delete everything
-        if profile.can_create_folder and profile.can_edit_folder and profile.can_delete_folder:
-            return True
-        
-        # Others cannot delete (Approver/Lite don't have can_delete_folder permission)
-        return False
+        else:
+            # This is a folder - Admin/Manager bypass checkboxes, others check can_delete_folder
+            if profile.role in ['admin', 'manager']:
+                return True
+            # Lite and Approver users must have can_delete_folder checkbox enabled for folders
+            if not profile.can_delete_folder:
+                return False
+            return profile.can_delete_folder
         
     except AttributeError:
         return False
 
 
 def can_create_content(user):
-    """Check if user can create content - uses can_create_folder permission"""
+    """Check if user can create content (proofs) - Admin/Manager bypass checkboxes, others check can_create_proof"""
+    try:
+        profile = user.profile
+        
+        # Admin and Manager can create content regardless of checkbox permissions
+        if profile.role in ['admin', 'manager']:
+            return True
+        
+        # Lite and Approver users must have can_create_proof checkbox enabled
+        return profile.can_create_proof
+        
+    except AttributeError:
+        return False
+
+
+def can_create_folder(user):
+    """Check if user can create folders"""
     try:
         profile = user.profile
         return profile.can_create_folder
@@ -312,8 +370,8 @@ def get_user_accessible_folders(user):
     """Get folders user can access based on role"""
     user_role = get_user_role(user)
     
-    if user_role == 'admin':
-        # Admin can see all folders
+    if user_role in ['admin', 'manager']:
+        # Admin and Manager can see all folders
         from .models import Folder
         return Folder.objects.filter(is_active=True)
     

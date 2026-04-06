@@ -21,7 +21,7 @@ const colors = [
 ]
 
 function Projects() {
-  const { user, canDeleteContent, canAddProof } = useAuthStore()
+  const { user, canDeleteContent, canCreateProof } = useAuthStore()
   const [projects, setProjects] = useState([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
@@ -260,10 +260,6 @@ function Projects() {
   }, [projects, location.pathname])
 
   const openModal = () => {
-    if (!canAddProof()) {
-      toastManager.permission('You do not have permission to perform this action.\nPlease contact your administrator for assistance.')
-      return
-    }
     setShowModal(true)
   }
 

@@ -34,6 +34,12 @@ export const useAuthStore = create(
         return get().getUserRole() === 'lite_user'
       },
 
+      // Granular permission checks - Proof Permissions
+      canCreateProof: () => {
+        const { user } = get()
+        return user?.profile?.can_create_proof || false
+      },
+
       // Granular permission checks - Folder Permissions
       canCreateFolder: () => {
         const { user } = get()
@@ -42,7 +48,7 @@ export const useAuthStore = create(
 
       canAddMember: () => {
         const { user } = get()
-        return user?.profile?.can_add_member || false
+        return user?.profile?.can_add_delete_member || false
       },
 
       canEditFolder: () => {
@@ -52,7 +58,7 @@ export const useAuthStore = create(
 
       canAddProof: () => {
         const { user } = get()
-        return user?.profile?.can_add_proof || false
+        return user?.profile?.can_add_delete_proof || false
       },
 
       canDeleteFolder: () => {
@@ -95,33 +101,21 @@ export const useAuthStore = create(
       canEditContent: (content) => {
         const { user } = get()
         
+        // Check if user has specific edit folder permission
         if (!user?.profile?.can_edit_folder) return false
         
-        // Admin and Manager (all three core permissions) can edit everything
-        const isAdminOrManager = user?.profile?.can_create_folder && 
-                                 user?.profile?.can_delete_folder && 
-                                 user?.profile?.can_edit_folder
-        
-        if (isAdminOrManager) return true
-        
-        // Others cannot edit
-        return false
+        // If user has edit permission, they can edit
+        return true
       },
 
       canDeleteContent: (content) => {
         const { user } = get()
         
+        // Check if user has specific delete folder permission
         if (!user?.profile?.can_delete_folder) return false
         
-        // Admin and Manager (all three core permissions) can delete everything
-        const isAdminOrManager = user?.profile?.can_create_folder && 
-                                 user?.profile?.can_delete_folder && 
-                                 user?.profile?.can_edit_folder
-        
-        if (isAdminOrManager) return true
-        
-        // Others cannot delete
-        return false
+        // If user has delete permission, they can delete
+        return true
       },
 
       canViewContent: (content) => {

@@ -15,7 +15,8 @@ from .serializers import (
     FolderSerializer, FolderMemberSerializer
 )
 from .permissions import (
-    CanCreateContent, CanEditContent, CanDeleteContent, CanViewContent
+    CanCreateContent, CanEditContent, CanDeleteContent, CanViewContent,
+    can_create_folder, CanCreateFolder
 )
 
 
@@ -105,6 +106,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
             folder = None
             folder_name = request.data.get('folder_name')
             if folder_name and folder_name.strip():
+                # Check if user has permission to create folders
+                if not can_create_folder(request.user):
+                    return Response(
+                        {
+                            'error': 'You do not have permission to perform this action.',
+                            'detail': 'Please contact your administrator for assistance.'
+                        },
+                        status=status.HTTP_403_FORBIDDEN
+                    )
                 # Get or create folder for this user
                 folder, created = Folder.objects.get_or_create(
                     name=folder_name.strip(),
@@ -723,7 +733,7 @@ class FolderViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         """Apply different permissions based on action"""
         if self.action in ['create']:
-            return [permissions.IsAuthenticated(), CanCreateContent()]
+            return [permissions.IsAuthenticated(), CanCreateFolder()]
         elif self.action in ['update', 'partial_update']:
             return [permissions.IsAuthenticated(), CanEditContent()]
         elif self.action in ['destroy']:
@@ -798,12 +808,11 @@ class FolderViewSet(viewsets.ModelViewSet):
         folder = self.get_object()
         
         # Check if user has permission to add members
-        from .permissions import can_manage_folder_members, is_folder_owner
+        from .permissions import can_manage_folder_members
         permissions = can_manage_folder_members(request.user, folder)
         
-        # Allow if user has elevated system role (Admin/Manager/Approver)
-        # or if user is folder owner
-        if not permissions['can_add'] and not is_folder_owner(request.user, folder):
+        # Block if user doesn't have can_add permission (checkbox permission)
+        if not permissions['can_add']:
             return Response(
                 {'detail': 'You do not have permission to add members to this folder.'},
                 status=status.HTTP_403_FORBIDDEN
