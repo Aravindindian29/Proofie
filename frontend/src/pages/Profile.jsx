@@ -15,6 +15,21 @@ function Profile() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
+  const getRoleBadgeColor = (role) => {
+    switch (role) {
+      case 'admin':
+        return '#FF375F'
+      case 'manager':
+        return '#FF9F0A'
+      case 'approver':
+        return '#30D158'
+      case 'lite_user':
+        return '#0A84FF'
+      default:
+        return '#8E8E93'
+    }
+  }
+
   useEffect(() => {
     fetchProfile()
   }, [])
@@ -107,7 +122,21 @@ function Profile() {
               <p style={{ fontWeight: 800, fontSize: '1.3rem', color: '#fff' }}>
                 {user?.first_name || user?.last_name ? `${user.first_name} ${user.last_name}` : user?.username}
               </p>
-              <p style={{ color: 'rgba(255,255,255,0.42)', fontSize: '0.88rem', marginTop: 4 }}>@{user?.username}</p>
+              <span style={{
+                padding: '2px 4px',
+                background: 'transparent',
+                borderRadius: '2px',
+                fontSize: '0.7rem',
+                fontWeight: 700,
+                color: '#fff',
+                textTransform: 'uppercase',
+                display: 'inline-block',
+                border: '2px solid rgba(255,255,255,0.6)',
+                lineHeight: '1.1',
+                minWidth: 'auto'
+              }}>
+                {(user?.profile?.role || 'lite_user').replace('_', ' ')}
+              </span>
             </div>
           </div>
 

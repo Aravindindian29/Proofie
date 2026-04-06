@@ -11,7 +11,7 @@ from django.core.mail import send_mail
 from django.conf import settings
 from django.contrib.auth import authenticate
 from django.db.models import Q
-from .models import UserProfile, EmailVerification
+from .models import UserProfile, EmailVerification, UserStatusLog
 from .serializers import UserDetailSerializer, UserRegistrationSerializer, UserProfileSerializer
 from .services import RegistrationService, EmailService
 
@@ -159,6 +159,77 @@ class UserViewSet(viewsets.ModelViewSet):
             users_data.append(user_data)
         
         return Response(users_data)
+
+    @action(detail=True, methods=['put'], permission_classes=[permissions.IsAdminUser])
+    def update_status(self, request, pk=None):
+        """
+        Update user status with audit logging
+        Only admin users can modify user status
+        """
+        try:
+            user = User.objects.get(pk=pk)
+            
+            # Prevent self-deactivation
+            if user == request.user and not request.data.get('is_active', True):
+                return Response(
+                    {'error': 'You cannot deactivate your own account'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Check if this is the last active admin
+            if user.is_staff and not request.data.get('is_active', True):
+                active_admins = User.objects.filter(is_staff=True, is_active=True).exclude(pk=user.pk)
+                if active_admins.count() == 0:
+                    return Response(
+                        {'error': 'Cannot deactivate the last active admin user'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            
+            old_status = user.is_active
+            new_status = request.data.get('is_active')
+            
+            if new_status is None:
+                return Response(
+                    {'error': 'is_active field is required'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            if old_status == new_status:
+                return Response(
+                    {'message': 'Status unchanged', 'is_active': user.is_active},
+                    status=status.HTTP_200_OK
+                )
+            
+            # Update user status
+            user.is_active = new_status
+            user.save()
+            
+            # Log the status change
+            UserStatusLog.objects.create(
+                user=user,
+                changed_by=request.user,
+                old_status=old_status,
+                new_status=new_status,
+                change_reason=request.data.get('change_reason', 'Status updated via admin interface')
+            )
+            
+            return Response({
+                'message': f'User status updated to {"Active" if new_status else "Inactive"}',
+                'is_active': user.is_active,
+                'user_id': user.id,
+                'username': user.username
+            }, status=status.HTTP_200_OK)
+            
+        except User.DoesNotExist:
+            return Response(
+                {'error': 'User not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 class PasswordResetRequestView(views.APIView):

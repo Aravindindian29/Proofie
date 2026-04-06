@@ -28,6 +28,7 @@ function CreateProofModal({ isOpen, onClose, onSuccess }) {
   const dropdownRef = useRef(null)
   const folderDropdownRef = useRef(null)
   const itemRefs = useRef([])
+  const isSelectingRef = useRef(false)
 
   // Reset form state when modal opens
   useEffect(() => {
@@ -278,6 +279,29 @@ function CreateProofModal({ isOpen, onClose, onSuccess }) {
     }
   }, [highlightedIndex])
 
+  // Handle click outside to close dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      // Don't close if we're currently selecting
+      if (isSelectingRef.current) {
+        return
+      }
+      
+      if (showUserDropdown && 
+          dropdownRef.current && 
+          !dropdownRef.current.contains(event.target) &&
+          usernameInputRef.current &&
+          !usernameInputRef.current.contains(event.target)) {
+        setShowUserDropdown(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showUserDropdown])
+
   const getAvatarColor = (username, index, previousColors) => {
     const colors = [
       'linear-gradient(135deg,#5E5CE6,#FF375F)',
@@ -378,32 +402,39 @@ function CreateProofModal({ isOpen, onClose, onSuccess }) {
         </div>
         <form onSubmit={handleCreateProject} style={{ display: 'flex', gap: 32, height: '100%', alignItems: 'flex-start' }}>
           {/* Left Column - Attachments */}
-          <div style={{ width: '380px', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ width: '380px', display: 'flex', flexDirection: 'column', position: 'relative' }}>
             <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600,
               color: 'rgba(255,255,255,0.45)', marginBottom: 8, letterSpacing: '0.06em',
               textTransform: 'uppercase', textAlign: 'center' }}>Attachments</label>
             
-            {/* Drag & Drop Zone */}
-            <div
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-              onClick={() => document.getElementById('file-input').click()}
-              style={{
-                flex: 1,
-                border: `2px dashed ${isDragging ? '#0A84FF' : 'rgba(255,255,255,0.2)'}`,
-                borderRadius: 12,
-                background: isDragging ? 'rgba(10,132,255,0.1)' : 'rgba(255,255,255,0.02)',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '40px 20px',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-                minHeight: '480px'
-              }}
-            >
+            {/* Scrollable Content Container */}
+            <div style={{
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              marginBottom: '80px', // Space for fixed buttons
+              minHeight: '400px'
+            }}>
+              {/* Drag & Drop Zone */}
+              <div
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                onClick={() => document.getElementById('file-input').click()}
+                style={{
+                  border: `2px dashed ${isDragging ? '#0A84FF' : 'rgba(255,255,255,0.2)'}`,
+                  borderRadius: 12,
+                  background: isDragging ? 'rgba(10,132,255,0.1)' : 'rgba(255,255,255,0.02)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: uploadedFiles.length > 0 ? '20px 20px' : '40px 20px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  minHeight: uploadedFiles.length > 0 ? '200px' : '300px'
+                }}
+              >
               <div style={{
                 width: 64,
                 height: 64,
@@ -421,10 +452,10 @@ function CreateProofModal({ isOpen, onClose, onSuccess }) {
                 </svg>
               </div>
               <p style={{ color: '#fff', fontSize: '0.95rem', marginBottom: 8, textAlign: 'center' }}>
-                {isDragging ? 'Drop files here' : 'Click or drag files to upload'}
+                {isDragging ? 'Drop files here' : uploadedFiles.length > 0 ? 'Click or drag more files to upload' : 'Click or drag files to upload'}
               </p>
               <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.75rem', textAlign: 'center' }}>
-                PDF, Images, Videos up to 500MB
+                {uploadedFiles.length > 0 ? `${uploadedFiles.length} file${uploadedFiles.length > 1 ? 's' : ''} attached` : 'PDF, Images, Videos up to 500MB'}
               </p>
             </div>
             
@@ -488,15 +519,24 @@ function CreateProofModal({ isOpen, onClose, onSuccess }) {
                         justifyContent: 'center'
                       }}
                     >
-                      <X size={16} />
+                      <X size={16} strokeWidth={3} />
                     </button>
                   </div>
                 ))}
               </div>
             )}
+            </div>
 
-            {/* Buttons */}
-            <div style={{ display: 'flex', gap: 12, marginTop: 'auto', paddingTop: 20 }}>
+            {/* Fixed Position Buttons */}
+            <div style={{ 
+              position: 'absolute', 
+              bottom: 0, 
+              left: 0, 
+              right: 0, 
+              display: 'flex', 
+              gap: 12, 
+              padding: '20px 0 0 0'
+            }}>
               <button type="submit" className="btn-primary"
                 style={{ width: '120px', justifyContent: 'center', borderRadius: 14, padding: '10px' }}>
                 Create
@@ -709,9 +749,6 @@ function CreateProofModal({ isOpen, onClose, onSuccess }) {
                             setShowUserDropdown(true)
                           }}
                           onKeyDown={handleKeyDown}
-                          onBlur={() => {
-                            setTimeout(() => setShowUserDropdown(false), 200)
-                          }}
                           className="input-field"
                           style={{ width: '100%' }}
                         />
@@ -735,15 +772,20 @@ function CreateProofModal({ isOpen, onClose, onSuccess }) {
                                 <div
                                   key={user.id}
                                   ref={el => itemRefs.current[index] = el}
-                                  onMouseDown={(e) => e.preventDefault()}
-                                  onClick={() => {
+                                  onMouseDown={(e) => {
+                                    e.preventDefault()
+                                    e.stopPropagation()
+                                    isSelectingRef.current = true
                                     setSelectedReviewers([...selectedReviewers, user])
                                     setReviewerPermissions({ ...reviewerPermissions, [user.id]: { comment: true, approve: false }})
                                     setSelectedUsername('')
-                                    setShowUserDropdown(false)
                                     setHighlightedIndex(-1)
-                                    usernameInputRef.current?.blur()
+                                    // Reset the ref after a short delay
+                                    setTimeout(() => {
+                                      isSelectingRef.current = false
+                                    }, 200)
                                   }}
+                                  onClick={(e) => e.preventDefault()}
                                   style={{
                                     padding: '4px 10px',
                                     color: '#fff',

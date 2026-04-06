@@ -18,6 +18,11 @@ class EmailVerificationBackend(BaseBackend):
             return None
         
         if user.check_password(password):
+            # Check if user is active
+            if not user.is_active:
+                print(f"Login denied: {user.username} - User is inactive")
+                return None  # User is inactive
+            
             # Superusers bypass email verification (backend-only access)
             if user.is_superuser:
                 print(f"Login successful: {user.username} - Superuser (backend-only)")

@@ -4,6 +4,8 @@ from django.contrib.auth.models import User
 
 from django.utils import timezone
 
+from django.contrib.auth import get_user_model
+
 
 
 
@@ -29,6 +31,28 @@ class EmailVerification(models.Model):
     def is_expired(self):
 
         return (timezone.now() - self.created_at).days > 1
+
+
+
+
+class UserStatusLog(models.Model):
+    """
+    Audit log for tracking user status changes
+    """
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='status_logs')
+    changed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='status_changes_made')
+    old_status = models.BooleanField()
+    new_status = models.BooleanField()
+    change_reason = models.TextField(blank=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-timestamp']
+        verbose_name = 'User Status Log'
+        verbose_name_plural = 'User Status Logs'
+    
+    def __str__(self):
+        return f"Status change for {self.user.username}: {self.old_status} → {self.new_status} by {self.changed_by.username if self.changed_by else 'Unknown'}"
 
 
 
@@ -111,6 +135,23 @@ class UserProfile(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     permissions_updated_at = models.DateTimeField(auto_now=True)
+
+    is_active = models.BooleanField(default=True, verbose_name='Status')
+
+    @property
+    def user_is_active(self):
+        """Get the actual user's active status"""
+        return self.user.is_active if self.user else False
+    
+    @user_is_active.setter
+    def user_is_active(self, value):
+        """Set the user's active status"""
+        if self.user:
+            self.user.is_active = value
+            self.user.save()
+            # Update this field to match
+            self.is_active = value
+            self.save()
 
 
 

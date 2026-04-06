@@ -11,7 +11,7 @@ function Users() {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
-  const [sortConfig, setSortConfig] = useState({ key: 'username', direction: 'asc' })
+  const [sortConfig, setSortConfig] = useState({ key: 'first_name', direction: 'asc' })
   const debounceTimeoutRef = useRef(null)
 
   // Avatar color function - same as FolderMembersModal
@@ -115,22 +115,34 @@ function Users() {
   }
 
   useEffect(() => {
+    console.log('useEffect triggered - currentPage:', currentPage, 'sortConfig:', sortConfig)
     fetchUsers()
     
-    // Cleanup function to clear timeout on unmount
+    // Set up periodic refresh to get latest status updates
+    const interval = setInterval(() => {
+      fetchUsers()
+    }, 30000) // Refresh every 30 seconds
+    
+    // Cleanup function to clear timeout and interval on unmount
     return () => {
       if (debounceTimeoutRef.current) {
         clearTimeout(debounceTimeoutRef.current)
       }
+      clearInterval(interval)
     }
   }, [currentPage, sortConfig])
 
   const handleSort = (key) => {
-    let direction = 'asc'
-    if (sortConfig.key === key && sortConfig.direction === 'asc') {
-      direction = 'desc'
-    }
-    setSortConfig({ key, direction })
+    console.log('handleSort called with key:', key, 'current sortConfig:', sortConfig)
+    setSortConfig(prevConfig => {
+      let direction = 'asc'
+      if (prevConfig.key === key && prevConfig.direction === 'asc') {
+        direction = 'desc'
+      }
+      const newConfig = { key, direction }
+      console.log('New sortConfig:', newConfig)
+      return newConfig
+    })
     setCurrentPage(1) // Reset to first page when sorting
   }
 

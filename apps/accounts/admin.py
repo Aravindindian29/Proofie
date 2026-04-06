@@ -7,11 +7,27 @@ from django.urls import path
 from django.db import transaction
 from django.core.exceptions import ValidationError
 from django.utils.html import format_html
-from .models import UserProfile, EmailVerification
+from django import forms
+from .models import UserProfile, EmailVerification, UserStatusLog
 from .services import UserDeletionService
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+class UserProfileForm(forms.ModelForm):
+    """Custom form for UserProfile with status field"""
+    
+    class Meta:
+        model = UserProfile
+        fields = '__all__'
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.user:
+            self.fields['is_active'].initial = self.instance.user.is_active
+        # Add help text for the is_active field
+        self.fields['is_active'].help_text = 'Check to activate user (allows login), uncheck to deactivate (prevents login)'
 
 
 class UserProfileInline(admin.StackedInline):
@@ -170,17 +186,19 @@ admin.site.register(User, UserAdmin)
 class UserProfileAdmin(admin.ModelAdmin):
     """Custom admin for UserProfile with cascade deletion and safety checks"""
     
-    list_display = ('username', 'email', 'role', 'owned_content_count', 'can_delete_status', 'created_at')
-    list_filter = ('role', 'created_at')
+    form = UserProfileForm
+    list_display = ('username', 'email', 'role', 'is_active', 'owned_content_count', 'can_delete_status', 'created_at')
+    list_filter = ('role', 'created_at', 'is_active', 'user__is_active')
     search_fields = ('user__username', 'user__email', 'user__first_name', 'user__last_name')
     readonly_fields = ('user', 'owned_content_summary', 'created_at', 'updated_at')
+    list_editable = ('is_active',)
     
     # Custom delete action
     actions = ['delete_user_profiles_safely']
     
     fieldsets = (
         ('User Information', {
-            'fields': ('user', 'role')
+            'fields': ('user', 'role', 'is_active')
         }),
         ('Profile Details', {
             'fields': ('avatar', 'bio', 'phone', 'company', 'job_title')
@@ -305,6 +323,76 @@ class UserProfileAdmin(admin.ModelAdmin):
         except ValidationError as e:
             self.message_user(request, str(e), messages.ERROR)
     
+    def save_model(self, request, obj, form, change):
+        """Override save_model to handle status changes with logging"""
+        # Get the old status from User model
+        old_status = False
+        if obj.user:
+            old_status = obj.user.is_active
+        
+        # Save the profile first
+        super().save_model(request, obj, form, change)
+        
+        # Handle status change if user exists and is_active field is in form
+        if obj.user and 'is_active' in form.cleaned_data:
+            new_status = form.cleaned_data['is_active']
+            
+            if old_status != new_status:
+                # Prevent self-deactivation
+                if obj.user == request.user and not new_status:
+                    self.message_user(
+                        request,
+                        'You cannot deactivate your own account.',
+                        messages.ERROR
+                    )
+                    # Revert the change
+                    obj.user.is_active = old_status
+                    obj.user.save()
+                    obj.is_active = old_status
+                    obj.save()
+                    return
+                
+                # Check if this is the last active admin
+                if obj.user.is_staff and not new_status:
+                    active_admins = User.objects.filter(is_staff=True, is_active=True).exclude(pk=obj.user.pk)
+                    if active_admins.count() == 0:
+                        self.message_user(
+                            request,
+                            'Cannot deactivate the last active admin user.',
+                            messages.ERROR
+                        )
+                        # Revert the change
+                        obj.user.is_active = old_status
+                        obj.user.save()
+                        obj.is_active = old_status
+                        obj.save()
+                        return
+                
+                # Update user status
+                obj.user.is_active = new_status
+                obj.user.save()
+                
+                # Ensure profile field matches user status
+                obj.is_active = new_status
+                obj.save(update_fields=['is_active'])
+                
+                # Log the status change
+                UserStatusLog.objects.create(
+                    user=obj.user,
+                    changed_by=request.user,
+                    old_status=old_status,
+                    new_status=new_status,
+                    change_reason='Status updated via admin interface'
+                )
+                
+                # Show success message
+                status_text = "activated" if new_status else "deactivated"
+                self.message_user(
+                    request,
+                    f'User {obj.user.username} has been {status_text}.',
+                    messages.SUCCESS
+                )
+    
     def delete_user_profiles_safely(self, request, queryset):
         """Custom delete action with safety checks"""
         safe_profiles = []
@@ -357,5 +445,27 @@ class UserProfileAdmin(admin.ModelAdmin):
         if 'delete_selected' in actions:
             del actions['delete_selected']
         return actions
+
+# Register UserStatusLog for admin viewing
+@admin.register(UserStatusLog)
+class UserStatusLogAdmin(admin.ModelAdmin):
+    """Admin interface for viewing user status change logs"""
+    
+    list_display = ('user', 'changed_by', 'old_status', 'new_status', 'timestamp', 'change_reason')
+    list_filter = ('timestamp', 'new_status', 'changed_by')
+    search_fields = ('user__username', 'changed_by__username', 'change_reason')
+    readonly_fields = ('user', 'changed_by', 'old_status', 'new_status', 'timestamp', 'change_reason')
+    
+    def has_add_permission(self, request):
+        """Prevent manual creation of status logs"""
+        return False
+    
+    def has_change_permission(self, request, obj=None):
+        """Prevent editing of status logs"""
+        return False
+    
+    def has_delete_permission(self, request, obj=None):
+        """Only superusers can delete status logs"""
+        return request.user.is_superuser
 
 admin.site.register(EmailVerification)
