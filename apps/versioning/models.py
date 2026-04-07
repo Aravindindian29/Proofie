@@ -69,6 +69,9 @@ class Project(models.Model):
     
     # Unique share token for URL-based access
     share_token = models.UUIDField(null=True, blank=True, unique=True, db_index=True)
+    
+    # Version number for version labeling
+    version_number = models.PositiveIntegerField(default=1)
 
     class Meta:
         ordering = ['-created_at']

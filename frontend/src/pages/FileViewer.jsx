@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useContext } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, X, Workflow, CheckCircle, Sparkles } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -11,6 +11,7 @@ import DecisionModal from '../components/workflow/DecisionModal'
 import DeleteProofButton from '../components/workflow/DeleteProofButton'
 import ProofiePlusModal from '../components/ProofiePlusModal'
 import { useAuthStore } from '../stores/authStore'
+import { AssetIdContext } from './ProofReviewer'
 
 const getMediaUrl = (fileUrl) => {
   console.log('🔗 getMediaUrl input:', fileUrl)
@@ -43,9 +44,14 @@ const getMediaUrl = (fileUrl) => {
 }
 
 function FileViewer() {
-  const { id } = useParams()
+  const { id: urlId } = useParams()
+  const contextAssetId = useContext(AssetIdContext)
   const navigate = useNavigate()
   const { canMakeDecisions, canUseProofiePlus } = useAuthStore()
+  
+  // Use context asset ID if available, otherwise use URL param
+  const id = contextAssetId || urlId
+  
   const [asset, setAsset] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -67,11 +73,13 @@ function FileViewer() {
   useEffect(() => {
     console.log('FileViewer loaded with ID:', id)
     console.log('ID type:', typeof id)
-    console.log('ID length:', id.length)
-    console.log('ID contains special chars:', /[^a-zA-Z0-9_-]/.test(id))
-    fetchAssetData()
+    console.log('ID length:', id?.length)
+    console.log('ID contains special chars:', id ? /[^a-zA-Z0-9_-]/.test(id) : 'no id')
+    console.log('Context asset ID:', contextAssetId)
+    console.log('URL asset ID:', urlId)
+    if (id) fetchAssetData()
     fetchCurrentUser()
-  }, [id])
+  }, [id, contextAssetId, urlId])
 
   // Auto-track view when review cycle is available (only once)
   useEffect(() => {
