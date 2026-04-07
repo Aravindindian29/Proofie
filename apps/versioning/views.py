@@ -279,6 +279,159 @@ class ProjectViewSet(viewsets.ModelViewSet):
         member.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+    @action(detail=False, methods=['post'])
+    def create_with_workflow(self, request):
+        """
+        Create a project with workflow template and stage reviewers.
+        Expected payload:
+        {
+            "name": "Proof Name",
+            "description": "Description",
+            "folder_id": 123,
+            "folder_name": "New Folder",
+            "template_id": 1,
+            "stage_reviewers": {
+                "1": [user_id1, user_id2],
+                "2": [user_id3, user_id4],
+                "3": [user_id5]
+            }
+        }
+        """
+        from apps.workflows.models import WorkflowTemplate, ApprovalGroup, GroupMember, ReviewCycle
+        from apps.workflows.services import WorkflowService
+        from django.db import transaction
+        
+        try:
+            with transaction.atomic():
+                # Handle folder creation if folder_name is provided
+                folder = None
+                folder_name = request.data.get('folder_name')
+                if folder_name and folder_name.strip():
+                    if not can_create_folder(request.user):
+                        return Response(
+                            {
+                                'error': 'You do not have permission to perform this action.',
+                                'detail': 'Please contact your administrator for assistance.'
+                            },
+                            status=status.HTTP_403_FORBIDDEN
+                        )
+                    folder, created = Folder.objects.get_or_create(
+                        name=folder_name.strip(),
+                        owner=request.user,
+                        defaults={'is_active': True}
+                    )
+                
+                # Check if folder_id is provided directly
+                folder_id = request.data.get('folder_id')
+                if folder_id and not folder:
+                    try:
+                        folder = Folder.objects.get(id=folder_id, owner=request.user)
+                    except Folder.DoesNotExist:
+                        pass
+                
+                # Create project
+                project_data = {
+                    'name': request.data.get('name'),
+                    'description': request.data.get('description', ''),
+                }
+                if folder:
+                    project_data['folder_id'] = folder.id
+                
+                serializer = self.get_serializer(data=project_data)
+                if not serializer.is_valid():
+                    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                
+                self.perform_create(serializer)
+                project = serializer.instance
+                
+                # Get workflow template
+                template_id = request.data.get('template_id')
+                stage_reviewers = request.data.get('stage_reviewers', {})
+                
+                if template_id:
+                    try:
+                        template = WorkflowTemplate.objects.get(id=template_id, is_active=True)
+                        
+                        # Create ReviewCycle (will be associated with first asset later)
+                        # For now, we'll store the template_id and stage_reviewers in project metadata
+                        # The actual ReviewCycle will be created when the first asset is uploaded
+                        
+                        # Store workflow configuration temporarily
+                        project.workflow_template_id = template_id
+                        project.workflow_stage_reviewers = stage_reviewers
+                        project.save(update_fields=['workflow_template_id', 'workflow_stage_reviewers'])
+                        print(f"✅ Saved workflow config to project {project.id}: template={template_id}, reviewers={stage_reviewers}")
+                        
+                        # Add all reviewers as project members
+                        all_reviewer_ids = set()
+                        for stage_id, reviewer_ids in stage_reviewers.items():
+                            all_reviewer_ids.update(reviewer_ids)
+                        
+                        for user_id in all_reviewer_ids:
+                            try:
+                                user = User.objects.get(id=user_id)
+                                ProjectMember.objects.get_or_create(
+                                    project=project,
+                                    user=user,
+                                    defaults={'role': 'reviewer'}
+                                )
+                                
+                                # Auto-add reviewers as folder members if project is in a folder
+                                if folder:
+                                    FolderMember.objects.get_or_create(
+                                        folder=folder,
+                                        user=user,
+                                        defaults={'role': 'viewer', 'added_by': request.user}
+                                    )
+                            except User.DoesNotExist:
+                                pass
+                        
+                    except WorkflowTemplate.DoesNotExist:
+                        return Response(
+                            {'error': 'Workflow template not found'},
+                            status=status.HTTP_404_NOT_FOUND
+                        )
+                else:
+                    # No template specified, add reviewers from legacy format
+                    reviewers = request.data.get('reviewers', [])
+                    for user_id in reviewers:
+                        try:
+                            user = User.objects.get(id=user_id)
+                            ProjectMember.objects.get_or_create(
+                                project=project,
+                                user=user,
+                                defaults={'role': 'reviewer'}
+                            )
+                            
+                            if folder:
+                                FolderMember.objects.get_or_create(
+                                    folder=folder,
+                                    user=user,
+                                    defaults={'role': 'viewer', 'added_by': request.user}
+                                )
+                        except User.DoesNotExist:
+                            pass
+                
+                # Broadcast proof addition to folder members if folder exists
+                if folder:
+                    from .services import FolderUpdateService
+                    FolderUpdateService.broadcast_folder_update(
+                        folder,
+                        'proof_added',
+                        {'project_id': project.id, 'project_name': project.name}
+                    )
+                
+                # Refresh serializer to include updated member data
+                serializer = self.get_serializer(project)
+                
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+                
+        except Exception as e:
+            return Response(
+                {'detail': f'Failed to create project with workflow: {str(e)}'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
 
 class CreativeAssetViewSet(viewsets.ModelViewSet):
     serializer_class = CreativeAssetSerializer
@@ -427,6 +580,78 @@ class CreativeAssetViewSet(viewsets.ModelViewSet):
                         proj.refresh_from_db()
                         
                         print(f"Updated Project {proj.id} - thumbnail_url will be computed in serializer")
+                        
+                        # Create workflow ReviewCycle if project has workflow configuration
+                        print(f"🔍 Checking workflow config - template_id: {proj.workflow_template_id}, stage_reviewers: {proj.workflow_stage_reviewers}")
+                        if proj.workflow_template_id and proj.workflow_stage_reviewers:
+                            print(f"✅ Project has workflow configuration, creating ReviewCycle...")
+                            try:
+                                from apps.workflows.models import WorkflowTemplate, ReviewCycle, ApprovalGroup, GroupMember
+                                from apps.notifications.services import NotificationService
+                                
+                                # Check if ReviewCycle already exists for this asset
+                                existing_cycle = ReviewCycle.objects.filter(asset=asset).first()
+                                print(f"🔍 Existing cycle check: {existing_cycle}")
+                                if not existing_cycle:
+                                    template = WorkflowTemplate.objects.get(id=proj.workflow_template_id)
+                                    
+                                    # Create ReviewCycle
+                                    review_cycle = ReviewCycle.objects.create(
+                                        asset=asset,
+                                        template=template,
+                                        status='not_started',
+                                        initiated_by=request.user,
+                                        created_by=request.user
+                                    )
+                                    
+                                    # Create ApprovalGroups for each stage
+                                    stages = template.stages.all().order_by('order')
+                                    for stage in stages:
+                                        # Get reviewers for this stage
+                                        stage_reviewer_ids = proj.workflow_stage_reviewers.get(str(stage.id), [])
+                                        
+                                        # Create ApprovalGroup
+                                        group = ApprovalGroup.objects.create(
+                                            review_cycle=review_cycle,
+                                            stage=stage,
+                                            name=stage.name,
+                                            order=stage.order,
+                                            status='locked' if stage.order > 1 else 'unlocked',
+                                            unlocked_at=None if stage.order > 1 else review_cycle.initiated_at
+                                        )
+                                        
+                                        # Add GroupMembers (reviewers)
+                                        for user_id in stage_reviewer_ids:
+                                            try:
+                                                user = User.objects.get(id=user_id)
+                                                GroupMember.objects.create(
+                                                    group=group,
+                                                    user=user,
+                                                    socd_status='sent',
+                                                    decision='pending'
+                                                )
+                                            except User.DoesNotExist:
+                                                pass
+                                    
+                                    # Set current stage to first stage
+                                    first_stage = stages.first()
+                                    if first_stage:
+                                        review_cycle.current_stage = first_stage
+                                        review_cycle.status = 'in_progress'
+                                        review_cycle.save()
+                                    
+                                    # Send notifications to reviewers
+                                    try:
+                                        NotificationService.notify_reviewers_new_proof(review_cycle)
+                                    except Exception as notif_error:
+                                        print(f"⚠️ Failed to send notifications: {notif_error}")
+                                    
+                                    print(f"✅ Created ReviewCycle {review_cycle.id} with {stages.count()} stages")
+                            except Exception as workflow_error:
+                                print(f"⚠️ Failed to create workflow: {workflow_error}")
+                                import traceback
+                                traceback.print_exc()
+                        
                 except Exception as proj_error:
                     print(f"⚠️ Could not update project info: {proj_error}")
             

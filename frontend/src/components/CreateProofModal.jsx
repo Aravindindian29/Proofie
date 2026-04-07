@@ -5,7 +5,7 @@ import api from '../services/api'
 import { useAuthStore } from '../stores/authStore'
 
 function CreateProofModal({ isOpen, onClose, onSuccess }) {
-  const { canCreateFolder } = useAuthStore()
+  const { canCreateFolder, user } = useAuthStore()
   const [formData, setFormData] = useState({ name: '', description: '' })
   const [nameError, setNameError] = useState(false)
   const [selectedReviewers, setSelectedReviewers] = useState([])
@@ -24,6 +24,11 @@ function CreateProofModal({ isOpen, onClose, onSuccess }) {
   const [showFolderDropdown, setShowFolderDropdown] = useState(false)
   const [folderHighlightedIndex, setFolderHighlightedIndex] = useState(-1)
   const [folderNameInput, setFolderNameInput] = useState('')
+  // Workflow template state
+  const [workflowTemplates, setWorkflowTemplates] = useState([])
+  const [selectedTemplate, setSelectedTemplate] = useState(null)
+  const [stageReviewers, setStageReviewers] = useState({})
+  const [expandedStages, setExpandedStages] = useState({})
   const usernameInputRef = useRef(null)
   const dropdownRef = useRef(null)
   const folderDropdownRef = useRef(null)
@@ -54,6 +59,67 @@ function CreateProofModal({ isOpen, onClose, onSuccess }) {
     setShowFolderDropdown(false)
     setFolderHighlightedIndex(-1)
     setFolderNameInput('')
+    // Reset workflow state
+    setStageReviewers({})
+    setExpandedStages({})
+    // Fetch templates and set default
+    fetchWorkflowTemplates()
+  }
+
+  // Fetch workflow templates
+  const fetchWorkflowTemplates = async () => {
+    try {
+      const response = await api.get('/workflows/templates/')
+      const templates = response.data.results || response.data
+      setWorkflowTemplates(templates)
+      // Set default template (3-stage) - prioritize 3-Stage template
+      const defaultTemplate = templates.find(t => t.name.includes('3-Stage')) || 
+                             templates.find(t => t.is_default) || 
+                             templates[0]
+      if (defaultTemplate) {
+        setSelectedTemplate(defaultTemplate)
+        // Initialize stage reviewers and expanded states
+        const initialStageReviewers = {}
+        const initialExpandedStages = {}
+        defaultTemplate.stages.forEach(stage => {
+          initialStageReviewers[stage.id] = []
+          initialExpandedStages[stage.id] = stage.order === 1 // Expand first stage by default
+        })
+        setStageReviewers(initialStageReviewers)
+        setExpandedStages(initialExpandedStages)
+      }
+    } catch (error) {
+      console.error('Failed to fetch workflow templates:', error)
+      toast.error('Failed to load workflow templates')
+    }
+  }
+
+  // Add reviewer to specific stage
+  const addReviewerToStage = (stageId, user) => {
+    const currentReviewers = stageReviewers[stageId] || []
+    // Check if user is already added to this stage
+    if (currentReviewers.find(r => r.id === user.id)) {
+      toast.error('Reviewer already added to this stage', { id: 'duplicate-reviewer' })
+      return
+    }
+    setStageReviewers({
+      ...stageReviewers,
+      [stageId]: [...currentReviewers, user]
+    })
+  }
+
+  // Remove reviewer from specific stage
+  const removeReviewerFromStage = (stageId, userId) => {
+    setStageReviewers({
+      ...stageReviewers,
+      [stageId]: (stageReviewers[stageId] || []).filter(r => r.id !== userId)
+    })
+  }
+
+  // Get available users for a stage (exclude already added)
+  const getAvailableUsersForStage = (stageId) => {
+    const currentReviewers = stageReviewers[stageId] || []
+    return availableUsers.filter(user => !currentReviewers.find(r => r.id === user.id))
   }
 
   const handleCreateProject = async (e) => {
@@ -69,28 +135,26 @@ function CreateProofModal({ isOpen, onClose, onSuccess }) {
       setNameError(false)
     }
     
-    if (uploadedFiles.length === 0 && selectedReviewers.length === 0) {
-      toast.error('Please upload an asset and add reviewers', { id: 'validation-error' })
-      return
-    }
-    
     if (uploadedFiles.length === 0) {
       toast.error('Please upload an asset', { id: 'validation-error' })
       return
     }
     
-    if (selectedReviewers.length === 0) {
-      toast.error('Please add reviewers', { id: 'validation-error' })
-      return
+    // Validate stage reviewers - at least Stage 1 must have reviewers
+    if (selectedTemplate && stageReviewers) {
+      const firstStage = selectedTemplate.stages.find(s => s.order === 1)
+      if (firstStage && (!stageReviewers[firstStage.id] || stageReviewers[firstStage.id].length === 0)) {
+        toast.error('Please add at least one reviewer to Stage 1', { id: 'validation-error' })
+        return
+      }
     }
     
     if (hasError) return
     
     try {
-      // Step 1: Create the project with folder if selected
+      // Step 1: Create the project with workflow
       const projectPayload = {
-        ...formData,
-        reviewers: selectedReviewers.map(r => r.id)
+        ...formData
       }
       
       // Include folder_name if user entered one (will auto-create folder on backend)
@@ -117,7 +181,18 @@ function CreateProofModal({ isOpen, onClose, onSuccess }) {
         projectPayload.folder_id = selectedFolder.id
       }
       
-      const projectResponse = await api.post('/versioning/projects/', projectPayload)
+      // Add workflow template and stage reviewers
+      if (selectedTemplate) {
+        projectPayload.template_id = selectedTemplate.id
+        // Convert stageReviewers from user objects to user IDs
+        const stageReviewerIds = {}
+        Object.keys(stageReviewers).forEach(stageId => {
+          stageReviewerIds[stageId] = stageReviewers[stageId].map(user => user.id)
+        })
+        projectPayload.stage_reviewers = stageReviewerIds
+      }
+      
+      const projectResponse = await api.post('/versioning/projects/create_with_workflow/', projectPayload)
       
       const project = projectResponse.data
       const projectId = project.id
@@ -598,7 +673,184 @@ function CreateProofModal({ isOpen, onClose, onSuccess }) {
                 )}
               </div>
 
-              {/* Reviewers Section */}
+              {/* Workflow Template Selection - Only for Manager/Admin */}
+              {(user?.profile?.role === 'manager' || user?.profile?.role === 'admin') && (
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600,
+                    color: 'rgba(255,255,255,0.45)', marginBottom: 8, letterSpacing: '0.06em',
+                    textTransform: 'uppercase' }}>Workflow Template</label>
+                  <select
+                    value={selectedTemplate?.id || ''}
+                    onChange={(e) => {
+                      const template = workflowTemplates.find(t => t.id === parseInt(e.target.value))
+                      setSelectedTemplate(template)
+                      // Reset stage reviewers when template changes
+                      const newStageReviewers = {}
+                      const newExpandedStages = {}
+                      template?.stages.forEach(stage => {
+                        newStageReviewers[stage.id] = []
+                        newExpandedStages[stage.id] = stage.order === 1
+                      })
+                      setStageReviewers(newStageReviewers)
+                      setExpandedStages(newExpandedStages)
+                    }}
+                    className="input-field"
+                    style={{ cursor: 'pointer' }}
+                  >
+                    {workflowTemplates.map(template => (
+                      <option key={template.id} value={template.id}>
+                        {template.name}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedTemplate && (
+                    <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.75rem', marginTop: 6 }}>
+                      {selectedTemplate.description}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Stage Reviewers Section - Dynamic based on template */}
+              {selectedTemplate && selectedTemplate.stages && selectedTemplate.stages.map((stage, index) => (
+                <div 
+                  key={stage.id}
+                  style={{
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: 8,
+                    background: 'rgba(255,255,255,0.02)',
+                    position: 'relative'
+                  }}>
+                  {/* Stage Header */}
+                  <div
+                    onClick={() => setExpandedStages({ ...expandedStages, [stage.id]: !expandedStages[stage.id] })}
+                    style={{
+                      padding: '12px 16px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      borderBottom: expandedStages[stage.id] ? '1px solid rgba(255,255,255,0.1)' : 'none'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0A84FF' }}>
+                        S{stage.order}:
+                      </span>
+                      <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#fff' }}>
+                        {stage.name}
+                      </span>
+                      {stageReviewers[stage.id] && stageReviewers[stage.id].length > 0 && (
+                        <span style={{
+                          fontSize: '0.7rem',
+                          fontWeight: 700,
+                          color: '#10B981',
+                          background: 'rgba(16,185,129,0.15)',
+                          padding: '2px 8px',
+                          borderRadius: 12,
+                          border: '1px solid rgba(16,185,129,0.3)'
+                        }}>
+                          {stageReviewers[stage.id].length}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{
+                      transform: expandedStages[stage.id] ? 'rotate(180deg)' : 'rotate(0deg)',
+                      transition: 'transform 0.3s ease',
+                      color: 'rgba(255,255,255,0.5)'
+                    }}>
+                      ▼
+                    </div>
+                  </div>
+
+                  {/* Stage Content - Expanded */}
+                  {expandedStages[stage.id] && (
+                    <div style={{ padding: '12px 16px' }}>
+                      {/* Selected Reviewers for this stage */}
+                      {stageReviewers[stage.id] && stageReviewers[stage.id].length > 0 && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+                          {stageReviewers[stage.id].map(reviewer => (
+                            <div
+                              key={reviewer.id}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                padding: '8px 12px',
+                                background: 'rgba(255,255,255,0.05)',
+                                borderRadius: 6,
+                                border: '1px solid rgba(255,255,255,0.1)'
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <div style={{
+                                  width: 28,
+                                  height: 28,
+                                  borderRadius: '50%',
+                                  background: 'linear-gradient(135deg, #0A84FF, #5E5CE6)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontSize: '0.75rem',
+                                  fontWeight: 700,
+                                  color: '#fff'
+                                }}>
+                                  {reviewer.username?.[0]?.toUpperCase()}
+                                </div>
+                                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#fff' }}>
+                                  {reviewer.username}
+                                </span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => removeReviewerFromStage(stage.id, reviewer.id)}
+                                style={{
+                                  background: 'transparent',
+                                  border: 'none',
+                                  color: '#ff3b30',
+                                  cursor: 'pointer',
+                                  padding: 4
+                                }}
+                              >
+                                <X size={16} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* User Selection Dropdown */}
+                      <div style={{ marginBottom: 8 }}>
+                        <select
+                          className="input-field"
+                          style={{ fontSize: '0.85rem', cursor: 'pointer' }}
+                          value=""
+                          onChange={(e) => {
+                            const userId = parseInt(e.target.value)
+                            const user = availableUsers.find(u => u.id === userId)
+                            if (user) {
+                              addReviewerToStage(stage.id, user)
+                            }
+                            e.target.value = '' // Reset selection
+                          }}
+                          onFocus={() => {
+                            if (availableUsers.length === 0) fetchUsers()
+                          }}
+                        >
+                          <option value="">Select a reviewer...</option>
+                          {getAvailableUsersForStage(stage.id).map(user => (
+                            <option key={user.id} value={user.id}>
+                              {user.username} ({user.email})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {/* Legacy Reviewers Section - Hidden when using workflow */}
               <div 
                 onMouseEnter={() => setReviewersHover(true)}
                 onMouseLeave={() => setReviewersHover(false)}
@@ -606,7 +858,8 @@ function CreateProofModal({ isOpen, onClose, onSuccess }) {
                   border: '1px solid rgba(255,255,255,0.1)',
                   borderRadius: 8,
                   background: 'rgba(255,255,255,0.02)',
-                  position: 'relative'
+                  position: 'relative',
+                  display: 'none' // Hidden when using workflow templates
                 }}>
                 {/* Add Reviewers Button - Top Right */}
                 <button

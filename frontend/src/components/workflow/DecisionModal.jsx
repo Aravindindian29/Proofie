@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { X, Check, AlertCircle, Edit3 } from 'lucide-react'
-import axios from 'axios'
+import toast from 'react-hot-toast'
+import api from '../../services/api'
 import SOCDIcon from './SOCDIcon'
 
 const DecisionModal = ({ isOpen, onClose, reviewCycleId, myMember, onDecisionSuccess }) => {
@@ -8,23 +9,53 @@ const DecisionModal = ({ isOpen, onClose, reviewCycleId, myMember, onDecisionSuc
   const [loading, setLoading] = useState(false)
 
   const handleDecision = async (decision) => {
+    // Validate feedback requirement for non-approval decisions
     if (!feedback.trim() && decision !== 'approved') {
-      alert('Please provide feedback for your decision')
+      toast.error('Please provide feedback for your decision', {
+        duration: 3000,
+        position: 'top-center',
+        style: {
+          background: '#1F2937',
+          color: '#fff',
+          border: '1px solid #EF4444'
+        }
+      })
       return
     }
 
     setLoading(true)
     try {
-      const token = localStorage.getItem('token')
-      const response = await axios.post(
-        `http://localhost:8000/api/workflows/review-cycles/${reviewCycleId}/member_decision/`,
-        { decision, feedback },
-        {
-          headers: { Authorization: `Token ${token}` }
+      console.log('Submitting decision:', { decision, feedback, reviewCycleId })
+      
+      const response = await api.post(
+        `/workflows/review-cycles/${reviewCycleId}/member_decision/`,
+        { 
+          decision, 
+          feedback: feedback.trim() 
         }
       )
 
-      alert('Decision submitted successfully')
+      console.log('Decision submitted successfully:', response.data)
+      
+      // Show success toast based on decision type
+      const successMessages = {
+        approved: '✅ Proof approved successfully!',
+        changes_requested: '⚠️ Changes requested successfully!',
+        rejected: '❌ Proof rejected successfully!'
+      }
+      
+      toast.success(successMessages[decision] || 'Decision submitted successfully!', {
+        duration: 4000,
+        position: 'top-center',
+        style: {
+          background: '#1F2937',
+          color: '#fff',
+          border: decision === 'approved' ? '1px solid #10B981' :
+                 decision === 'rejected' ? '1px solid #EF4444' :
+                 '1px solid #F59E0B'
+        }
+      })
+      
       if (onDecisionSuccess) {
         onDecisionSuccess(response.data)
       }
@@ -32,7 +63,22 @@ const DecisionModal = ({ isOpen, onClose, reviewCycleId, myMember, onDecisionSuc
       onClose()
     } catch (error) {
       console.error('Failed to submit decision:', error)
-      alert(error.response?.data?.error || 'Failed to submit decision')
+      console.error('Error response:', error.response?.data)
+      
+      const errorMessage = error.response?.data?.error || 
+                          error.response?.data?.detail || 
+                          error.message || 
+                          'Failed to submit decision'
+      
+      toast.error(errorMessage, {
+        duration: 5000,
+        position: 'top-center',
+        style: {
+          background: '#1F2937',
+          color: '#fff',
+          border: '1px solid #EF4444'
+        }
+      })
     } finally {
       setLoading(false)
     }

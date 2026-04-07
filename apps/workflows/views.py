@@ -33,11 +33,11 @@ class ReviewCycleViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        return ReviewCycle.objects.filter(
+        return (ReviewCycle.objects.filter(
             asset__project__owner=user
         ) | ReviewCycle.objects.filter(
             asset__project__members__user=user
-        )
+        )).distinct()
 
     def get_serializer_class(self):
         if self.action == 'create':
