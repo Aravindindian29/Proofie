@@ -4433,8 +4433,8 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
                 <>
-                  {/* Workflow Status Overview */}
-                  <div style={{
+                  {/* Workflow Status Overview - HIDDEN */}
+                  {/* <div style={{
                     background: 'rgba(255,255,255,0.03)',
                     border: '1px solid rgba(255,255,255,0.08)',
                     borderRadius: '12px',
@@ -4513,10 +4513,10 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
                         )
                       })()}
                     </div>
-                  </div>
+                  </div> */}
 
-                  {/* User Status Card */}
-                  {myMember && (
+                  {/* User Status Card - HIDDEN */}
+                  {/* {myMember && (
                     <div style={{
                       background: 'rgba(255,255,255,0.05)',
                       border: '1px solid rgba(255,255,255,0.1)',
@@ -4598,10 +4598,10 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
                         </div>
                       )}
                     </div>
-                  )}
+                  )} */}
 
-                  {/* Action Buttons */}
-                  {myMember && currentUser?.profile?.role !== 'lite_user' && (
+                  {/* Action Buttons - HIDDEN */}
+                  {/* {myMember && currentUser?.profile?.role !== 'lite_user' && (
                     <div style={{ marginBottom: '24px' }}>
                       <div style={{ fontSize: '0.9rem', color: 'rgba(255,255,255,0.6)', marginBottom: '12px', fontWeight: 600 }}>
                         Actions
@@ -4722,10 +4722,10 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
                         </button>
                       </div>
                     </div>
-                  )}
+                  )} */}
 
-                  {/* Lite User View Only Message */}
-                  {currentUser?.profile?.role === 'lite_user' && (
+                  {/* Lite User View Only Message - HIDDEN */}
+                  {/* {currentUser?.profile?.role === 'lite_user' && (
                     <div style={{
                       padding: '20px',
                       background: 'rgba(156,163,175,0.1)',
@@ -4742,7 +4742,7 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
                         You can view the workflow but cannot make decisions
                       </div>
                     </div>
-                  )}
+                  )} */}
 
                   {/* Workflow Progress */}
 

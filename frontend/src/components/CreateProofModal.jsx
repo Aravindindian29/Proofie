@@ -17,7 +17,7 @@ import api from '../services/api'
 import { useAuthStore } from '../stores/authStore'
 
 function CreateProofModal({ isOpen, onClose, onSuccess, parentProject }) {
-  const { canCreateFolder } = useAuthStore()
+  const { canCreateFolder, user } = useAuthStore()
   const [formData, setFormData] = useState({ name: '', description: '' })
 
 
@@ -313,28 +313,14 @@ function CreateProofModal({ isOpen, onClose, onSuccess, parentProject }) {
 
 
       setNameError(false)
-   }
-    if (uploadedFiles.length === 0 && selectedReviewers.length === 0) {
-      toast.error('Please upload an asset and add reviewers', { id: 'validation-error' })
-      return
-    }
-    
-       if (selectedReviewers.length === 0) {
-
-
-
-      toast.error('Please add reviewers', { id: 'validation-error' })
-
-
-
-      return
-
-
-
     }
 
-    
-   // Validate stage reviewers - at least Stage 1 must have reviewers
+    if (uploadedFiles.length === 0) {
+      toast.error('Please upload an asset', { id: 'validation-error' })
+      return
+    }
+
+    // Validate stage reviewers - at least Stage 1 must have reviewers
     if (selectedTemplate && stageReviewers) {
       const firstStage = selectedTemplate.stages.find(s => s.order === 1)
       if (firstStage && (!stageReviewers[firstStage.id] || stageReviewers[firstStage.id].length === 0)) {
@@ -342,6 +328,7 @@ function CreateProofModal({ isOpen, onClose, onSuccess, parentProject }) {
         return
       }
     }
+
     if (hasError) return
 
 
