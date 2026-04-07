@@ -69,11 +69,11 @@ class Project(models.Model):
     
     # Unique share token for URL-based access
     share_token = models.UUIDField(null=True, blank=True, unique=True, db_index=True)
-    
-    # Workflow configuration
+# Version number for version labeling
+    version_number = models.PositiveIntegerField(default=1)
+# Workflow configuration
     workflow_template_id = models.IntegerField(null=True, blank=True)
     workflow_stage_reviewers = models.JSONField(null=True, blank=True)
-
     class Meta:
         ordering = ['-created_at']
 

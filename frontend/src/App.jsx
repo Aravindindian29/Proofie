@@ -14,6 +14,7 @@ import Folders from './pages/Folders'
 import ProjectDetail from './pages/ProjectDetail'
 import AssetDetail from './pages/AssetDetail'
 import FileViewer from './pages/FileViewer'
+import ProofReviewer from './pages/ProofReviewer'
 import Workflows from './pages/Workflows'
 import WorkflowTemplateBuilder from './pages/WorkflowTemplateBuilder'
 import Notifications from './pages/Notifications'
@@ -137,6 +138,7 @@ function AppContent() {
             <Route path="/proofs/:id" element={<ProjectDetail />} />
             <Route path="/assets/:id" element={<AssetDetail />} />
             <Route path="/files/:id" element={<FileViewer />} />
+            <Route path="/proof-review/:proof_id" element={<ProofReviewer />} />
             <Route path="/workflows" element={<Workflows />} />
             <Route path="/workflows/templates" element={<WorkflowTemplateBuilder />} />
             <Route path="/notifications" element={<Notifications />} />
