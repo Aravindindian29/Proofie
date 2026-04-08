@@ -2,7 +2,15 @@ import React, { useState, useEffect } from 'react'
 
 
 
-import { X, ChevronLeft, Link, Send, Download, MoreHorizontal, Eye, Users, Calendar, Clock, Hourglass, User, Trash2, MessageSquare, CheckCircle, XCircle, RefreshCw, Lock, ArrowRight, ChevronDown } from 'lucide-react'
+
+
+
+
+import { X, ChevronLeft, Link, Send, Download, MoreHorizontal, Eye, Users, Calendar, Clock, User, Trash2, MessageSquare, CheckCircle, XCircle, RefreshCw, Lock, ArrowRight, ChevronDown } from 'lucide-react'
+
+
+
+
 
 
 
@@ -10,17 +18,39 @@ import api from '../services/api'
 
 
 
+
+
+
+
 import { toastManager } from '../utils/toastManager'
+
+
+
+
 
 
 
 import DeleteConfirmationModal from './DeleteConfirmationModal'
 
+
+
 import DecisionModal from './workflow/DecisionModal'
+
+
 
 import CreateProofModal from './CreateProofModal'
 
+
+
 import { useAuthStore } from '../stores/authStore'
+
+
+
+
+
+
+
+
 
 
 
@@ -32,7 +62,15 @@ const colors = [
 
 
 
+
+
+
+
   'linear-gradient(135deg,#0A84FF,#5E5CE6)',
+
+
+
+
 
 
 
@@ -40,7 +78,15 @@ const colors = [
 
 
 
+
+
+
+
   'linear-gradient(135deg,#30D158,#0A84FF)',
+
+
+
+
 
 
 
@@ -48,11 +94,23 @@ const colors = [
 
 
 
+
+
+
+
   'linear-gradient(135deg,#FF375F,#5E5CE6)',
 
 
 
+
+
+
+
   'linear-gradient(135deg,#FFD60A,#FF9F0A)',
+
+
+
+
 
 
 
@@ -64,7 +122,19 @@ const colors = [
 
 
 
+
+
+
+
+
+
+
+
 function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProjectCreated, onProjectChanged }) {
+
+
+
+
 
 
 
@@ -72,7 +142,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
   const [projectWithAssets, setProjectWithAssets] = useState(null)
+
+
+
+
 
 
 
@@ -80,7 +158,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+
+
+
+
 
 
 
@@ -88,7 +174,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
   const [activeSubTab, setActiveSubTab] = useState('workflow')
+
+
+
+
 
 
 
@@ -96,7 +190,63 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
   const [myMember, setMyMember] = useState(null)
+
+
+
+
+
+
+
+  // Extract review cycle data immediately from project data (no API call)
+  const extractReviewCycleFromProject = () => {
+    if (!project) {
+      console.log('No project data available')
+      return
+    }
+    
+    console.log('Extracting review cycle from project:', project)
+    console.log('Project assets:', project.assets)
+    
+    // Check if project has assets with review cycles
+    if (project.assets && project.assets.length > 0) {
+      const firstAsset = project.assets[0]
+      console.log('First asset:', firstAsset)
+      
+      // Check if asset has review cycles and set immediately
+      if (firstAsset.review_cycles && firstAsset.review_cycles.length > 0) {
+        const activeReview = firstAsset.review_cycles[0]
+        setReviewCycle(activeReview)
+        console.log('Review cycle extracted from project data:', activeReview.status)
+      } else {
+        console.log('No review cycles found in first asset')
+      }
+    } else {
+      console.log('No assets found in project data')
+      
+      // Try alternative data structures
+      if (project.review_cycles && project.review_cycles.length > 0) {
+        const activeReview = project.review_cycles[0]
+        setReviewCycle(activeReview)
+        console.log('Review cycle extracted from project.review_cycles:', activeReview.status)
+      } else if (project.current_review_cycle) {
+        setReviewCycle(project.current_review_cycle)
+        console.log('Review cycle extracted from project.current_review_cycle:', project.current_review_cycle.status)
+      } else {
+        console.log('No review cycles found in any expected location')
+      }
+    }
+  }
+
+  // Extract review cycle data immediately when project changes
+  useEffect(() => {
+    extractReviewCycleFromProject()
+  }, [project])
+
 
 
 
@@ -104,7 +254,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
   const [currentUser, setCurrentUser] = useState(null)
+
+
+
+
 
 
 
@@ -112,58 +270,120 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
   const [showDecisionModal, setShowDecisionModal] = useState(false)
 
 
+
+
+
   const [preselectedDecision, setPreselectedDecision] = useState(null)
+
   const [showVersionDropdown, setShowVersionDropdown] = useState(false)
+
   const [showCreateModal, setShowCreateModal] = useState(false)
+
   const [allVersions, setAllVersions] = useState([])
+
   const [loadingVersions, setLoadingVersions] = useState(false)
+
   const [highestVersionId, setHighestVersionId] = useState(null)
+
   const [versionsFetched, setVersionsFetched] = useState(false)
 
+
+
   const handleCreateNewProof = () => {
+
     setShowCreateModal(true)
+
   }
+
+
 
   // Fetch all versions of the current proof
+
   const fetchAllVersions = async () => {
+
     if (!project?.id) return
+
     
+
     setLoadingVersions(true)
+
     try {
+
       const response = await api.get(`/versioning/projects/${project.id}/versions/`)
+
       setAllVersions(response.data.versions || [])
+
       setHighestVersionId(response.data.highest_version_id)
+
       setVersionsFetched(true)
+
     } catch (error) {
+
       console.error('Failed to fetch versions:', error)
+
       setAllVersions([])
+
       setHighestVersionId(null)
+
       setVersionsFetched(false)
+
     } finally {
+
       setLoadingVersions(false)
+
     }
+
   }
 
+
+
   // Fetch versions when version dropdown is opened (but only if not already fetched)
+
   useEffect(() => {
+
     if (showVersionDropdown && project?.id && !versionsFetched) {
+
       fetchAllVersions()
+
     }
+
   }, [showVersionDropdown, project?.id, versionsFetched])
 
+
+
   // Reset versions fetched when project changes
+
   useEffect(() => {
+
     if (project?.id) {
+
       setVersionsFetched(false)
+
       setAllVersions([])
+
       setHighestVersionId(null)
+
     }
+
   }, [project?.id])
 
+
+
   // ... rest of the code remains the same ...
+
+
+
+
+
+
+
 
 
 
@@ -174,7 +394,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
     e.stopPropagation()
+
+
+
+
 
 
 
@@ -182,7 +410,19 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
   }
+
+
+
+
+
+
+
+
 
 
 
@@ -194,7 +434,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
     setDeleting(true)
+
+
+
+
 
 
 
@@ -202,7 +450,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
       await api.delete(`/versioning/projects/${displayProject.id}/`)
+
+
+
+
 
 
 
@@ -210,7 +466,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
       setShowDeleteModal(false)
+
+
+
+
 
 
 
@@ -218,7 +482,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
       if (onProjectDeleted) {
+
+
+
+
 
 
 
@@ -226,7 +498,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
       }
+
+
+
+
 
 
 
@@ -234,7 +514,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
       console.error('Delete error:', error)
+
+
+
+
 
 
 
@@ -242,7 +530,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
       if (error.response?.status === 403) {
+
+
+
+
 
 
 
@@ -250,7 +546,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
           style: {
+
+
+
+
 
 
 
@@ -258,7 +562,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
             whiteSpace: 'pre-line'
+
+
+
+
 
 
 
@@ -266,7 +578,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
         })
+
+
+
+
 
 
 
@@ -274,7 +594,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
         toastManager.error('Failed to delete proof: ' + (error.response?.data?.error || error.message), 'folder-toast')
+
+
+
+
 
 
 
@@ -282,7 +610,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
     } finally {
+
+
+
+
 
 
 
@@ -290,11 +626,27 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
     }
 
 
 
+
+
+
+
   }
+
+
+
+
+
+
+
+
 
 
 
@@ -306,7 +658,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
     setShowDeleteModal(false)
+
+
+
+
 
 
 
@@ -318,7 +678,19 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
   // Fetch current user
+
+
+
+
 
 
 
@@ -326,7 +698,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
     const fetchCurrentUser = async () => {
+
+
+
+
 
 
 
@@ -334,7 +714,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
         const response = await api.get('/accounts/users/me/')
+
+
+
+
 
 
 
@@ -342,7 +730,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
       } catch (error) {
+
+
+
+
 
 
 
@@ -350,11 +746,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
       }
 
 
 
+
+
+
+
     }
+
+
+
+
 
 
 
@@ -362,11 +770,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
       fetchCurrentUser()
 
 
 
+
+
+
+
     }
+
+
+
+
 
 
 
@@ -378,11 +798,27 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
   // Setup WebSocket listener for real-time updates
 
 
 
+
+
+
+
   useEffect(() => {
+
+
+
+
 
 
 
@@ -394,7 +830,19 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+
+
+
+
 
 
 
@@ -402,7 +850,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
     
+
+
+
+
 
 
 
@@ -410,11 +866,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
     let reconnectAttempts = 0
 
 
 
+
+
+
+
     const maxReconnectAttempts = 5
+
+
+
+
 
 
 
@@ -426,7 +894,19 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
     const connectWebSocket = () => {
+
+
+
+
 
 
 
@@ -434,11 +914,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
         ws = new WebSocket(wsUrl)
 
 
 
+
+
+
+
         
+
+
+
+
 
 
 
@@ -446,7 +938,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
           console.log('✅ ProjectDetailsTray WebSocket connected')
+
+
+
+
 
 
 
@@ -454,11 +954,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
         }
 
 
 
+
+
+
+
         
+
+
+
+
 
 
 
@@ -466,7 +978,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
           try {
+
+
+
+
 
 
 
@@ -474,7 +994,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
             console.log('📨 ProjectDetailsTray WebSocket message:', data)
+
+
+
+
 
 
 
@@ -482,7 +1010,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
             // Handle review cycle status updates
+
+
+
+
 
 
 
@@ -490,11 +1026,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
               console.log('🔄 ProjectDetailsTray: Review cycle update received:', data.review_cycle_id, 'Status:', data.status)
 
 
 
+
+
+
+
               
+
+
+
+
 
 
 
@@ -502,7 +1050,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
               if (reviewCycle && data.review_cycle_id === reviewCycle.id) {
+
+
+
+
 
 
 
@@ -510,7 +1066,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 // Update local state immediately
+
+
+
+
 
 
 
@@ -518,7 +1082,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   ...prev, 
+
+
+
+
 
 
 
@@ -526,7 +1098,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 }))
+
+
+
+
 
 
 
@@ -534,7 +1114,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
               
+
+
+
+
 
 
 
@@ -542,7 +1130,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
               // This handles cases where review cycle was just created or updated
+
+
+
+
 
 
 
@@ -550,7 +1146,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
               fetchWorkflowData()
+
+
+
+
 
 
 
@@ -558,7 +1162,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
           } catch (error) {
+
+
+
+
 
 
 
@@ -566,7 +1178,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
           }
+
+
+
+
 
 
 
@@ -574,7 +1194,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
         
+
+
+
+
 
 
 
@@ -582,11 +1210,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
           console.error('❌ ProjectDetailsTray WebSocket error:', error)
 
 
 
+
+
+
+
         }
+
+
+
+
 
 
 
@@ -594,7 +1234,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
         ws.onclose = () => {
+
+
+
+
 
 
 
@@ -602,7 +1250,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
           // Attempt to reconnect
+
+
+
+
 
 
 
@@ -610,7 +1266,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
             reconnectAttempts++
+
+
+
+
 
 
 
@@ -618,7 +1282,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
             setTimeout(connectWebSocket, reconnectDelay)
+
+
+
+
 
 
 
@@ -626,7 +1298,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
         }
+
+
+
+
 
 
 
@@ -634,7 +1314,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
         console.error('Failed to connect ProjectDetailsTray WebSocket:', error)
+
+
+
+
 
 
 
@@ -642,7 +1330,19 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
     }
+
+
+
+
+
+
+
+
 
 
 
@@ -658,7 +1358,19 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
     // Cleanup on unmount
+
+
+
+
 
 
 
@@ -666,7 +1378,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
       if (ws) {
+
+
+
+
 
 
 
@@ -674,11 +1394,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
       }
 
 
 
+
+
+
+
     }
+
+
+
+
 
 
 
@@ -690,7 +1422,19 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
   // Fetch project assets when tray opens or project changes
+
+
+
+
 
 
 
@@ -698,7 +1442,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
     if (isOpen && project?.id) {
+
+
+
+
 
 
 
@@ -706,7 +1458,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
       fetchWorkflowData()
+
+
+
+
 
 
 
@@ -714,7 +1474,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
       setProjectWithAssets(null)
+
+
+
+
 
 
 
@@ -722,7 +1490,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
       setMyMember(null)
+
+
+
+
 
 
 
@@ -730,11 +1506,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
       setActiveSubTab('workflow')
 
 
 
+
+
+
+
     }
+
+
+
+
 
 
 
@@ -746,11 +1534,27 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
   // Refresh data when window regains focus (user returns from PDF viewer)
 
 
 
+
+
+
+
   useEffect(() => {
+
+
+
+
 
 
 
@@ -762,7 +1566,19 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
     const handleFocus = () => {
+
+
+
+
 
 
 
@@ -770,11 +1586,27 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
       fetchWorkflowData()
 
 
 
+
+
+
+
     }
+
+
+
+
+
+
+
+
 
 
 
@@ -790,7 +1622,19 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
     return () => {
+
+
+
+
 
 
 
@@ -798,7 +1642,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
     }
+
+
+
+
 
 
 
@@ -810,7 +1662,19 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
   // Fetch workflow data
+
+
+
+
 
 
 
@@ -818,7 +1682,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
     if (!project?.id) return
+
+
+
+
 
 
 
@@ -826,7 +1698,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
     setLoadingWorkflow(true)
+
+
+
+
 
 
 
@@ -834,7 +1714,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
       // Get the first asset from the project
+
+
+
+
 
 
 
@@ -842,7 +1730,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
       const assets = assetsResponse.data
+
+
+
+
 
 
 
@@ -850,7 +1746,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
       if (assets && assets.length > 0) {
+
+
+
+
 
 
 
@@ -858,7 +1762,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
         
+
+
+
+
 
 
 
@@ -866,7 +1778,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
         if (firstAsset.review_cycles && firstAsset.review_cycles.length > 0) {
+
+
+
+
 
 
 
@@ -874,11 +1794,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
           setReviewCycle(activeReview)
 
 
 
+
+
+
+
           
+
+
+
+
 
 
 
@@ -886,7 +1818,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
           try {
+
+
+
+
 
 
 
@@ -894,7 +1834,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
             if (statusResponse.data.is_member) {
+
+
+
+
 
 
 
@@ -902,11 +1850,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
             }
 
 
 
+
+
+
+
           } catch (error) {
+
+
+
+
 
 
 
@@ -914,7 +1874,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
           }
+
+
+
+
 
 
 
@@ -922,7 +1890,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
           // Fetch group status
+
+
+
+
 
 
 
@@ -930,7 +1906,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
             const groupResponse = await api.get(`/workflows/review-cycles/${activeReview.id}/group_status/`)
+
+
+
+
 
 
 
@@ -938,7 +1922,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
           } catch (error) {
+
+
+
+
 
 
 
@@ -946,7 +1938,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
           }
+
+
+
+
 
 
 
@@ -954,7 +1954,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
       }
+
+
+
+
 
 
 
@@ -962,7 +1970,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
       console.error('Failed to fetch workflow data:', error)
+
+
+
+
 
 
 
@@ -970,11 +1986,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
       setLoadingWorkflow(false)
 
 
 
+
+
+
+
     }
+
+
+
+
 
 
 
@@ -986,7 +2014,19 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
   // Reset version dropdown when tray closes
+
+
+
+
 
 
 
@@ -994,7 +2034,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
     if (!isOpen) {
+
+
+
+
 
 
 
@@ -1002,7 +2050,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
     }
+
+
+
+
 
 
 
@@ -1014,7 +2070,19 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
   // Close dropdown when clicking outside
+
+
+
+
 
 
 
@@ -1022,7 +2090,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
     const handleClickOutside = (event) => {
+
+
+
+
 
 
 
@@ -1030,7 +2106,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
         setShowVersionDropdown(false)
+
+
+
+
 
 
 
@@ -1038,7 +2122,19 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
     }
+
+
+
+
+
+
+
+
 
 
 
@@ -1050,7 +2146,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
       document.addEventListener('click', handleClickOutside)
+
+
+
+
 
 
 
@@ -1058,7 +2162,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
         document.removeEventListener('click', handleClickOutside)
+
+
+
+
 
 
 
@@ -1066,7 +2178,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
     }
+
+
+
+
 
 
 
@@ -1078,16 +2198,47 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
   // Action handlers
 
 
 
+
+
+
+
   const handleAddComment = () => {
+
     // Navigate to ProofReviewer with the project's share_token
+
     if (project?.share_token) {
+
       window.open(`/proof-review/${project.share_token}`, '_blank')
+
     }
+
   } 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1105,7 +2256,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
     setPreselectedDecision('approved')
+
+
+
+
 
 
 
@@ -1113,7 +2272,19 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
   }
+
+
+
+
+
+
+
+
 
 
 
@@ -1125,7 +2296,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
     setPreselectedDecision('rejected')
+
+
+
+
 
 
 
@@ -1133,7 +2312,19 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
   }
+
+
+
+
+
+
+
+
 
 
 
@@ -1145,7 +2336,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
     setPreselectedDecision('changes_requested')
+
+
+
+
 
 
 
@@ -1153,7 +2352,19 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
   }
+
+
+
+
+
+
+
+
 
 
 
@@ -1165,7 +2376,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
     setShowDecisionModal(false)
+
+
+
+
 
 
 
@@ -1173,11 +2392,27 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
     toastManager.success('Decision submitted successfully', 'folder-toast')
 
 
 
+
+
+
+
   }
+
+
+
+
+
+
+
+
 
 
 
@@ -1189,7 +2424,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
     setLoadingAssets(true)
+
+
+
+
 
 
 
@@ -1197,7 +2440,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
       console.log('🔍 Fetching assets for project:', project.id)
+
+
+
+
 
 
 
@@ -1205,7 +2456,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
       
+
+
+
+
 
 
 
@@ -1213,7 +2472,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
       try {
+
+
+
+
 
 
 
@@ -1221,11 +2488,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
         console.log('✅ Success with assets endpoint:', assetsResponse.data)
 
 
 
+
+
+
+
         
+
+
+
+
 
 
 
@@ -1233,7 +2512,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
         const projectWithAssets = {
+
+
+
+
 
 
 
@@ -1241,7 +2528,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
           assets: assetsResponse.data
+
+
+
+
 
 
 
@@ -1249,7 +2544,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
         
+
+
+
+
 
 
 
@@ -1257,11 +2560,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
         setProjectWithAssets(projectWithAssets)
 
 
 
+
+
+
+
         
+
+
+
+
 
 
 
@@ -1269,7 +2584,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
         console.log('❌ Assets endpoint failed:', assetsError.message)
+
+
+
+
 
 
 
@@ -1277,7 +2600,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
         // Fallback: try global assets endpoint and filter
+
+
+
+
 
 
 
@@ -1285,7 +2616,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
           const allAssetsResponse = await api.get('/versioning/assets/')
+
+
+
+
 
 
 
@@ -1293,11 +2632,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
           console.log('📦 Filtered assets for project:', projectAssets)
 
 
 
+
+
+
+
           
+
+
+
+
 
 
 
@@ -1305,7 +2656,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
             ...project,
+
+
+
+
 
 
 
@@ -1313,11 +2672,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
           }
 
 
 
+
+
+
+
           
+
+
+
+
 
 
 
@@ -1325,7 +2696,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
           
+
+
+
+
 
 
 
@@ -1333,7 +2712,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
           console.log('❌ Fallback assets call failed:', fallbackError.message)
+
+
+
+
 
 
 
@@ -1341,7 +2728,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
           // Final fallback: empty assets array
+
+
+
+
 
 
 
@@ -1349,7 +2744,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
         }
+
+
+
+
 
 
 
@@ -1357,7 +2760,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
       
+
+
+
+
 
 
 
@@ -1365,7 +2776,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
       console.error('❌ Failed to fetch project assets:', error)
+
+
+
+
 
 
 
@@ -1373,7 +2792,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
       
+
+
+
+
 
 
 
@@ -1381,7 +2808,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
       setProjectWithAssets({ ...project, assets: [] })
+
+
+
+
 
 
 
@@ -1389,7 +2824,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
       // Show user-friendly error
+
+
+
+
 
 
 
@@ -1397,7 +2840,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
         console.log('💡 Project not found - using fallback data')
+
+
+
+
 
 
 
@@ -1405,7 +2856,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
         console.log('💡 Access denied - using fallback data')
+
+
+
+
 
 
 
@@ -1413,7 +2872,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
         console.log('💡 API error - using fallback data')
+
+
+
+
 
 
 
@@ -1421,7 +2888,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
     } finally {
+
+
+
+
 
 
 
@@ -1429,11 +2904,27 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
     }
 
 
 
+
+
+
+
   }
+
+
+
+
+
+
+
+
 
 
 
@@ -1449,7 +2940,19 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
   // Helper to get the first asset for preview
+
+
+
+
 
 
 
@@ -1457,7 +2960,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
     if (displayProject?.assets?.length > 0) {
+
+
+
+
 
 
 
@@ -1465,7 +2976,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
     }
+
+
+
+
 
 
 
@@ -1473,7 +2992,19 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
   }
+
+
+
+
+
+
+
+
 
 
 
@@ -1489,7 +3020,19 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
   return (
+
+
+
+
 
 
 
@@ -1497,7 +3040,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
       {/* Backdrop */}
+
+
+
+
 
 
 
@@ -1505,7 +3056,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
         style={{
+
+
+
+
 
 
 
@@ -1513,7 +3072,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
           top: 0,
+
+
+
+
 
 
 
@@ -1521,7 +3088,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
           right: 0,
+
+
+
+
 
 
 
@@ -1529,7 +3104,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
           background: 'rgba(0, 0, 0, 0.5)',
+
+
+
+
 
 
 
@@ -1537,7 +3120,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
           zIndex: 999,
+
+
+
+
 
 
 
@@ -1545,7 +3136,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
           transition: 'opacity 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+
+
+
+
 
 
 
@@ -1553,7 +3152,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
           visibility: isOpen ? 'visible' : 'hidden'
+
+
+
+
 
 
 
@@ -1561,11 +3168,27 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
         onClick={onClose}
 
 
 
+
+
+
+
       />
+
+
+
+
+
+
+
+
 
 
 
@@ -1577,7 +3200,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
       <div
+
+
+
+
 
 
 
@@ -1585,7 +3216,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
           position: 'fixed',
+
+
+
+
 
 
 
@@ -1593,7 +3232,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
           right: isOpen ? '0px' : '-750px',
+
+
+
+
 
 
 
@@ -1601,7 +3248,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
           height: '100vh',
+
+
+
+
 
 
 
@@ -1609,7 +3264,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
           backdropFilter: 'blur(20px)',
+
+
+
+
 
 
 
@@ -1617,7 +3280,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
           borderLeft: '1px solid rgba(255, 255, 255, 0.1)',
+
+
+
+
 
 
 
@@ -1625,7 +3296,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
           transition: 'right 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+
+
+
+
 
 
 
@@ -1633,7 +3312,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
           overflow: 'auto',
+
+
+
+
 
 
 
@@ -1641,7 +3328,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
           flexDirection: 'column'
+
+
+
+
 
 
 
@@ -1649,7 +3344,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
       >
+
+
+
+
 
 
 
@@ -1657,7 +3360,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
         <div style={{
+
+
+
+
 
 
 
@@ -1665,7 +3376,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
           borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+
+
+
+
 
 
 
@@ -1673,7 +3392,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
           flexDirection: 'column'
+
+
+
+
 
 
 
@@ -1681,7 +3408,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
           <div style={{
+
+
+
+
 
 
 
@@ -1689,11 +3424,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
             alignItems: 'center',
 
 
 
+
+
+
+
             justifyContent: 'space-between',
+
+
+
+
 
 
 
@@ -1701,11 +3448,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
           }}>
 
 
 
+
+
+
+
             <button
+
+
+
+
 
 
 
@@ -1713,11 +3472,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
               style={{
 
 
 
+
+
+
+
                 width: 32, height: 32, borderRadius: 8,
+
+
+
+
 
 
 
@@ -1725,7 +3496,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 border: '1px solid rgba(255, 255, 255, 0.2)',
+
+
+
+
 
 
 
@@ -1733,7 +3512,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 cursor: 'pointer', transition: 'all 0.2s',
+
+
+
+
 
 
 
@@ -1741,11 +3528,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
               }}
 
 
 
+
+
+
+
               onMouseEnter={(e) => {
+
+
+
+
 
 
 
@@ -1753,7 +3552,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 e.target.style.color = '#fff'
+
+
+
+
 
 
 
@@ -1761,7 +3568,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
               onMouseLeave={(e) => {
+
+
+
+
 
 
 
@@ -1769,7 +3584,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 e.target.style.color = 'rgba(255, 255, 255, 0.7)'
+
+
+
+
 
 
 
@@ -1777,7 +3600,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
             >
+
+
+
+
 
 
 
@@ -1785,7 +3616,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
             </button>
+
+
+
+
 
 
 
@@ -1793,7 +3632,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
               <h2 style={{ 
+
+
+
+
 
 
 
@@ -1801,7 +3648,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 fontSize: '1.3rem', 
+
+
+
+
 
 
 
@@ -1809,7 +3664,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 margin: 0 
+
+
+
+
 
 
 
@@ -1817,7 +3680,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 {project?.name || 'Untitled Project'}
+
+
+
+
 
 
 
@@ -1825,7 +3696,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
             </div>
+
+
+
+
 
 
 
@@ -1833,7 +3712,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
               onClick={handleDeleteClick}
+
+
+
+
 
 
 
@@ -1841,7 +3728,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 width: 32, height: 32, borderRadius: 8,
+
+
+
+
 
 
 
@@ -1849,7 +3744,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 border: 'none',
+
+
+
+
 
 
 
@@ -1857,7 +3760,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 cursor: 'pointer', transition: 'all 0.2s',
+
+
+
+
 
 
 
@@ -1865,7 +3776,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
               }}
+
+
+
+
 
 
 
@@ -1873,11 +3792,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 e.target.style.background = '#DC2626'
 
 
 
+
+
+
+
               }}
+
+
+
+
 
 
 
@@ -1885,7 +3816,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 e.target.style.background = '#EF4444'
+
+
+
+
 
 
 
@@ -1893,7 +3832,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
               title="Delete project"
+
+
+
+
 
 
 
@@ -1901,7 +3848,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
               <Trash2 size={16} />
+
+
+
+
 
 
 
@@ -1909,11 +3864,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
           </div>
 
 
 
+
+
+
+
           
+
+
+
+
 
 
 
@@ -1921,7 +3888,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
           <div style={{
+
+
+
+
 
 
 
@@ -1929,7 +3904,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
             height: '1px',
+
+
+
+
 
 
 
@@ -1937,7 +3920,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
           }} />
+
+
+
+
 
 
 
@@ -1945,7 +3936,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
           {/* Version and Actions Container */}
+
+
+
+
 
 
 
@@ -1953,7 +3952,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
             display: 'flex',
+
+
+
+
 
 
 
@@ -1961,7 +3968,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
             alignItems: 'center',
+
+
+
+
 
 
 
@@ -1969,7 +3984,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
             marginBottom: '8px',
+
+
+
+
 
 
 
@@ -1977,7 +4000,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
           }}>
+
+
+
+
 
 
 
@@ -1985,7 +4016,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
             <div style={{
+
+
+
+
 
 
 
@@ -1993,7 +4032,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
               gap: '8px',
+
+
+
+
 
 
 
@@ -2001,7 +4048,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
             }}>
+
+
+
+
 
 
 
@@ -2009,7 +4064,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
               <button
+
+
+
+
 
 
 
@@ -2017,7 +4080,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 style={{
+
+
+
+
 
 
 
@@ -2025,7 +4096,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   alignItems: 'center',
+
+
+
+
 
 
 
@@ -2033,7 +4112,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   padding: '6px 12px',
+
+
+
+
 
 
 
@@ -2041,7 +4128,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   border: '1px solid rgba(255, 255, 255, 0.15)',
+
+
+
+
 
 
 
@@ -2049,7 +4144,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   color: 'rgba(255, 255, 255, 0.8)',
+
+
+
+
 
 
 
@@ -2057,7 +4160,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   fontWeight: 500,
+
+
+
+
 
 
 
@@ -2065,11 +4176,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   transition: 'all 0.2s'
 
 
 
+
+
+
+
                 }}
+
+
+
+
 
 
 
@@ -2077,7 +4200,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   e.target.style.background = 'rgba(255, 255, 255, 0.12)'
+
+
+
+
 
 
 
@@ -2085,7 +4216,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 }}
+
+
+
+
 
 
 
@@ -2093,7 +4232,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   e.target.style.background = 'rgba(255, 255, 255, 0.08)'
+
+
+
+
 
 
 
@@ -2101,7 +4248,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 }}
+
+
+
+
 
 
 
@@ -2109,7 +4264,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 <Link size={14} />
+
+
+
+
 
 
 
@@ -2117,7 +4280,19 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
               </button>
+
+
+
+
+
+
+
+
 
 
 
@@ -2129,7 +4304,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
               <button
+
+
+
+
 
 
 
@@ -2137,7 +4320,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 style={{
+
+
+
+
 
 
 
@@ -2145,7 +4336,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   alignItems: 'center',
+
+
+
+
 
 
 
@@ -2153,7 +4352,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   background: 'rgba(255, 255, 255, 0.08)',
+
+
+
+
 
 
 
@@ -2161,7 +4368,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   borderRadius: '6px',
+
+
+
+
 
 
 
@@ -2169,7 +4384,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   cursor: 'pointer',
+
+
+
+
 
 
 
@@ -2177,7 +4400,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 }}
+
+
+
+
 
 
 
@@ -2185,7 +4416,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   e.target.style.background = 'rgba(255, 255, 255, 0.12)'
+
+
+
+
 
 
 
@@ -2193,7 +4432,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 }}
+
+
+
+
 
 
 
@@ -2201,7 +4448,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   e.target.style.background = 'rgba(255, 255, 255, 0.08)'
+
+
+
+
 
 
 
@@ -2209,7 +4464,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 }}
+
+
+
+
 
 
 
@@ -2217,11 +4480,27 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 <Send size={14} />
 
 
 
+
+
+
+
               </button>
+
+
+
+
+
+
+
+
 
 
 
@@ -2233,7 +4512,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
               <button
+
+
+
+
 
 
 
@@ -2241,7 +4528,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 style={{
+
+
+
+
 
 
 
@@ -2249,7 +4544,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   alignItems: 'center',
+
+
+
+
 
 
 
@@ -2257,7 +4560,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   background: 'rgba(255, 255, 255, 0.08)',
+
+
+
+
 
 
 
@@ -2265,7 +4576,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   borderRadius: '6px',
+
+
+
+
 
 
 
@@ -2273,7 +4592,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   cursor: 'pointer',
+
+
+
+
 
 
 
@@ -2281,7 +4608,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 }}
+
+
+
+
 
 
 
@@ -2289,7 +4624,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   e.target.style.background = 'rgba(255, 255, 255, 0.12)'
+
+
+
+
 
 
 
@@ -2297,7 +4640,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 }}
+
+
+
+
 
 
 
@@ -2305,7 +4656,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   e.target.style.background = 'rgba(255, 255, 255, 0.08)'
+
+
+
+
 
 
 
@@ -2313,7 +4672,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 }}
+
+
+
+
 
 
 
@@ -2321,11 +4688,27 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 <Download size={14} />
 
 
 
+
+
+
+
               </button>
+
+
+
+
+
+
+
+
 
 
 
@@ -2337,7 +4720,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
               <button
+
+
+
+
 
 
 
@@ -2345,7 +4736,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 style={{
+
+
+
+
 
 
 
@@ -2353,7 +4752,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   alignItems: 'center',
+
+
+
+
 
 
 
@@ -2361,7 +4768,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   background: 'rgba(255, 255, 255, 0.08)',
+
+
+
+
 
 
 
@@ -2369,7 +4784,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   borderRadius: '6px',
+
+
+
+
 
 
 
@@ -2377,7 +4800,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   cursor: 'pointer',
+
+
+
+
 
 
 
@@ -2385,7 +4816,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 }}
+
+
+
+
 
 
 
@@ -2393,7 +4832,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   e.target.style.background = 'rgba(255, 255, 255, 0.12)'
+
+
+
+
 
 
 
@@ -2401,7 +4848,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 }}
+
+
+
+
 
 
 
@@ -2409,7 +4864,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   e.target.style.background = 'rgba(255, 255, 255, 0.08)'
+
+
+
+
 
 
 
@@ -2417,7 +4880,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 }}
+
+
+
+
 
 
 
@@ -2425,7 +4896,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 <MoreHorizontal size={14} />
+
+
+
+
 
 
 
@@ -2433,7 +4912,19 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
             </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -2445,7 +4936,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
             <div style={{
+
+
+
+
 
 
 
@@ -2453,7 +4952,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
               alignItems: 'center',
+
+
+
+
 
 
 
@@ -2461,7 +4968,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
             }}>
+
+
+
+
 
 
 
@@ -2469,7 +4984,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 onClick={(e) => {
+
+
+
+
 
 
 
@@ -2477,11 +5000,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   setShowVersionDropdown(!showVersionDropdown)
 
 
 
+
+
+
+
                 }}
+
+
+
+
 
 
 
@@ -2489,7 +5024,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 style={{
+
+
+
+
 
 
 
@@ -2497,7 +5040,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   alignItems: 'center',
+
+
+
+
 
 
 
@@ -2505,7 +5056,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   fontSize: '0.85rem',
+
+
+
+
 
 
 
@@ -2513,7 +5072,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   color: '#fff',
+
+
+
+
 
 
 
@@ -2521,7 +5088,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   padding: '4px 10px',
+
+
+
+
 
 
 
@@ -2529,7 +5104,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   border: '1px solid rgba(156, 163, 175, 0.3)',
+
+
+
+
 
 
 
@@ -2537,7 +5120,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   letterSpacing: '0.5px',
+
+
+
+
 
 
 
@@ -2545,11 +5136,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   transition: 'all 0.2s'
 
 
 
+
+
+
+
                 }}
+
+
+
+
 
 
 
@@ -2557,7 +5160,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   e.target.style.background = 'rgba(156, 163, 175, 0.25)'
+
+
+
+
 
 
 
@@ -2565,7 +5176,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 }}
+
+
+
+
 
 
 
@@ -2573,7 +5192,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   e.target.style.background = 'rgba(156, 163, 175, 0.15)'
+
+
+
+
 
 
 
@@ -2581,7 +5208,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 }}
+
+
+
+
 
 
 
@@ -2589,7 +5224,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 V{displayProject?.version_number || 1}
+
+
+
+
 
 
 
@@ -2597,7 +5240,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   size={12} 
+
+
+
+
 
 
 
@@ -2605,7 +5256,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   style={{
+
+
+
+
 
 
 
@@ -2613,7 +5272,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                     transform: showVersionDropdown ? 'rotate(180deg)' : 'rotate(0deg)',
+
+
+
+
 
 
 
@@ -2621,7 +5288,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                     boxShadow: 'none'
+
+
+
+
 
 
 
@@ -2629,80 +5304,159 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 />
+
               </button>
+
               <span style={{
+
                 fontSize: '0.85rem',
+
                 fontWeight: 900,
+
                 color: '#fff',
+
                 background: 'rgba(59, 130, 246, 0.8)',
+
                 padding: '4px 10px',
+
                 borderRadius: '6px',
+
                 border: '1px solid rgba(59, 130, 246, 0.5)',
+
                 display: 'flex',
+
                 alignItems: 'center',
+
                 justifyContent: 'center',
+
                 cursor: 'pointer',
+
                 transition: 'all 0.2s'
+
               }}
+
               title="Create New Proof"
+
               onClick={handleCreateNewProof}
+
               onMouseEnter={(e) => {
+
                 e.target.style.background = 'rgba(59, 130, 246, 1)'
+
                 e.target.style.borderColor = 'rgba(59, 130, 246, 0.7)'
+
               }}
+
               onMouseLeave={(e) => {
+
                 e.target.style.background = 'rgba(59, 130, 246, 0.8)'
+
                 e.target.style.borderColor = 'rgba(59, 130, 246, 0.5)'
+
               }}
+
             >
+
               <span style={{
+
                 fontSize: '1.2rem',
+
                 fontWeight: 900,
+
                 lineHeight: 1,
+
                 display: 'flex',
+
                 alignItems: 'center',
+
                 justifyContent: 'center',
+
                 width: '100%',
+
                 height: '100%',
+
                 transform: 'translateY(-2px)'
+
               }}>+</span>
+
             </span>
 
+
+
             <span style={{
+
               fontSize: '0.85rem',
+
               fontWeight: 900,
+
               color: '#fff',
+
               background: 'rgba(59, 130, 246, 0.8)',
+
               padding: '4px 10px',
+
               borderRadius: '6px',
+
               border: '1px solid rgba(59, 130, 246, 0.5)',
+
               display: 'flex',
+
               alignItems: 'center',
+
               justifyContent: 'center',
+
               cursor: 'pointer',
+
               transition: 'all 0.2s'
+
             }}
+
             title="View PDF in new tab"
+
             onClick={() => {
+
               // Handle PDF review functionality
+
               if (project?.share_token) {
+
                 window.open(`/proof-review/${project.share_token}`, '_blank');
+
               } else {
+
                 toastManager.add('No proof ID available for this proof', 'error');
+
               }
+
             }}
+
             onMouseEnter={(e) => {
+
               e.target.style.background = 'rgba(59, 130, 246, 1)'
+
               e.target.style.borderColor = 'rgba(59, 130, 246, 0.7)'
+
             }}
+
             onMouseLeave={(e) => {
+
               e.target.style.background = 'rgba(59, 130, 246, 0.8)'
+
               e.target.style.borderColor = 'rgba(59, 130, 246, 0.5)'
+
             }}
+
           >
+
             Review
+
           </span>
+
+
 
             </div>
 
@@ -2712,263 +5466,531 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
             {/* Version Dropdown Tray */}
+
+
 
             {showVersionDropdown && (
 
+
+
               <div style={{
+
+
 
                 position: 'absolute',
 
+
+
                 top: '100%',
+
+
 
                 right: '0',
 
+
+
                 marginTop: '8px',
+
+
 
                 background: 'rgba(30, 30, 40, 0.95)',
 
+
+
                 backdropFilter: 'blur(20px)',
+
+
 
                 WebkitBackdropFilter: 'blur(20px)',
 
+
+
                 border: '1px solid rgba(255, 255, 255, 0.1)',
+
+
 
                 borderRadius: '12px',
 
+
+
                 padding: '12px',
+
+
 
                 minWidth: '320px',
 
+
+
                 maxWidth: '320px',
+
+
 
                 maxHeight: '400px',
 
+
+
                 overflow: 'auto',
+
+
 
                 boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
 
+
+
                 zIndex: 1000
+
+
 
               }}>
 
+
+
                 <div style={{
+
+
 
                   fontSize: '0.75rem',
 
+
+
                   color: 'rgba(255, 255, 255, 0.6)',
+
+
 
                   fontWeight: 600,
 
+
+
                   textTransform: 'uppercase',
+
+
 
                   letterSpacing: '0.5px',
 
+
+
                   marginBottom: '8px',
+
+
 
                   paddingBottom: '8px',
 
+
+
                   borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+
+
 
                   textAlign: 'center'
 
+
+
                 }}>
+
+
 
                   All Versions
 
+
+
                 </div>
+
+
 
                 {loadingVersions && !versionsFetched ? (
 
+
+
                   <div style={{
+
+
 
                     display: 'flex',
 
+
+
                     justifyContent: 'center',
+
+
 
                     alignItems: 'center',
 
+
+
                     padding: '20px',
+
+
 
                     color: 'rgba(255, 255, 255, 0.6)'
 
+
+
                   }}>
+
+
 
                     Loading versions...
 
+
+
                   </div>
+
+
 
                 ) : allVersions.length > 0 ? (
 
+
+
                   <div style={{
 
+
+
                     display: 'flex',
+
+
 
                     flexDirection: 'column',
 
+
+
                     gap: '6px'
 
+
+
                   }}>
+
+
 
                     {allVersions.map((version) => (
 
+
+
                       <div
+
+
 
                         key={version.id}
 
+
+
                         onClick={() => {
+
                           // Close current dropdown and switch to the selected version
+
                           setShowVersionDropdown(false)
+
                           
+
                           // Trigger switching to the selected version
+
                           if (onProjectChanged) {
+
                             onProjectChanged(version)
+
                           } else if (onProjectCreated) {
+
                             // Fallback to onProjectCreated if onProjectChanged is not provided
+
                             onProjectCreated(version)
+
                           } else {
+
                             // Final fallback: navigate to the project view
+
                             window.location.href = `/project/${version.id}`
+
                           }
+
                         }}
+
+
 
                         style={{
 
+
+
                           display: 'flex',
+
+
 
                           alignItems: 'center',
 
+
+
                           gap: '8px',
+
+
 
                           padding: '8px 10px',
 
+
+
                           borderRadius: '6px',
+
+
 
                           cursor: 'pointer',
 
+
+
                           transition: 'all 0.2s',
+
+
 
                           background: version.id === highestVersionId ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
 
+
+
                           border: version.id === highestVersionId ? '1px solid rgba(255, 255, 255, 0.2)' : '1px solid transparent'
 
+
+
                         }}
+
+
 
                         onMouseEnter={(e) => {
 
+
+
                           if (version.id !== highestVersionId) {
+
+
 
                             e.target.style.background = 'rgba(255, 255, 255, 0.05)'
 
+
+
                           }
 
+
+
                         }}
+
+
 
                         onMouseLeave={(e) => {
 
+
+
                           if (version.id !== highestVersionId) {
+
+
 
                             e.target.style.background = 'transparent'
 
+
+
                           }
+
+
 
                         }}
 
+
+
                       >
 
+
+
                         <span style={{
+
+
 
                           fontSize: '0.75rem',
 
+
+
                           fontWeight: 700,
+
+
 
                           color: '#fff',
 
+
+
                           textTransform: 'uppercase',
+
+
 
                           letterSpacing: '0.5px',
 
+
+
                           flexShrink: 0,
+
+
 
                           minWidth: '30px'
 
+
+
                         }}>
+
+
 
                           V{version.version_number || 1}
 
+
+
                         </span>
+
+
 
                         <span style={{
 
+
+
                           overflow: 'hidden',
+
+
 
                           textOverflow: 'ellipsis',
 
+
+
                           whiteSpace: 'nowrap',
+
+
 
                           flex: 1,
 
+
+
                           fontSize: '0.8rem',
+
+
 
                           color: 'rgba(255, 255, 255, 0.9)'
 
+
+
                         }}>
+
+
 
                           {version.name || 'Untitled Proof'}
 
+
+
                         </span>
+
+
 
                         {version.id === highestVersionId && (
 
+
+
                           <span style={{
+
+
 
                             fontSize: '0.7rem',
 
+
+
                             color: 'rgba(255, 255, 255, 0.5)',
+
+
 
                             fontWeight: 500
 
+
+
                           }}>
+
+
 
                             Current
 
+
+
                           </span>
+
+
 
                         )}
 
+
+
                       </div>
+
+
 
                     ))}
 
+
+
                   </div>
+
+
 
                 ) : (
 
+
+
                   <div style={{
+
+
 
                     display: 'flex',
 
+
+
                     justifyContent: 'center',
+
+
 
                     alignItems: 'center',
 
+
+
                     padding: '20px',
+
+
 
                     color: 'rgba(255, 255, 255, 0.6)',
 
+
+
                     fontSize: '0.8rem'
+
+
 
                   }}>
 
+
+
                     No other versions found
+
+
 
                   </div>
 
+
+
                 )}
+
+
 
               </div>
 
+
+
             )}
+
+
+
+
 
 
 
@@ -2976,7 +5998,19 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
         </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -2988,7 +6022,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
         <div style={{ flex: 1, overflow: 'auto', padding: '24px' }}>
+
+
+
+
 
 
 
@@ -2996,7 +6038,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
           <div style={{ display: 'flex', gap: '60px', marginBottom: '24px', alignItems: 'flex-start' }}>
+
+
+
+
 
 
 
@@ -3004,7 +6054,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
             <div
+
+
+
+
 
 
 
@@ -3012,7 +6070,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 width: '220px',
+
+
+
+
 
 
 
@@ -3020,7 +6086,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 overflow: 'hidden',
+
+
+
+
 
 
 
@@ -3028,7 +6102,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 border: '1px solid rgba(255,255,255,0.07)',
+
+
+
+
 
 
 
@@ -3036,7 +6118,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
               }}
+
+
+
+
 
 
 
@@ -3044,7 +6134,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
               {/* Thumbnail Preview Area Only - No Content Section */}
+
+
+
+
 
 
 
@@ -3052,7 +6150,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 style={{
+
+
+
+
 
 
 
@@ -3060,7 +6166,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   height: '160px',
+
+
+
+
 
 
 
@@ -3068,7 +6182,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   backgroundSize: 'cover',
+
+
+
+
 
 
 
@@ -3076,7 +6198,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   display: 'flex',
+
+
+
+
 
 
 
@@ -3084,7 +6214,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   justifyContent: 'center',
+
+
+
+
 
 
 
@@ -3092,7 +6230,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   overflow: 'hidden',
+
+
+
+
 
 
 
@@ -3100,15 +6246,31 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 }}
+
+
+
+
 
 
 
                 onClick={() => {
+
                   if (project?.share_token) {
+
                     window.open(`/proof-review/${project.share_token}`, '_blank')
+
                   }
+
                 }}
+
+
+
+
 
 
 
@@ -3116,11 +6278,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 {displayProject?.thumbnail_url ? (
 
 
 
+
+
+
+
                   <img 
+
+
+
+
 
 
 
@@ -3128,7 +6302,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                     alt={displayProject.name}
+
+
+
+
 
 
 
@@ -3136,7 +6318,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                     onError={(e) => {
+
+
+
+
 
 
 
@@ -3144,7 +6334,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                       e.target.parentElement.style.background = colors[0]
+
+
+
+
 
 
 
@@ -3152,7 +6350,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   />
+
+
+
+
 
 
 
@@ -3160,7 +6366,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   <div style={{
+
+
+
+
 
 
 
@@ -3168,7 +6382,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                     height: '100%',
+
+
+
+
 
 
 
@@ -3176,7 +6398,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                     alignItems: 'center',
+
+
+
+
 
 
 
@@ -3184,7 +6414,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                     background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
+
+
+
+
 
 
 
@@ -3192,7 +6430,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   }}>
+
+
+
+
 
 
 
@@ -3200,7 +6446,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   </div>
+
+
+
+
 
 
 
@@ -3208,7 +6462,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   <img 
+
+
+
+
 
 
 
@@ -3216,7 +6478,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                     alt={displayProject.name}
+
+
+
+
 
 
 
@@ -3224,7 +6494,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                     onError={(e) => {
+
+
+
+
 
 
 
@@ -3232,7 +6510,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                       e.target.parentElement.style.background = colors[0]
+
+
+
+
 
 
 
@@ -3240,7 +6526,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   />
+
+
+
+
 
 
 
@@ -3248,7 +6542,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   <video
+
+
+
+
 
 
 
@@ -3256,7 +6558,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+
+
+
+
 
 
 
@@ -3264,11 +6574,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                     preload="metadata"
 
 
 
+
+
+
+
                   />
+
+
+
+
 
 
 
@@ -3276,7 +6598,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   <div style={{
+
+
+
+
 
 
 
@@ -3284,7 +6614,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                     height: '100%',
+
+
+
+
 
 
 
@@ -3292,7 +6630,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                     alignItems: 'center',
+
+
+
+
 
 
 
@@ -3300,7 +6646,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                     background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
+
+
+
+
 
 
 
@@ -3308,7 +6662,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   }}>
+
+
+
+
 
 
 
@@ -3316,7 +6678,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   </div>
+
+
+
+
 
 
 
@@ -3324,7 +6694,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   <img 
+
+
+
+
 
 
 
@@ -3332,11 +6710,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                     alt={firstAsset.name}
 
 
 
+
+
+
+
                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+
+
+
+
 
 
 
@@ -3344,7 +6734,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                       e.target.style.display = 'none'
+
+
+
+
 
 
 
@@ -3352,11 +6750,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                     }}
 
 
 
+
+
+
+
                   />
+
+
+
+
 
 
 
@@ -3364,7 +6774,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   <video
+
+
+
+
 
 
 
@@ -3372,7 +6790,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+
+
+
+
 
 
 
@@ -3380,7 +6806,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                     preload="metadata"
+
+
+
+
 
 
 
@@ -3388,7 +6822,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 ) : (
+
+
+
+
 
 
 
@@ -3396,7 +6838,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                     width: 48, height: 48, borderRadius: 14,
+
+
+
+
 
 
 
@@ -3404,7 +6854,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
+
+
+
+
 
 
 
@@ -3412,7 +6870,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                     boxShadow: '0 6px 20px rgba(10,132,255,0.3)',
+
+
+
+
 
 
 
@@ -3420,7 +6886,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                     {displayProject?.name?.[0]?.toUpperCase()}
+
+
+
+
 
 
 
@@ -3428,7 +6902,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 )}
+
+
+
+
 
 
 
@@ -3436,7 +6918,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 <div style={{
+
+
+
+
 
 
 
@@ -3444,7 +6934,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   bottom: '8px',
+
+
+
+
 
 
 
@@ -3452,7 +6950,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   padding: '4px 8px',
+
+
+
+
 
 
 
@@ -3460,7 +6966,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   borderRadius: '4px',
+
+
+
+
 
 
 
@@ -3468,7 +6982,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   color: '#fff',
+
+
+
+
 
 
 
@@ -3476,7 +6998,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   fontWeight: 600
+
+
+
+
 
 
 
@@ -3484,7 +7014,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   {displayProject?.asset_file_type || firstAsset?.file_type || 'Project'}
+
+
+
+
 
 
 
@@ -3492,11 +7030,27 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
               </div>
 
 
 
+
+
+
+
             </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -3508,7 +7062,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
+
+
+
+
 
 
 
@@ -3516,7 +7078,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
               <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '36px' }}>
+
+
+
+
 
 
 
@@ -3524,7 +7094,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 600 }}>
+
+
+
+
 
 
 
@@ -3532,11 +7110,27 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 </span>
 
 
 
+
+
+
+
               </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -3548,7 +7142,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
               <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '36px' }}>
+
+
+
+
 
 
 
@@ -3556,11 +7158,26 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 {(() => {
 
 
 
-                  const status = reviewCycle?.status || 'not_started'
+
+
+
+
+                  // Show loading state instead of defaulting to not_started to prevent incorrect display
+                  const status = reviewCycle?.status || (project ? 'loading' : 'not_started')
+
+
+
+
+
+
 
 
 
@@ -3568,59 +7185,173 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+                    loading: {
+
+
+
+
+
+
+
+
+
+                      color: 'rgba(255,255,255,0.5)',
+
+
+
+                      background: 'transparent',
+
+
+
+                      border: '1px solid rgba(255,255,255,0.3)',
+
+
+
+                      icon: '...',
+
+
+
+                      label: 'Loading' 
+
+
+
+
+
+
+
+
+
+                    }, 
+
+
+
+
+
+
+
                     not_started: {
 
 
 
-                      color: '#9CA3AF',
 
 
 
-                      background: 'rgba(156,163,175,0.15)',
 
 
 
-                      border: '1px solid rgba(156,163,175,0.4)',
+                      color: '#FFFFFF', 
 
 
 
-                      icon: '💤',
 
 
 
-                      label: 'Not Started'
+
+                      background: 'transparent', 
 
 
 
-                    },
 
 
 
-                    in_progress: {
+
+                      border: '1px solid #D1D5DB', 
 
 
 
-                      color: '#FFD60A',
 
 
 
-                      background: 'rgba(255,214,10,0.15)',
+
+                      icon: '\ud83d\ude34', 
 
 
 
-                      border: '1px solid rgba(255,214,10,0.4)',
 
 
 
-                      icon: <Hourglass size={14} color="#FFD60A" strokeWidth={3.5} />,
+
+                      label: 'Not Started' 
 
 
 
-                      label: 'In Progress'
 
 
 
-                    },
+
+
+
+}, 
+
+
+
+
+
+
+
+in_progress: {
+
+
+
+
+
+
+
+
+
+color: '#D97706', 
+
+
+
+
+
+
+
+background: 'transparent', 
+
+
+
+
+
+
+
+
+
+                      border: '1px solid #F59E0B', 
+
+
+
+
+
+
+
+                      icon: '\u231B', 
+
+
+
+
+
+
+
+                      label: 'In Progress' 
+
+
+
+
+
+
+
+                    }, 
+
+
+
+
 
 
 
@@ -3628,7 +7359,19 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                       color: '#10B981',
+
+
+
+
 
 
 
@@ -3636,7 +7379,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                       border: '1px solid rgba(16,185,129,0.4)',
+
+
+
+
 
 
 
@@ -3644,11 +7395,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                       label: 'Approved'
 
 
 
+
+
+
+
                     },
+
+
+
+
 
 
 
@@ -3656,7 +7419,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                       color: '#3B82F6',
+
+
+
+
 
 
 
@@ -3664,7 +7435,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                       border: '1px solid rgba(59,130,246,0.4)',
+
+
+
+
 
 
 
@@ -3672,7 +7451,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                       label: 'Approved with Changes'
+
+
+
+
 
 
 
@@ -3680,7 +7467,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                     rejected: {
+
+
+
+
 
 
 
@@ -3688,7 +7483,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                       background: 'rgba(239,68,68,0.15)',
+
+
+
+
 
 
 
@@ -3696,7 +7499,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                       icon: '❌',
+
+
+
+
 
 
 
@@ -3704,7 +7515,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                     }
+
+
+
+
 
 
 
@@ -3712,7 +7531,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   const config = statusConfig[status] || statusConfig.not_started
+
+
+
+
 
 
 
@@ -3720,7 +7547,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   return (
+
+
+
+
 
 
 
@@ -3728,7 +7563,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                       fontSize: '0.75rem', 
+
+
+
+
 
 
 
@@ -3736,7 +7579,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                       fontWeight: 600,
+
+
+
+
 
 
 
@@ -3744,7 +7595,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                       alignItems: 'center',
+
+
+
+
 
 
 
@@ -3752,7 +7611,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                       padding: '4px 10px',
+
+
+
+
 
 
 
@@ -3760,7 +7627,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                       borderRadius: '6px',
+
+
+
+
 
 
 
@@ -3768,7 +7643,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                     }}>
+
+
+
+
 
 
 
@@ -3776,7 +7659,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
-                        <span style={{ fontSize: '14px' }}>{config.icon}</span>
+
+
+
+
+                        <span style={{ fontSize: (config.icon === '\u231B' || config.icon === '\ud83d\ude34') ? '18px' : '14px' }}>{config.icon}</span>
+
+
+
+
 
 
 
@@ -3784,7 +7675,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                         config.icon
+
+
+
+
 
 
 
@@ -3792,7 +7691,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                       {config.label}
+
+
+
+
 
 
 
@@ -3800,7 +7707,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   )
+
+
+
+
 
 
 
@@ -3808,7 +7723,19 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
               </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -3820,7 +7747,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
               <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '36px' }}>
+
+
+
+
 
 
 
@@ -3828,7 +7763,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+
+
+
+
 
 
 
@@ -3836,7 +7779,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   <div style={{
+
+
+
+
 
 
 
@@ -3844,7 +7795,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                     height: 36,
+
+
+
+
 
 
 
@@ -3852,7 +7811,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                     background: 'linear-gradient(135deg,#0A84FF,#5E5CE6)',
+
+
+
+
 
 
 
@@ -3860,7 +7827,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                     alignItems: 'center',
+
+
+
+
 
 
 
@@ -3868,7 +7843,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                     fontSize: '0.9rem',
+
+
+
+
 
 
 
@@ -3876,7 +7859,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                     color: '#fff',
+
+
+
+
 
 
 
@@ -3884,7 +7875,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   }}>
+
+
+
+
 
 
 
@@ -3892,7 +7891,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                      displayProject?.created_by?.username?.[0]?.toUpperCase() || 
+
+
+
+
 
 
 
@@ -3900,7 +7907,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   </div>
+
+
+
+
 
 
 
@@ -3908,7 +7923,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
+
+
+
+
 
 
 
@@ -3916,7 +7939,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                       {displayProject?.owner?.username || 
+
+
+
+
 
 
 
@@ -3924,7 +7955,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                        displayProject?.created_by?.username || 
+
+
+
+
 
 
 
@@ -3932,7 +7971,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                     </span>
+
+
+
+
 
 
 
@@ -3940,7 +7987,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                       {displayProject?.owner?.email || 
+
+
+
+
 
 
 
@@ -3948,7 +8003,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                        ''}
+
+
+
+
 
 
 
@@ -3956,7 +8019,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   </div>
+
+
+
+
 
 
 
@@ -3964,7 +8035,19 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
               </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -3976,7 +8059,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
               <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '36px' }}>
+
+
+
+
 
 
 
@@ -3984,7 +8075,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 600 }}>
+
+
+
+
 
 
 
@@ -3992,7 +8091,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                     ? (() => {
+
+
+
+
 
 
 
@@ -4000,7 +8107,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                         const dateStr = date.toLocaleDateString()
+
+
+
+
 
 
 
@@ -4008,7 +8123,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                         timeStr = timeStr.replace(/\s?(am|pm)$/i, (match) => match.toUpperCase())
+
+
+
+
 
 
 
@@ -4016,7 +8139,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                       })()
+
+
+
+
 
 
 
@@ -4024,11 +8155,27 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 </span>
 
 
 
+
+
+
+
               </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -4040,7 +8187,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
               <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start', gap: '36px' }}>
+
+
+
+
 
 
 
@@ -4048,7 +8203,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 }}>
+
+
+
+
 
 
 
@@ -4056,7 +8219,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                     displayProject.assets.map((asset, index) => (
+
+
+
+
 
 
 
@@ -4064,7 +8235,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                         <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 600 }}>
+
+
+
+
 
 
 
@@ -4072,7 +8251,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                         </span>
+
+
+
+
 
 
 
@@ -4080,7 +8267,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                     ))
+
+
+
+
 
 
 
@@ -4088,7 +8283,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                     <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 600 }}>0</span>
+
+
+
+
 
 
 
@@ -4096,7 +8299,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 </div>
+
+
+
+
 
 
 
@@ -4104,11 +8315,27 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
             </div>
 
 
 
+
+
+
+
           </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -4120,7 +8347,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
             <div style={{ textAlign: 'center', padding: '40px 0' }}>
+
+
+
+
 
 
 
@@ -4128,7 +8363,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 Loading assets...
+
+
+
+
 
 
 
@@ -4136,7 +8379,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
             </div>
+
+
+
+
 
 
 
@@ -4148,7 +8399,19 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
           {/* Workflow Section Divider */}
+
+
+
+
 
 
 
@@ -4156,7 +8419,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
             width: '100%',
+
+
+
+
 
 
 
@@ -4164,11 +8435,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
             background: 'rgba(255, 255, 255, 0.15)',
 
 
 
+
+
+
+
             margin: '32px 0 24px 0'
+
+
+
+
 
 
 
@@ -4180,7 +8463,19 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
           {/* Sub-Tab Navigation */}
+
+
+
+
 
 
 
@@ -4188,7 +8483,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
             display: 'flex',
+
+
+
+
 
 
 
@@ -4196,7 +8499,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
             marginBottom: '20px',
+
+
+
+
 
 
 
@@ -4204,7 +8515,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
             paddingBottom: '0'
+
+
+
+
 
 
 
@@ -4212,7 +8531,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
             {['workflow', 'brief', 'integrations', 'settings', 'activity', 'emails'].map((tab) => (
+
+
+
+
 
 
 
@@ -4220,7 +8547,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 key={tab}
+
+
+
+
 
 
 
@@ -4228,7 +8563,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 style={{
+
+
+
+
 
 
 
@@ -4236,7 +8579,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   background: activeSubTab === tab ? 'rgba(10, 132, 255, 0.1)' : 'transparent',
+
+
+
+
 
 
 
@@ -4244,7 +8595,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   borderBottom: activeSubTab === tab ? '2px solid #0A84FF' : '2px solid transparent',
+
+
+
+
 
 
 
@@ -4252,7 +8611,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   fontSize: '0.85rem',
+
+
+
+
 
 
 
@@ -4260,7 +8627,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   cursor: 'pointer',
+
+
+
+
 
 
 
@@ -4268,7 +8643,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   textTransform: 'capitalize',
+
+
+
+
 
 
 
@@ -4276,7 +8659,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 }}
+
+
+
+
 
 
 
@@ -4284,7 +8675,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   if (activeSubTab !== tab) {
+
+
+
+
 
 
 
@@ -4292,7 +8691,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                     e.target.style.color = 'rgba(255, 255, 255, 0.8)'
+
+
+
+
 
 
 
@@ -4300,7 +8707,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 }}
+
+
+
+
 
 
 
@@ -4308,7 +8723,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   if (activeSubTab !== tab) {
+
+
+
+
 
 
 
@@ -4316,7 +8739,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                     e.target.style.color = 'rgba(255, 255, 255, 0.6)'
+
+
+
+
 
 
 
@@ -4324,7 +8755,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 }}
+
+
+
+
 
 
 
@@ -4332,7 +8771,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 {tab}
+
+
+
+
 
 
 
@@ -4340,7 +8787,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
             ))}
+
+
+
+
 
 
 
@@ -4352,7 +8807,19 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
           {/* Sub-Tab Content */}
+
+
+
+
 
 
 
@@ -4360,7 +8827,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
             <div>
+
+
+
+
 
 
 
@@ -4368,7 +8843,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 <div style={{ textAlign: 'center', padding: '40px 0' }}>
+
+
+
+
 
 
 
@@ -4376,7 +8859,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                     Loading workflow...
+
+
+
+
 
 
 
@@ -4384,7 +8875,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 </div>
+
+
+
+
 
 
 
@@ -4392,7 +8891,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 <div style={{ textAlign: 'center', padding: '40px 0' }}>
+
+
+
+
 
 
 
@@ -4400,7 +8907,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   <h3 style={{ color: '#fff', fontSize: '1.2rem', fontWeight: 600, marginBottom: '8px' }}>
+
+
+
+
 
 
 
@@ -4408,7 +8923,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   </h3>
+
+
+
+
 
 
 
@@ -4416,7 +8939,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                     This proof doesn't have an active workflow yet.
+
+
+
+
 
 
 
@@ -4424,7 +8955,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 </div>
+
+
+
+
 
 
 
@@ -4432,319 +8971,654 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 <>
+
                   {/* Workflow Status Overview - HIDDEN */}
+
                   {/* <div style={{
+
                     background: 'rgba(255,255,255,0.03)',
+
                     border: '1px solid rgba(255,255,255,0.08)',
+
                     borderRadius: '12px',
+
                     padding: '16px 20px',
+
                     marginBottom: '24px',
+
                     display: 'flex',
+
                     alignItems: 'center',
+
                     justifyContent: 'space-between'
+
                   }}>
+
                     <div>
+
                       <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.5)', marginBottom: '6px' }}>
+
                         Overall Status
+
                       </div>
+
                       {(() => {
-                        const status = reviewCycle?.status || 'not_started'
+
+                        // Show loading state instead of defaulting to not_started to prevent incorrect display
+                  const status = reviewCycle?.status || (project ? 'loading' : 'not_started')
+
                         const statusConfig = {
+
+                          loading: {
+
+                            color: 'rgba(255,255,255,0.5)',
+
+                            background: 'transparent',
+
+                            border: '1px solid rgba(255,255,255,0.3)',
+
+                            icon: '...',
+
+                            label: 'Loading'
+
+                          },
+
                           not_started: {
-                            color: '#9CA3AF',
-                            background: 'rgba(156,163,175,0.15)',
-                            border: '1px solid rgba(156,163,175,0.4)',
-                            icon: '💤',
+
+                            color: '#FFFFFF',
+
+                            background: 'transparent',
+
+                            border: '1px solid #D1D5DB',
+
+                            icon: '\ud83d\ude34',
+
                             label: 'Not Started'
+
                           },
+
                           in_progress: {
-                            color: '#FFD60A',
-                            background: 'rgba(255,214,10,0.15)',
-                            border: '1px solid rgba(255,214,10,0.4)',
-                            icon: <Hourglass size={14} color="#FFD60A" strokeWidth={3.5} />,
+
+                            color: '#D97706',
+
+                            background: 'transparent',
+
+                            border: '1px solid #F59E0B',
+
+                            icon: '\u231B',
+
                             label: 'In Progress'
+
                           },
+
                           approved: {
+
                             color: '#10B981',
+
                             background: 'rgba(16,185,129,0.15)',
+
                             border: '1px solid rgba(16,185,129,0.4)',
+
                             icon: '✅',
+
                             label: 'Approved'
+
                           },
+
                           approved_with_changes: {
+
                             color: '#3B82F6',
+
                             background: 'rgba(59,130,246,0.15)',
+
                             border: '1px solid rgba(59,130,246,0.4)',
+
                             icon: '✓',
+
                             label: 'Approved with Changes'
+
                           },
+
                           rejected: {
+
                             color: '#EF4444',
+
                             background: 'rgba(239,68,68,0.15)',
+
                             border: '1px solid rgba(239,68,68,0.4)',
+
                             icon: '❌',
+
                             label: 'Rejected'
+
                           }
+
                         }
+
                         const config = statusConfig[status] || statusConfig.not_started
+
                         
+
                         return (
+
                           <span style={{ 
+
                             fontSize: '0.85rem', 
+
                             color: config.color, 
+
                             fontWeight: 600,
+
                             display: 'flex',
+
                             alignItems: 'center',
+
                             gap: '8px',
+
                             padding: '6px 12px',
+
                             background: config.background,
+
                             borderRadius: '8px',
+
                             border: config.border,
+
                             width: 'fit-content'
+
                           }}>
+
                             {typeof config.icon === 'string' ? (
-                              <span style={{ fontSize: '16px' }}>{config.icon}</span>
+
+                              <span style={{ fontSize: (config.icon === '\u231B' || config.icon === '\ud83d\ude34') ? '20px' : '16px' }}>{config.icon}</span>
+
                             ) : (
+
                               config.icon
+
                             )}
+
                             {config.label}
+
                           </span>
+
                         )
+
                       })()}
+
                     </div>
+
                   </div> */}
 
+
+
                   {/* User Status Card - HIDDEN */}
+
                   {/* {myMember && (
+
                     <div style={{
+
                       background: 'rgba(255,255,255,0.05)',
+
                       border: '1px solid rgba(255,255,255,0.1)',
+
                       borderRadius: '12px',
+
                       padding: '20px',
+
                       marginBottom: '24px'
+
                     }}>
+
                       <div style={{ marginBottom: '16px' }}>
+
                         <div style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)', marginBottom: '8px' }}>
+
                           Your Status
+
                         </div>
+
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+
                           <span style={{
+
                             padding: '6px 12px',
+
                             borderRadius: '6px',
+
                             fontSize: '0.85rem',
+
                             fontWeight: 600,
+
                             background: myMember.socd_status === 'sent' ? 'rgba(156,163,175,0.2)' :
+
                                        myMember.socd_status === 'open' ? 'rgba(16,185,129,0.2)' :
+
                                        myMember.socd_status === 'commented' ? 'rgba(59,130,246,0.2)' :
+
                                        'rgba(16,185,129,0.2)',
+
                             color: myMember.socd_status === 'sent' ? '#9CA3AF' :
+
                                    myMember.socd_status === 'open' ? '#10B981' :
+
                                    myMember.socd_status === 'commented' ? '#3B82F6' :
+
                                    '#10B981',
+
                             border: myMember.socd_status === 'sent' ? '1px solid rgba(156,163,175,0.3)' :
+
                                     myMember.socd_status === 'open' ? '1px solid rgba(16,185,129,0.3)' :
+
                                     myMember.socd_status === 'commented' ? '1px solid rgba(59,130,246,0.3)' :
+
                                     '1px solid rgba(16,185,129,0.3)'
+
                           }}>
+
                             {myMember.socd_status === 'sent' ? '⚪ Sent' :
+
                              myMember.socd_status === 'open' ? '🟢 Opened' :
+
                              myMember.socd_status === 'commented' ? '🔵 Commented' :
+
                              '✅ Decision Made'}
+
                           </span>
+
                         </div>
+
                       </div>
+
                       
+
                       <div style={{ marginBottom: '16px' }}>
+
                         <div style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)', marginBottom: '8px' }}>
+
                           Group
+
                         </div>
+
                         <div style={{ fontSize: '1rem', color: '#fff', fontWeight: 600 }}>
+
                           {myMember.group?.name || 'Unknown Group'}
+
                         </div>
+
                       </div>
+
+
 
                       {myMember.group?.status === 'locked' && (
+
                         <div style={{
+
                           display: 'flex',
+
                           alignItems: 'center',
+
                           gap: '8px',
+
                           padding: '12px',
+
                           background: 'rgba(251,191,36,0.1)',
+
                           border: '1px solid rgba(251,191,36,0.3)',
+
                           borderRadius: '8px',
+
                           color: '#FBBF24',
+
                           fontSize: '0.85rem'
+
                         }}>
+
                           <Lock size={16} />
+
                           <span>Group is locked - waiting for previous stage</span>
+
                         </div>
+
                       )}
+
+
 
                       {myMember.decision !== 'pending' && (
+
                         <div style={{
+
                           display: 'flex',
+
                           alignItems: 'center',
+
                           gap: '8px',
+
                           padding: '12px',
+
                           background: 'rgba(16,185,129,0.1)',
+
                           border: '1px solid rgba(16,185,129,0.3)',
+
                           borderRadius: '8px',
+
                           color: '#10B981',
+
                           fontSize: '0.85rem'
+
                         }}>
+
                           <CheckCircle size={16} />
+
                           <span>You have made your decision: {myMember.decision}</span>
+
                         </div>
+
                       )}
+
                     </div>
+
                   )} */}
+
+
 
                   {/* Action Buttons - HIDDEN */}
+
                   {/* {myMember && currentUser?.profile?.role !== 'lite_user' && (
+
                     <div style={{ marginBottom: '24px' }}>
+
                       <div style={{ fontSize: '0.9rem', color: 'rgba(255,255,255,0.6)', marginBottom: '12px', fontWeight: 600 }}>
+
                         Actions
+
                       </div>
+
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+
                         <button
+
                           onClick={handleAddComment}
+
                           disabled={myMember.group?.status === 'locked' || myMember.decision !== 'pending'}
+
                           style={{
+
                             display: 'flex',
+
                             alignItems: 'center',
+
                             gap: '12px',
+
                             padding: '14px 18px',
+
                             background: myMember.group?.status === 'locked' || myMember.decision !== 'pending' 
+
                               ? 'rgba(255,255,255,0.05)' 
+
                               : 'rgba(59,130,246,0.15)',
+
                             border: myMember.group?.status === 'locked' || myMember.decision !== 'pending'
+
                               ? '1px solid rgba(255,255,255,0.1)'
+
                               : '1px solid rgba(59,130,246,0.3)',
+
                             borderRadius: '10px',
+
                             color: myMember.group?.status === 'locked' || myMember.decision !== 'pending'
+
                               ? 'rgba(255,255,255,0.4)'
+
                               : '#3B82F6',
+
                             fontSize: '0.95rem',
+
                             fontWeight: 600,
+
                             cursor: myMember.group?.status === 'locked' || myMember.decision !== 'pending' ? 'not-allowed' : 'pointer',
+
                             transition: 'all 0.2s'
+
                           }}
+
                           onMouseEnter={(e) => {
+
                             if (myMember.group?.status !== 'locked' && myMember.decision === 'pending') {
+
                               e.target.style.background = 'rgba(59,130,246,0.25)'
+
                             }
+
                           }}
+
                           onMouseLeave={(e) => {
+
                             if (myMember.group?.status !== 'locked' && myMember.decision === 'pending') {
+
                               e.target.style.background = 'rgba(59,130,246,0.15)'
+
                             }
+
                           }}
+
                         >
+
                           <MessageSquare size={20} />
+
                           <span>Add Comment</span>
+
                         </button>
 
+
+
                         <button
+
                           onClick={handleApprove}
+
                           disabled={myMember.group?.status === 'locked' || myMember.decision !== 'pending'}
+
                           style={{
+
                             display: 'flex',
+
                             alignItems: 'center',
+
                             gap: '12px',
+
                             padding: '14px 18px',
+
                             background: myMember.group?.status === 'locked' || myMember.decision !== 'pending'
+
                               ? 'rgba(255,255,255,0.05)'
+
                               : 'rgba(16,185,129,0.15)',
+
                             border: myMember.group?.status === 'locked' || myMember.decision !== 'pending'
+
                               ? '1px solid rgba(255,255,255,0.1)'
+
                               : '1px solid rgba(16,185,129,0.3)',
+
                             borderRadius: '10px',
+
                             color: myMember.group?.status === 'locked' || myMember.decision !== 'pending'
+
                               ? 'rgba(255,255,255,0.4)'
+
                               : '#10B981',
+
                             fontSize: '0.95rem',
+
                             fontWeight: 600,
+
                             cursor: myMember.group?.status === 'locked' || myMember.decision !== 'pending' ? 'not-allowed' : 'pointer',
+
                             transition: 'all 0.2s'
+
                           }}
+
                           onMouseEnter={(e) => {
+
                             if (myMember.group?.status !== 'locked' && myMember.decision === 'pending') {
+
                               e.target.style.background = 'rgba(16,185,129,0.25)'
+
                             }
+
                           }}
+
                           onMouseLeave={(e) => {
+
                             if (myMember.group?.status !== 'locked' && myMember.decision === 'pending') {
+
                               e.target.style.background = 'rgba(16,185,129,0.15)'
+
                             }
+
                           }}
+
                         >
+
                           <CheckCircle size={20} />
+
                           <span>Approve</span>
+
                         </button>
 
+
+
                         <button
+
                           onClick={handleReject}
+
                           disabled={myMember.group?.status === 'locked' || myMember.decision !== 'pending'}
+
                           style={{
+
                             display: 'flex',
+
                             alignItems: 'center',
+
                             gap: '12px',
+
                             padding: '14px 18px',
+
                             background: myMember.group?.status === 'locked' || myMember.decision !== 'pending'
+
                               ? 'rgba(255,255,255,0.05)'
+
                               : 'rgba(239,68,68,0.15)',
+
                             border: myMember.group?.status === 'locked' || myMember.decision !== 'pending'
+
                               ? '1px solid rgba(255,255,255,0.1)'
+
                               : '1px solid rgba(239,68,68,0.3)',
+
                             borderRadius: '10px',
+
                             color: myMember.group?.status === 'locked' || myMember.decision !== 'pending'
+
                               ? 'rgba(255,255,255,0.4)'
+
                               : '#EF4444',
+
                             fontSize: '0.95rem',
+
                             fontWeight: 600,
+
                             cursor: myMember.group?.status === 'locked' || myMember.decision !== 'pending' ? 'not-allowed' : 'pointer',
+
                             transition: 'all 0.2s'
+
                           }}
+
                           onMouseEnter={(e) => {
+
                             if (myMember.group?.status !== 'locked' && myMember.decision === 'pending') {
+
                               e.target.style.background = 'rgba(239,68,68,0.25)'
+
                             }
+
                           }}
+
                           onMouseLeave={(e) => {
+
                             if (myMember.group?.status !== 'locked' && myMember.decision === 'pending') {
+
                               e.target.style.background = 'rgba(239,68,68,0.15)'
+
                             }
+
                           }}
+
                         >
+
                           <XCircle size={20} />
+
                           <span>Reject</span>
+
                         </button>
+
                       </div>
+
                     </div>
+
                   )} */}
+
+
 
                   {/* Lite User View Only Message - HIDDEN */}
+
                   {/* {currentUser?.profile?.role === 'lite_user' && (
+
                     <div style={{
+
                       padding: '20px',
+
                       background: 'rgba(156,163,175,0.1)',
+
                       border: '1px solid rgba(156,163,175,0.2)',
+
                       borderRadius: '12px',
+
                       textAlign: 'center',
+
                       marginBottom: '24px'
+
                     }}>
+
                       <Eye size={32} style={{ color: '#9CA3AF', marginBottom: '12px' }} />
+
                       <div style={{ color: '#9CA3AF', fontSize: '0.95rem', fontWeight: 600 }}>
+
                         View Only Access
+
                       </div>
+
                       <div style={{ color: 'rgba(156,163,175,0.7)', fontSize: '0.85rem', marginTop: '4px' }}>
+
                         You can view the workflow but cannot make decisions
+
                       </div>
+
                     </div>
+
                   )} */}
 
+
+
                   {/* Workflow Progress */}
+
+
+
+
 
 
 
@@ -4752,7 +9626,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                     <div>
+
+
+
+
 
 
 
@@ -4760,11 +9642,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                         Workflow Progress
 
 
 
+
+
+
+
                       </div>
+
+
+
+
 
 
 
@@ -4772,7 +9666,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                         {groups.map((group, index) => (
+
+
+
+
 
 
 
@@ -4780,7 +9682,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                             key={group.id}
+
+
+
+
 
 
 
@@ -4788,7 +9698,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                               padding: '16px',
+
+
+
+
 
 
 
@@ -4796,11 +9714,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                                 ? 'rgba(10,132,255,0.1)'
 
 
 
+
+
+
+
                                 : group.status === 'completed'
+
+
+
+
 
 
 
@@ -4808,7 +9738,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                                 : 'rgba(255,255,255,0.05)',
+
+
+
+
 
 
 
@@ -4816,7 +9754,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                                 ? '1px solid rgba(10,132,255,0.3)'
+
+
+
+
 
 
 
@@ -4824,7 +9770,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                                 ? '1px solid rgba(16,185,129,0.3)'
+
+
+
+
 
 
 
@@ -4832,7 +9786,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                               borderRadius: '10px'
+
+
+
+
 
 
 
@@ -4840,7 +9802,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                           >
+
+
+
+
 
 
 
@@ -4848,7 +9818,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+
+
+
+
 
 
 
@@ -4856,7 +9834,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                                   width: '28px',
+
+
+
+
 
 
 
@@ -4864,7 +9850,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                                   borderRadius: '50%',
+
+
+
+
 
 
 
@@ -4872,7 +9866,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                                   color: '#fff',
+
+
+
+
 
 
 
@@ -4880,7 +9882,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                                   alignItems: 'center',
+
+
+
+
 
 
 
@@ -4888,7 +9898,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                                   fontSize: '0.85rem',
+
+
+
+
 
 
 
@@ -4896,7 +9914,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                                 }}>
+
+
+
+
 
 
 
@@ -4904,7 +9930,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                                 </span>
+
+
+
+
 
 
 
@@ -4912,7 +9946,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                                   {group.name}
+
+
+
+
 
 
 
@@ -4920,7 +9962,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                               </div>
+
+
+
+
 
 
 
@@ -4928,7 +9978,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                                 padding: '4px 10px',
+
+
+
+
 
 
 
@@ -4936,7 +9994,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                                 fontSize: '0.75rem',
+
+
+
+
 
 
 
@@ -4944,7 +10010,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                                 background: group.status === 'locked' ? 'rgba(107,114,128,0.2)' :
+
+
+
+
 
 
 
@@ -4952,7 +10026,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                                            group.status === 'in_progress' ? 'rgba(10,132,255,0.2)' :
+
+
+
+
 
 
 
@@ -4960,7 +10042,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                                 color: group.status === 'locked' ? '#6B7280' :
+
+
+
+
 
 
 
@@ -4968,7 +10058,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                                        group.status === 'in_progress' ? '#0A84FF' :
+
+
+
+
 
 
 
@@ -4976,7 +10074,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                               }}>
+
+
+
+
 
 
 
@@ -4984,7 +10090,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                                  group.status === 'unlocked' ? 'Unlocked' :
+
+
+
+
 
 
 
@@ -4992,7 +10106,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                                  'Completed'}
+
+
+
+
 
 
 
@@ -5000,7 +10122,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                             </div>
+
+
+
+
 
 
 
@@ -5008,7 +10138,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                               <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+
+
+
+
 
 
 
@@ -5016,11 +10154,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                                   Members ({group.members.length})
 
 
 
+
+
+
+
                                 </div>
+
+
+
+
 
 
 
@@ -5028,7 +10178,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                                   {group.members.map(member => (
+
+
+
+
 
 
 
@@ -5036,7 +10194,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                                       <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.85rem' }}>
+
+
+
+
 
 
 
@@ -5044,7 +10210,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                                       </span>
+
+
+
+
 
 
 
@@ -5052,7 +10226,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                                         {member.socd_status === 'sent' ? '⚪' :
+
+
+
+
 
 
 
@@ -5060,7 +10242,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                                          member.socd_status === 'commented' ? '🔵' :
+
+
+
+
 
 
 
@@ -5068,7 +10258,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                                       </span>
+
+
+
+
 
 
 
@@ -5076,7 +10274,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                                   ))}
+
+
+
+
 
 
 
@@ -5084,7 +10290,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                               </div>
+
+
+
+
 
 
 
@@ -5092,7 +10306,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                           </div>
+
+
+
+
 
 
 
@@ -5100,7 +10322,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                       </div>
+
+
+
+
 
 
 
@@ -5108,7 +10338,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   )}
+
+
+
+
 
 
 
@@ -5116,11 +10354,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
               )}
 
 
 
+
+
+
+
             </div>
+
+
+
+
 
 
 
@@ -5128,7 +10378,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
             /* Placeholder for other sub-tabs */
+
+
+
+
 
 
 
@@ -5136,7 +10394,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
               textAlign: 'center',
+
+
+
+
 
 
 
@@ -5144,7 +10410,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
               background: 'rgba(255,255,255,0.02)',
+
+
+
+
 
 
 
@@ -5152,7 +10426,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
               border: '1px solid rgba(255,255,255,0.05)'
+
+
+
+
 
 
 
@@ -5160,7 +10442,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
               <div style={{ fontSize: '48px', marginBottom: '16px' }}>🚧</div>
+
+
+
+
 
 
 
@@ -5168,7 +10458,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 Coming Soon
+
+
+
+
 
 
 
@@ -5176,7 +10474,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
               <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.9rem' }}>
+
+
+
+
 
 
 
@@ -5184,7 +10490,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
               </p>
+
+
+
+
 
 
 
@@ -5192,7 +10506,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
           )}
+
+
+
+
 
 
 
@@ -5200,11 +10522,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
       </div>
 
 
 
+
+
+
+
       
+
+
+
+
 
 
 
@@ -5212,7 +10546,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
       {showDecisionModal && reviewCycle && myMember && (
+
+
+
+
 
 
 
@@ -5220,7 +10562,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
           isOpen={showDecisionModal}
+
+
+
+
 
 
 
@@ -5228,7 +10578,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
           reviewCycleId={reviewCycle.id}
+
+
+
+
 
 
 
@@ -5236,7 +10594,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
           onDecisionSuccess={handleDecisionSuccess}
+
+
+
+
 
 
 
@@ -5244,7 +10610,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
         />
+
+
+
+
 
 
 
@@ -5252,7 +10626,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
       
+
+
+
+
 
 
 
@@ -5260,7 +10642,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
         isOpen={showDeleteModal}
+
+
+
+
 
 
 
@@ -5268,7 +10658,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
         onConfirm={handleConfirmDelete}
+
+
+
+
 
 
 
@@ -5276,11 +10674,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
         deleting={deleting}
 
 
 
+
+
+
+
       />
+
+
+
+
 
 
 
@@ -5288,7 +10698,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
         isOpen={showCreateModal}
+
+
+
+
 
 
 
@@ -5296,13 +10714,27 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
         onSuccess={() => {
+
           setShowCreateModal(false)
+
           onClose() // Close the ProjectDetailsTray
+
           if (onProjectCreated) {
+
             onProjectCreated() // Refresh parent data
+
           }
+
         }}
+
+
+
+
 
 
 
@@ -5310,7 +10742,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
       />
+
+
+
+
 
 
 
@@ -5318,7 +10758,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
   )
+
+
+
+
 
 
 
@@ -5330,7 +10778,19 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
 export default ProjectDetailsTray
+
+
+
+
 
 
 

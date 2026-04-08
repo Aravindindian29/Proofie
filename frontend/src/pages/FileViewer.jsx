@@ -81,13 +81,16 @@ function FileViewer() {
     fetchCurrentUser()
   }, [id, contextAssetId, urlId])
 
-  // Auto-track view when review cycle is available (only once)
+  // Auto-track view when review cycle is available and status is Not Started (only once)
   useEffect(() => {
-    if (reviewCycleId && !viewTracked) {
+    if (reviewCycleId && !viewTracked && asset?.review_cycles?.[0]?.status === 'not_started') {
       trackView()
       fetchMyStatus()
+    } else if (reviewCycleId && !viewTracked) {
+      // Just fetch status if already in progress or other status
+      fetchMyStatus()
     }
-  }, [reviewCycleId, viewTracked])
+  }, [reviewCycleId, viewTracked, asset?.review_cycles?.[0]?.status])
 
   // Setup WebSocket listener for real-time updates
   useEffect(() => {
@@ -107,13 +110,16 @@ function FileViewer() {
         ws = new WebSocket(wsUrl)
         
         ws.onopen = () => {
-          console.log('✅ WebSocket connected for real-time updates')
+          console.log('WebSocket connected for real-time updates')
           reconnectAttempts = 0
+          // Store WebSocket connection globally for immediate updates
+          window.wsConnection = ws
         }
         
         ws.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data)
+            console.log('WebSocket message received:', data)
             console.log('📨 WebSocket message received:', data)
             
             // Handle review cycle status updates
@@ -138,11 +144,15 @@ function FileViewer() {
         }
         
         ws.onerror = (error) => {
-          console.error('❌ WebSocket error:', error)
+          console.error(' WebSocket error:', error)
         }
         
         ws.onclose = () => {
-          console.log('❌ WebSocket disconnected')
+          console.log('WebSocket disconnected')
+          // Clean up global reference
+          if (window.wsConnection === ws) {
+            window.wsConnection = null
+          }
           // Attempt to reconnect
           if (reconnectAttempts < maxReconnectAttempts) {
             reconnectAttempts++
@@ -161,6 +171,10 @@ function FileViewer() {
     return () => {
       if (ws) {
         ws.close()
+      }
+      // Clean up global reference
+      if (window.wsConnection === ws) {
+        window.wsConnection = null
       }
     }
   }, [currentUser, reviewCycleId])
@@ -188,12 +202,15 @@ function FileViewer() {
         toast.success('Proof review started!')
         // Refresh asset data immediately to get updated status
         fetchAssetData()
+        // Also trigger immediate WebSocket broadcast to ensure all clients update instantly
+        if (window.wsConnection && window.wsConnection.readyState === WebSocket.OPEN) {
+          window.wsConnection.send(JSON.stringify({
+            type: 'status_update',
+            review_cycle_id: reviewCycleId,
+            status: 'in_progress'
+          }))
+        }
       }
-      
-      // Also refresh after a short delay to ensure all updates are captured
-      setTimeout(() => {
-        fetchAssetData()
-      }, 1000)
     } catch (error) {
       console.error('❌ Failed to track view:', error)
       console.error('Error details:', error.response?.data)

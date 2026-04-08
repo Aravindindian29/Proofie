@@ -1108,11 +1108,10 @@ class CreativeAssetViewSet(viewsets.ModelViewSet):
                                             except User.DoesNotExist:
                                                 pass
                                     
-                                    # Set current stage to first stage
+                                    # Set current stage to first stage but keep status as 'not_started'
                                     first_stage = stages.first()
                                     if first_stage:
                                         review_cycle.current_stage = first_stage
-                                        review_cycle.status = 'in_progress'
                                         review_cycle.save()
                                     
                                     # Send notifications to reviewers

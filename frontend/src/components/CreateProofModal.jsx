@@ -2055,15 +2055,15 @@ function CreateProofModal({ isOpen, onClose, onSuccess, parentProject }) {
 
 
 
-                        width: 28,
+                        width: 18,
 
 
 
-                        height: 28,
+                        height: 18,
 
 
 
-                        borderRadius: 6,
+                        borderRadius: 4,
 
 
 
@@ -2103,7 +2103,7 @@ function CreateProofModal({ isOpen, onClose, onSuccess, parentProject }) {
 
 
 
-                      <X size={16} strokeWidth={3} />
+                      <X size={10} strokeWidth={3} />
 
 
 
@@ -2817,11 +2817,15 @@ function CreateProofModal({ isOpen, onClose, onSuccess, parentProject }) {
                                   border: 'none',
                                   color: '#fff',
                                   cursor: 'pointer',
-                                  padding: 4,
-                                  borderRadius: 4
+                                  width: 18,
+                                  height: 18,
+                                  borderRadius: 3,
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center'
                                 }}
                               >
-                                <X size={16} strokeWidth={3} />
+                                <X size={10} strokeWidth={3} />
                               </button>
                             </div>
                           ))}
@@ -4191,18 +4195,15 @@ function CreateProofModal({ isOpen, onClose, onSuccess, parentProject }) {
 
 
                                 style={{
+                                  width: 18,
 
 
 
-                                  width: 24,
+                                  height: 18,
 
 
 
-                                  height: 24,
-
-
-
-                                  borderRadius: 5,
+                                  borderRadius: 4,
 
 
 
@@ -4236,13 +4237,9 @@ function CreateProofModal({ isOpen, onClose, onSuccess, parentProject }) {
 
                                 }}
 
-
-
                               >
 
-
-
-                                <X size={14} strokeWidth={3} />
+                                <X size={10} strokeWidth={3} />
 
 
 

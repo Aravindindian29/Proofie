@@ -1,20 +1,19 @@
 import React from 'react'
-import { Hourglass } from 'lucide-react'
 
 const StatusBadge = ({ status, size = 'default' }) => {
   const statusConfig = {
     not_started: {
-      color: '#9CA3AF',
-      background: 'rgba(156,163,175,0.15)',
-      border: '2px solid rgba(156,163,175,0.4)',
-      icon: '💤',
+      color: '#FFFFFF',
+      background: 'transparent',
+      border: '1px solid #D1D5DB',
+      icon: '\ud83d\ude34',
       label: 'Not Started'
     },
     in_progress: {
-      color: '#FFD60A',
-      background: 'rgba(255,214,10,0.15)',
-      border: '2px solid rgba(255,214,10,0.4)',
-      icon: 'hourglass',
+      color: '#D97706',
+      background: 'transparent',
+      border: '1px solid #F59E0B',
+      icon: '\u231B',
       label: 'In Progress'
     },
     approved: {
@@ -78,11 +77,11 @@ const StatusBadge = ({ status, size = 'default' }) => {
       color: config.color,
       border: config.border
     }}>
-      {config.icon === 'hourglass' ? (
-        <Hourglass size={sizeStyle.iconSize} strokeWidth={2.5} />
-      ) : (
-        <span style={{ fontSize: sizeStyle.iconSize }}>{config.icon}</span>
-      )}
+      <span style={{ 
+        fontSize: (config.icon === '\u231B' || config.icon === '\ud83d\ude34') ? sizeStyle.iconSize + 4 : sizeStyle.iconSize,
+        display: 'flex',
+        alignItems: 'center'
+      }}>{config.icon}</span>
       {config.label}
     </span>
   )
