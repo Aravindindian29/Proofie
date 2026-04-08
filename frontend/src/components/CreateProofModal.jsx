@@ -55,6 +55,9 @@ function CreateProofModal({ isOpen, onClose, onSuccess, parentProject }) {
 
 
   const [uploadedFiles, setUploadedFiles] = useState([])
+  const [uploadProgress, setUploadProgress] = useState({})
+  const [uploadStatus, setUploadStatus] = useState({})
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
 
 
@@ -90,13 +93,72 @@ function CreateProofModal({ isOpen, onClose, onSuccess, parentProject }) {
   // Workflow template state
   const [workflowTemplates, setWorkflowTemplates] = useState([])
   const [selectedTemplate, setSelectedTemplate] = useState(null)
+  const [showTemplateDropdown, setShowTemplateDropdown] = useState(false)
+  const [templateHighlightedIndex, setTemplateHighlightedIndex] = useState(-1)
+  const templateDropdownRef = useRef(null)
   const [stageReviewers, setStageReviewers] = useState({})
   const [expandedStages, setExpandedStages] = useState({})
   const usernameInputRef = useRef(null)
 
-
+  // Custom reviewer dropdown state
+  const [showReviewerDropdowns, setShowReviewerDropdowns] = useState({})
+  const [reviewerHighlightedIndexes, setReviewerHighlightedIndexes] = useState({})
+  const [reviewerSearchTerms, setReviewerSearchTerms] = useState({})
+  const reviewerDropdownRefs = useRef({})
 
   const dropdownRef = useRef(null)
+
+  // Generate avatar colors for users
+  const getReviewerAvatarColor = (username, index, stageId) => {
+    const colors = [
+      'linear-gradient(135deg, #0A84FF, #5E5CE6)',
+      'linear-gradient(135deg, #FF375F, #FF9F0A)',
+      'linear-gradient(135deg, #30D158, #0A84FF)',
+      'linear-gradient(135deg, #FFD60A, #FF9F0A)',
+      'linear-gradient(135deg, #5E5CE6, #AF52DE)',
+      'linear-gradient(135deg, #FF2D92, #FF375F)',
+      'linear-gradient(135deg, #64D2FF, #0A84FF)',
+      'linear-gradient(135deg, #FF6B35, #F7931E)',
+      'linear-gradient(135deg, #4ECDC4, #44A08D)',
+      'linear-gradient(135deg, #F7B731, #E17055)',
+      'linear-gradient(135deg, #667EEA, #764BA2)',
+      'linear-gradient(135deg, #F093FB, #F5576C)',
+      'linear-gradient(135deg, #4FACFE, #00F2FE)',
+      'linear-gradient(135deg, #43E97B, #38F9D7)',
+      'linear-gradient(135deg, #FA709A, #FEE140)',
+      'linear-gradient(135deg, #30C3FD, #330867)',
+      'linear-gradient(135deg, #A8EDEA, #FED6E3)',
+      'linear-gradient(135deg, #FF9A9E, #FAD0C4)',
+      'linear-gradient(135deg, #FF6B9D, #FEC8D8)',
+      'linear-gradient(135deg, #C1DFC4, #DEECDD)'
+    ]
+    
+    // Create a unique seed based on username and stage to ensure variety
+    const seed = username + stageId + index
+    const hash = seed.split('').reduce((acc, char, i) => acc + char.charCodeAt(0) * (i + 1), 0)
+    
+    // Use index as primary factor to ensure consecutive users get different colors
+    const baseIndex = index % colors.length
+    const offset = hash % (colors.length / 2)
+    const finalIndex = (baseIndex + offset) % colors.length
+    
+    return colors[finalIndex]
+  }
+
+  // Filter reviewers based on search term
+  const getFilteredReviewers = (stageId) => {
+    const availableUsersForStage = getAvailableUsersForStage(stageId)
+    const searchTerm = (reviewerSearchTerms[stageId] || '').toLowerCase()
+    
+    if (!searchTerm) {
+      return availableUsersForStage
+    }
+    
+    return availableUsersForStage.filter(user => 
+      user.username.toLowerCase().includes(searchTerm) ||
+      user.email.toLowerCase().includes(searchTerm)
+    )
+  }
 
 
 
@@ -212,6 +274,8 @@ function CreateProofModal({ isOpen, onClose, onSuccess, parentProject }) {
     // Reset workflow state
     setStageReviewers({})
     setExpandedStages({})
+    setShowTemplateDropdown(false)
+    setTemplateHighlightedIndex(-1)
     // Fetch templates and set default
     fetchWorkflowTemplates()
   }
@@ -233,7 +297,7 @@ function CreateProofModal({ isOpen, onClose, onSuccess, parentProject }) {
         const initialExpandedStages = {}
         defaultTemplate.stages.forEach(stage => {
           initialStageReviewers[stage.id] = []
-          initialExpandedStages[stage.id] = stage.order === 1 // Expand first stage by default
+          initialExpandedStages[stage.id] = false // Keep all stages closed by default
         })
         setStageReviewers(initialStageReviewers)
         setExpandedStages(initialExpandedStages)
@@ -331,13 +395,10 @@ function CreateProofModal({ isOpen, onClose, onSuccess, parentProject }) {
 
     if (hasError) return
 
-
-
-    
-
-
+    setIsSubmitting(true)
 
     try {
+      // ... (rest of the code remains the same)
 
 
 
@@ -668,12 +729,7 @@ function CreateProofModal({ isOpen, onClose, onSuccess, parentProject }) {
 
       toast.success('Proof created with assets', { id: 'proof-action-toast' })
 
-
-
     } catch (error) {
-
-
-
       const errorMessage = error.response?.data?.detail || 
 
 
@@ -754,10 +810,9 @@ function CreateProofModal({ isOpen, onClose, onSuccess, parentProject }) {
 
 
 
+    } finally {
+      setIsSubmitting(false)
     }
-
-
-
   }
 
 
@@ -1106,96 +1161,47 @@ function CreateProofModal({ isOpen, onClose, onSuccess, parentProject }) {
 
 
 
-  // Handle click outside to close dropdown
-
-
-
+  // Handle click outside to close dropdowns
   useEffect(() => {
-
-
-
     const handleClickOutside = (event) => {
-
-
-
       // Don't close if we're currently selecting
-
-
-
       if (isSelectingRef.current) {
-
-
-
         return
-
-
-
       }
-
-
-
       
-
-
-
+      // Close user dropdown
       if (showUserDropdown && 
-
-
-
           dropdownRef.current && 
-
-
-
           !dropdownRef.current.contains(event.target) &&
-
-
-
           usernameInputRef.current &&
-
-
-
           !usernameInputRef.current.contains(event.target)) {
-
-
-
         setShowUserDropdown(false)
-
-
-
       }
-
-
-
+      
+      // Close template dropdown only if clicking outside the dropdown container
+      if (showTemplateDropdown && 
+          templateDropdownRef.current && 
+          !templateDropdownRef.current.contains(event.target)) {
+        setShowTemplateDropdown(false)
+      }
+      
+      // Close reviewer dropdowns
+      Object.keys(showReviewerDropdowns).forEach(stageId => {
+        if (showReviewerDropdowns[stageId] &&
+            reviewerDropdownRefs.current[stageId] &&
+            !reviewerDropdownRefs.current[stageId].contains(event.target)) {
+          setShowReviewerDropdowns(prev => ({ ...prev, [stageId]: false }))
+        }
+      })
     }
-
-
-
-
-
-
 
     document.addEventListener('mousedown', handleClickOutside)
-
-
-
     return () => {
-
-
-
       document.removeEventListener('mousedown', handleClickOutside)
-
-
-
     }
+  }, [showUserDropdown, showTemplateDropdown, showReviewerDropdowns])
 
-
-
-  }, [showUserDropdown])
-
-
-
-
-
+// ... (rest of the code remains the same)
 
 
   const getAvatarColor = (username, index, previousColors) => {
@@ -1383,42 +1389,22 @@ function CreateProofModal({ isOpen, onClose, onSuccess, parentProject }) {
 
 
     const newFiles = validFiles.map(file => ({
-
-
-
       id: Date.now() + Math.random(),
-
-
-
       file,
-
-
-
       name: file.name,
-
-
-
       size: file.size,
-
-
-
       type: file.type,
-
-
-
-      preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : null
-
-
-
+      preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : null,
+      status: 'uploading'
     }))
 
-
-
-    
-
-
-
     setUploadedFiles([...uploadedFiles, ...newFiles])
+    
+    // Simulate upload progress for each file
+    newFiles.forEach(file => {
+      simulateFileUpload(file.id)
+    })
+    
 
 
 
@@ -1494,14 +1480,35 @@ function CreateProofModal({ isOpen, onClose, onSuccess, parentProject }) {
 
 
 
+  const simulateFileUpload = (fileId) => {
+    setUploadProgress(prev => ({ ...prev, [fileId]: 0 }))
+    setUploadStatus(prev => ({ ...prev, [fileId]: 'uploading' }))
+    
+    const interval = setInterval(() => {
+      setUploadProgress(prev => {
+        const currentProgress = prev[fileId] || 0
+        if (currentProgress >= 100) {
+          clearInterval(interval)
+          setUploadStatus(prevStatus => ({ ...prevStatus, [fileId]: 'success' }))
+          return { ...prev, [fileId]: 100 }
+        }
+        return { ...prev, [fileId]: Math.min(currentProgress + Math.random() * 15 + 5, 100) }
+      })
+    }, 200)
+  }
+
   const removeFile = (fileId) => {
-
-
-
     setUploadedFiles(uploadedFiles.filter(f => f.id !== fileId))
-
-
-
+    setUploadProgress(prev => {
+      const newProgress = { ...prev }
+      delete newProgress[fileId]
+      return newProgress
+    })
+    setUploadStatus(prev => {
+      const newStatus = { ...prev }
+      delete newStatus[fileId]
+      return newStatus
+    })
   }
 
 
@@ -1846,7 +1853,11 @@ function CreateProofModal({ isOpen, onClose, onSuccess, parentProject }) {
 
 
 
-              onChange={(e) => handleFileUpload(e.target.files)}
+              onChange={(e) => {
+                handleFileUpload(e.target.files)
+                // Reset input value to allow re-uploading the same file
+                e.target.value = ''
+              }}
 
 
 
@@ -1902,7 +1913,7 @@ function CreateProofModal({ isOpen, onClose, onSuccess, parentProject }) {
 
 
 
-                    borderRadius: 8,
+                    borderRadius: 16, marginTop: 8, maxHeight: '200px', boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)', padding: '8px',
 
 
 
@@ -1926,7 +1937,7 @@ function CreateProofModal({ isOpen, onClose, onSuccess, parentProject }) {
 
 
 
-                      borderRadius: 8,
+                      borderRadius: 16, marginTop: 8, maxHeight: '200px', boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)', padding: '8px',
 
 
 
@@ -1971,33 +1982,59 @@ function CreateProofModal({ isOpen, onClose, onSuccess, parentProject }) {
 
 
                     <div style={{ flex: 1, minWidth: 0 }}>
-
-
-
                       <p style={{ color: '#fff', fontSize: '0.85rem', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-
-
-
                         {uploadedFile.name}
-
-
-
                       </p>
-
-
-
-                      <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.7rem', margin: '2px 0 0 0' }}>
-
-
-
-                        {(uploadedFile.size / (1024 * 1024)).toFixed(2)} MB
-
-
-
-                      </p>
-
-
-
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                        <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.7rem', margin: 0 }}>
+                          {(uploadedFile.size / (1024 * 1024)).toFixed(2)} MB
+                        </p>
+                        {/* Upload Status Indicator */}
+                        {uploadStatus[uploadedFile.id] === 'success' && (
+                          <span style={{
+                            fontSize: '0.65rem',
+                            color: '#30D158',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 4
+                          }}>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#30D158" strokeWidth="3">
+                              <path d="M5 12l5 5L20 7"/>
+                            </svg>
+                            Uploaded
+                          </span>
+                        )}
+                        {uploadStatus[uploadedFile.id] === 'uploading' && (
+                          <span style={{
+                            fontSize: '0.65rem',
+                            color: '#0A84FF',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 4
+                          }}>
+                            {Math.round(uploadProgress[uploadedFile.id] || 0)}%
+                          </span>
+                        )}
+                      </div>
+                      {/* Progress Bar */}
+                      {uploadStatus[uploadedFile.id] === 'uploading' && (
+                        <div style={{
+                          width: '100%',
+                          height: 3,
+                          background: 'rgba(255,255,255,0.1)',
+                          borderRadius: 2,
+                          marginTop: 6,
+                          overflow: 'hidden'
+                        }}>
+                          <div style={{
+                            width: `${uploadProgress[uploadedFile.id] || 0}%`,
+                            height: '100%',
+                            background: 'linear-gradient(90deg, #0A84FF, #5E5CE6)',
+                            borderRadius: 2,
+                            transition: 'width 0.2s ease'
+                          }} />
+                        </div>
+                      )}
                     </div>
 
 
@@ -2030,7 +2067,7 @@ function CreateProofModal({ isOpen, onClose, onSuccess, parentProject }) {
 
 
 
-                        background: 'transparent',
+                        background: '#ff3b30',
 
 
 
@@ -2038,7 +2075,7 @@ function CreateProofModal({ isOpen, onClose, onSuccess, parentProject }) {
 
 
 
-                        color: '#ff3b30',
+                        color: '#fff',
 
 
 
@@ -2138,18 +2175,26 @@ function CreateProofModal({ isOpen, onClose, onSuccess, parentProject }) {
 
 
 
-              <button type="submit" className="btn-primary"
-
-
-
-                style={{ width: '120px', justifyContent: 'center', borderRadius: 14, padding: '10px' }}>
-
-
-
-                Create
-
-
-
+              <button type="submit" className="btn-primary" disabled={isSubmitting}
+                style={{ 
+                  width: '120px', 
+                  justifyContent: 'center', 
+                  borderRadius: 14, 
+                  padding: '10px',
+                  opacity: isSubmitting ? 0.7 : 1,
+                  cursor: isSubmitting ? 'not-allowed' : 'pointer'
+                }}>
+                {isSubmitting ? (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
+                      <path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round">
+                        <animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="1s" repeatCount="indefinite" />
+                      </path>
+                    </svg>
+                    Creating...
+                  </span>
+                ) : 'Create'}
               </button>
 
 
@@ -2234,7 +2279,23 @@ function CreateProofModal({ isOpen, onClose, onSuccess, parentProject }) {
 
 
 
-              minHeight: '480px'
+              minHeight: '480px',
+
+
+
+              maxHeight: 'calc(90vh - 200px)',
+
+
+
+              overflowY: 'auto',
+
+
+
+              contain: 'layout style paint',
+
+
+
+              willChange: 'scroll-position'
 
 
 
@@ -2384,38 +2445,250 @@ function CreateProofModal({ isOpen, onClose, onSuccess, parentProject }) {
 
               {/* Workflow Template Selection - Only for Manager/Admin */}
               {(user?.profile?.role === 'manager' || user?.profile?.role === 'admin') && (
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600,
-                    color: 'rgba(255,255,255,0.45)', marginBottom: 8, letterSpacing: '0.06em',
-                    textTransform: 'uppercase' }}>Workflow Template</label>
-                  <select
-                    value={selectedTemplate?.id || ''}
-                    onChange={(e) => {
-                      const template = workflowTemplates.find(t => t.id === parseInt(e.target.value))
-                      setSelectedTemplate(template)
-                      // Reset stage reviewers when template changes
-                      const newStageReviewers = {}
-                      const newExpandedStages = {}
-                      template?.stages.forEach(stage => {
-                        newStageReviewers[stage.id] = []
-                        newExpandedStages[stage.id] = stage.order === 1
-                      })
-                      setStageReviewers(newStageReviewers)
-                      setExpandedStages(newExpandedStages)
-                    }}
-                    className="input-field"
-                    style={{ cursor: 'pointer' }}
-                  >
-                    {workflowTemplates.map(template => (
-                      <option key={template.id} value={template.id}>
-                        {template.name}
-                      </option>
-                    ))}
-                  </select>
+                <div style={{ marginBottom: 24 }}>
+                  <label style={{ 
+                    display: 'block', 
+                    fontSize: '0.75rem', 
+                    fontWeight: 600,
+                    color: 'var(--text-secondary)', 
+                    marginBottom: 10, 
+                    letterSpacing: '0.08em',
+                    textTransform: 'uppercase' 
+                  }}>
+                    Workflow Template
+                  </label>
+                  
+                  {/* Custom Dropdown */}
+                  <div style={{ position: 'relative' }} ref={templateDropdownRef}>
+                    <button
+                      type="button"
+                      onClick={() => setShowTemplateDropdown(!showTemplateDropdown)}
+                      style={{
+                        width: '100%',
+                        padding: '14px 44px 14px 16px',
+                        background: 'rgba(255,255,255,0.07)',
+                        border: showTemplateDropdown ? '1px solid var(--ios-blue)' : '1px solid var(--glass-border)',
+                        borderRadius: 'var(--radius-sm)',
+                        color: 'var(--text-primary)',
+                        fontSize: '0.95rem',
+                        fontWeight: 500,
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        transition: 'all 0.25s cubic-bezier(0.4,0,0.2,1)',
+                        backdropFilter: 'blur(8px)',
+                        boxShadow: showTemplateDropdown ? '0 0 0 3px rgba(10,132,255,0.2)' : 'none',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 12
+                      }}
+                    >
+                      <span style={{ 
+                        color: selectedTemplate ? 'var(--text-primary)' : 'var(--text-tertiary)',
+                        flex: 1
+                      }}>
+                        {selectedTemplate?.name || 'Select a template...'}
+                      </span>
+                      
+                      {/* Dropdown Chevron */}
+                      <div style={{
+                        position: 'absolute',
+                        right: 16,
+                        color: 'var(--text-secondary)'
+                      }}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <path d="m6 9 6 6 6-6"/>
+                        </svg>
+                      </div>
+                    </button>
+                    
+                    {/* Template Dropdown Menu */}
+                    {showTemplateDropdown && (
+                      <div 
+                        style={{
+                          position: 'absolute',
+                          top: 'calc(100% + 8px)',
+                          left: 0,
+                          right: 0,
+                          background: 'rgba(20, 20, 40, 0.98)',
+                          backdropFilter: 'blur(24px) saturate(180%)',
+                          border: '1px solid var(--glass-border)',
+                          borderRadius: 'var(--radius-md)',
+                          boxShadow: '0 16px 48px rgba(0,0,0,0.5), 0 0 0 1px rgba(10,132,255,0.1)',
+                          zIndex: 1000,
+                          maxHeight: 200,
+                          overflow: 'hidden',
+                          animation: 'fadeUp 0.2s cubic-bezier(0.4,0,0.2,1)'
+                        }}
+                      >
+                        {/* Template Options */}
+                        <div style={{
+                          maxHeight: 200,
+                          overflowY: 'auto',
+                          padding: 6
+                        }}>
+                          {workflowTemplates
+                            .sort((a, b) => {
+                              // Sort by stage count (3 stages first, then 5 stages)
+                              const aStages = a.stages?.length || 0
+                              const bStages = b.stages?.length || 0
+                              if (aStages === 3 && bStages !== 3) return -1
+                              if (aStages !== 3 && bStages === 3) return 1
+                              if (aStages === 5 && bStages !== 5) return -1
+                              if (aStages !== 5 && bStages === 5) return 1
+                              return a.order - b.order
+                            })
+                            .map((template, index) => (
+                            <button
+                              key={template.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedTemplate(template)
+                                const newStageReviewers = {}
+                                const newExpandedStages = {}
+                                template?.stages.forEach(stage => {
+                                  newStageReviewers[stage.id] = []
+                                  newExpandedStages[stage.id] = false
+                                })
+                                setStageReviewers(newStageReviewers)
+                                setExpandedStages(newExpandedStages)
+                                setShowTemplateDropdown(false)
+                              }}
+                              onMouseEnter={() => setTemplateHighlightedIndex(index)}
+                              style={{
+                                width: '100%',
+                                padding: '12px 14px',
+                                background: selectedTemplate?.id === template.id 
+                                  ? 'rgba(10,132,255,0.15)' 
+                                  : templateHighlightedIndex === index 
+                                    ? 'rgba(255,255,255,0.06)' 
+                                    : 'transparent',
+                                border: 'none',
+                                borderTop: index > 0 ? '1px solid rgba(255,255,255,0.08)' : 'none',
+                                borderRadius: 0,
+                                color: 'var(--text-primary)',
+                                fontSize: '0.85rem',
+                                fontWeight: selectedTemplate?.id === template.id ? 600 : 500,
+                                cursor: 'pointer',
+                                textAlign: 'left',
+                                transition: 'all 0.15s ease',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 12,
+                                marginBottom: 0
+                              }}
+                            >
+                              {/* Template Icon */}
+                              <div style={{
+                                width: 36,
+                                height: 36,
+                                borderRadius: 10,
+                                background: selectedTemplate?.id === template.id 
+                                  ? 'var(--gradient-blue)' 
+                                  : 'rgba(255,255,255,0.08)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                flexShrink: 0,
+                                transition: 'all 0.2s ease'
+                              }}>
+                                <span style={{
+                                  fontSize: '0.85rem',
+                                  fontWeight: 700,
+                                  color: selectedTemplate?.id === template.id ? '#fff' : 'var(--text-secondary)'
+                                }}>
+                                  {template.order || index + 1}
+                                </span>
+                              </div>
+                              
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 8,
+                                  marginBottom: 2
+                                }}>
+                                  <span style={{
+                                    fontSize: '0.85rem',
+                                    fontWeight: selectedTemplate?.id === template.id ? 600 : 500,
+                                    color: 'var(--text-primary)'
+                                  }}>
+                                    {template.name}
+                                  </span>
+                                  {template.is_default && (
+                                    <span style={{
+                                      fontSize: '0.55rem',
+                                      fontWeight: 700,
+                                      color: 'var(--ios-green)',
+                                      background: 'rgba(48,209,88,0.15)',
+                                      padding: '2px 6px',
+                                      borderRadius: 4,
+                                      border: '1px solid rgba(48,209,88,0.3)'
+                                    }}>
+                                      DEFAULT
+                                    </span>
+                                  )}
+                                </div>
+                                <span style={{
+                                  fontSize: '0.7rem',
+                                  color: 'var(--text-secondary)',
+                                  display: 'block',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap'
+                                }}>
+                                  {template.stages?.length || 0} stages · {template.description || 'No description'}
+                                </span>
+                              </div>
+                              
+                              {/* Checkmark for selected */}
+                              {selectedTemplate?.id === template.id && (
+                                <div style={{
+                                  width: 20,
+                                  height: 20,
+                                  borderRadius: '50%',
+                                  background: 'var(--ios-blue)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  flexShrink: 0
+                                }}>
+                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3">
+                                    <path d="M5 12l5 5L20 7"/>
+                                  </svg>
+                                </div>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Selected Template Info */}
                   {selectedTemplate && (
-                    <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.75rem', marginTop: 6 }}>
-                      {selectedTemplate.description}
-                    </p>
+                    <div style={{ 
+                      marginTop: 14
+                    }}>
+                      <p style={{ 
+                        color: 'var(--text-secondary)', 
+                        fontSize: '0.8rem', 
+                        margin: '0 0 10px 0',
+                        lineHeight: 1.5
+                      }}>
+                        {selectedTemplate.description}
+                      </p>
+                      <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: 8,
+                        color: '#0A84FF', 
+                        fontSize: '1.1rem',
+                        fontWeight: 600
+                      }}>
+                        <Users size={22} strokeWidth={2} />
+                        <span>Reviewers</span>
+                      </div>
+                    </div>
                   )}
                 </div>
               )}
@@ -2426,59 +2699,77 @@ function CreateProofModal({ isOpen, onClose, onSuccess, parentProject }) {
                   key={stage.id}
                   style={{
                     border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: 8,
+                    borderRadius: 16, marginTop: index === 0 ? -28 : 8, boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)', padding: '6px',
                     background: 'rgba(255,255,255,0.02)',
                     position: 'relative'
                   }}>
                   {/* Stage Header */}
                   <div
-                    onClick={() => setExpandedStages({ ...expandedStages, [stage.id]: !expandedStages[stage.id] })}
+                    onClick={() => {
+                      // Accordion behavior: close all other stages, open only this one
+                      const newExpandedStages = {}
+                      selectedTemplate.stages.forEach(s => {
+                        newExpandedStages[s.id] = s.id === stage.id ? !expandedStages[stage.id] : false
+                      })
+                      setExpandedStages(newExpandedStages)
+                    }}
                     style={{
-                      padding: '12px 16px',
+                      padding: '8px 12px',
                       cursor: 'pointer',
                       display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
+                      flexDirection: 'column',
                       borderBottom: expandedStages[stage.id] ? '1px solid rgba(255,255,255,0.1)' : 'none'
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0A84FF' }}>
-                        S{stage.order}:
-                      </span>
-                      <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#fff' }}>
-                        {stage.name}
-                      </span>
-                      {stageReviewers[stage.id] && stageReviewers[stage.id].length > 0 && (
-                        <span style={{
-                          fontSize: '0.7rem',
-                          fontWeight: 700,
-                          color: '#10B981',
-                          background: 'rgba(16,185,129,0.15)',
-                          padding: '2px 8px',
-                          borderRadius: 12,
-                          border: '1px solid rgba(16,185,129,0.3)'
-                        }}>
-                          {stageReviewers[stage.id].length}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#0A84FF' }}>
+                          S{stage.order}:
                         </span>
-                      )}
-                    </div>
-                    <div style={{
-                      transform: expandedStages[stage.id] ? 'rotate(180deg)' : 'rotate(0deg)',
-                      transition: 'transform 0.3s ease',
-                      color: 'rgba(255,255,255,0.5)'
-                    }}>
-                      ▼
+                        <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#fff' }}>
+                          {stage.name}
+                        </span>
+                        {stageReviewers[stage.id] && stageReviewers[stage.id].length > 0 && (
+                          <span style={{
+                            fontSize: '0.65rem',
+                            fontWeight: 700,
+                            color: '#14B8A6',
+                            background: 'rgba(20,184,166,0.15)',
+                            padding: '2px 6px',
+                            borderRadius: 12,
+                            border: '1px solid rgba(20,184,166,0.3)'
+                          }}>
+                            {stageReviewers[stage.id].length}
+                          </span>
+                        )}
+                      </div>
+                      <div style={{
+                        transform: expandedStages[stage.id] ? 'rotate(180deg)' : 'rotate(0deg)',
+                        transition: 'transform 0.3s ease',
+                        color: 'rgba(255,255,255,0.5)'
+                      }}>
+                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="2">
+                          <path d="m6 9 6 6 6-6"/>
+                        </svg>
+                      </div>
                     </div>
                   </div>
 
                   {/* Stage Content - Expanded */}
                   {expandedStages[stage.id] && (
-                    <div style={{ padding: '12px 16px' }}>
+                    <div style={{ padding: '8px 12px' }}>
                       {/* Selected Reviewers for this stage */}
                       {stageReviewers[stage.id] && stageReviewers[stage.id].length > 0 && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
-                          {stageReviewers[stage.id].map(reviewer => (
+                        <div style={{ 
+                          display: 'flex', 
+                          flexDirection: 'column', 
+                          gap: 8, 
+                          marginBottom: 12,
+                          maxHeight: '120px',
+                          overflowY: 'auto',
+                          paddingRight: '4px'
+                        }}>
+                          {stageReviewers[stage.id].map((reviewer, index) => (
                             <div
                               key={reviewer.id}
                               style={{
@@ -2496,32 +2787,41 @@ function CreateProofModal({ isOpen, onClose, onSuccess, parentProject }) {
                                   width: 28,
                                   height: 28,
                                   borderRadius: '50%',
-                                  background: 'linear-gradient(135deg, #0A84FF, #5E5CE6)',
+                                  background: getReviewerAvatarColor(reviewer.username, index, stage.id),
                                   display: 'flex',
                                   alignItems: 'center',
                                   justifyContent: 'center',
                                   fontSize: '0.75rem',
                                   fontWeight: 700,
-                                  color: '#fff'
+                                  color: '#fff',
+                                  boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                                  textAlign: 'center',
+                                  lineHeight: 1
                                 }}>
                                   {reviewer.username?.[0]?.toUpperCase()}
                                 </div>
-                                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#fff' }}>
-                                  {reviewer.username}
-                                </span>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                  <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#fff' }}>
+                                    {reviewer.username}
+                                  </span>
+                                  <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+                                    {reviewer.email}
+                                  </span>
+                                </div>
                               </div>
                               <button
                                 type="button"
                                 onClick={() => removeReviewerFromStage(stage.id, reviewer.id)}
                                 style={{
-                                  background: 'transparent',
+                                  background: '#ff3b30',
                                   border: 'none',
-                                  color: '#ff3b30',
+                                  color: '#fff',
                                   cursor: 'pointer',
-                                  padding: 4
+                                  padding: 4,
+                                  borderRadius: 4
                                 }}
                               >
-                                <X size={16} />
+                                <X size={16} strokeWidth={3} />
                               </button>
                             </div>
                           ))}
@@ -2529,30 +2829,166 @@ function CreateProofModal({ isOpen, onClose, onSuccess, parentProject }) {
                       )}
 
                       {/* User Selection Dropdown */}
-                      <div style={{ marginBottom: 8 }}>
-                        <select
-                          className="input-field"
-                          style={{ fontSize: '0.85rem', cursor: 'pointer' }}
-                          value=""
+                      <div style={{ marginBottom: 8, position: 'relative', width: '100%' }}>
+                        {/* Search Input Field */}
+                        <input
+                          type="text"
+                          placeholder="Search Reviewers"
+                          value={reviewerSearchTerms[stage.id] || ''}
                           onChange={(e) => {
-                            const userId = parseInt(e.target.value)
-                            const user = availableUsers.find(u => u.id === userId)
-                            if (user) {
-                              addReviewerToStage(stage.id, user)
-                            }
-                            e.target.value = '' // Reset selection
-                          }}
-                          onFocus={() => {
+                            setReviewerSearchTerms({ ...reviewerSearchTerms, [stage.id]: e.target.value })
+                            setShowReviewerDropdowns({ ...showReviewerDropdowns, [stage.id]: true })
+                            setReviewerHighlightedIndexes({ ...reviewerHighlightedIndexes, [stage.id]: -1 })
                             if (availableUsers.length === 0) fetchUsers()
                           }}
-                        >
-                          <option value="">Select a reviewer...</option>
-                          {getAvailableUsersForStage(stage.id).map(user => (
-                            <option key={user.id} value={user.id}>
-                              {user.username} ({user.email})
-                            </option>
-                          ))}
-                        </select>
+                          onFocus={() => {
+                            setShowReviewerDropdowns({ ...showReviewerDropdowns, [stage.id]: true })
+                            if (availableUsers.length === 0) fetchUsers()
+                          }}
+                          style={{
+                            width: '100%',
+                            padding: '8px 12px',
+                            background: 'rgba(255,255,255,0.07)',
+                            border: '1px solid var(--glass-border)',
+                            borderRadius: 'var(--radius-sm)',
+                            color: 'var(--text-primary)',
+                            fontSize: '0.85rem',
+                            fontWeight: 500,
+                            backdropFilter: 'blur(8px)',
+                            transition: 'all 0.25s cubic-bezier(0.4,0,0.2,1)',
+                            outline: 'none'
+                          }}
+                        />
+
+                        {/* Custom Dropdown Menu */}
+                        {showReviewerDropdowns[stage.id] && getFilteredReviewers(stage.id).length > 0 && (
+                          <div 
+                            ref={el => reviewerDropdownRefs.current[stage.id] = el}
+                            style={{
+                              position: 'absolute',
+                              top: 'calc(100% + 2px)',
+                              left: 0,
+                              right: 0,
+                              background: 'rgba(20, 20, 40, 0.98)',
+                              backdropFilter: 'blur(24px) saturate(180%)',
+                              border: '1px solid var(--glass-border)',
+                              borderRadius: 'var(--radius-sm)',
+                              boxShadow: '0 8px 24px rgba(0,0,0,0.4), 0 0 0 1px rgba(10,132,255,0.1)',
+                              zIndex: 1000,
+                              maxHeight: 180,
+                              overflow: 'hidden',
+                              animation: 'fadeUp 0.2s cubic-bezier(0.4,0,0.2,1)',
+                              minWidth: '100%',
+                              boxSizing: 'border-box'
+                            }}
+                          >
+                            <div style={{
+                              maxHeight: 180,
+                              overflowY: 'auto',
+                              padding: 4
+                            }}>
+                              {getFilteredReviewers(stage.id).map((user, index) => (
+                                <button
+                                  key={user.id}
+                                  type="button"
+                                  onClick={() => {
+                                    addReviewerToStage(stage.id, user)
+                                    setReviewerSearchTerms({ ...reviewerSearchTerms, [stage.id]: '' })
+                                    const currentShow = { ...showReviewerDropdowns }
+                                    currentShow[stage.id] = false
+                                    setShowReviewerDropdowns(currentShow)
+                                  }}
+                                  onMouseEnter={() => setReviewerHighlightedIndexes({ ...reviewerHighlightedIndexes, [stage.id]: index })}
+                                  style={{
+                                    width: '100%',
+                                    padding: '8px 10px',
+                                    background: reviewerHighlightedIndexes[stage.id] === index 
+                                      ? 'rgba(10,132,255,0.15)' 
+                                      : 'transparent',
+                                    border: 'none',
+                                    borderRadius: 'var(--radius-sm)',
+                                    cursor: 'pointer',
+                                    textAlign: 'left',
+                                    transition: 'all 0.15s ease',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 10,
+                                    marginBottom: 2
+                                  }}
+                                >
+                                  {/* Profile Icon */}
+                                  <div style={{
+                                    width: 28,
+                                    height: 28,
+                                    borderRadius: '50%',
+                                    background: getReviewerAvatarColor(user.username, index, stage.id),
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    flexShrink: 0,
+                                    boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                                    textAlign: 'center',
+                                    lineHeight: 1
+                                  }}>
+                                    <span style={{
+                                      fontSize: '0.75rem',
+                                      fontWeight: 700,
+                                      color: '#fff'
+                                    }}>
+                                      {user.username.charAt(0).toUpperCase()}
+                                    </span>
+                                  </div>
+                                  
+                                  {/* User Info */}
+                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{
+                                      fontSize: '0.8rem',
+                                      fontWeight: 500,
+                                      color: 'var(--text-primary)',
+                                      marginBottom: 1
+                                    }}>
+                                      {user.username}
+                                    </div>
+                                    <div style={{
+                                      fontSize: '0.7rem',
+                                      color: 'var(--text-secondary)',
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap'
+                                    }}>
+                                      {user.email}
+                                    </div>
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* No Results Message */}
+                        {showReviewerDropdowns[stage.id] && getFilteredReviewers(stage.id).length === 0 && reviewerSearchTerms[stage.id] && (
+                          <div 
+                            style={{
+                              position: 'absolute',
+                              top: 'calc(100% + 2px)',
+                              left: 0,
+                              right: 0,
+                              background: 'rgba(20, 20, 40, 0.98)',
+                              backdropFilter: 'blur(24px) saturate(180%)',
+                              border: '1px solid var(--glass-border)',
+                              borderRadius: 'var(--radius-sm)',
+                              padding: '12px 16px',
+                              color: 'var(--text-tertiary)',
+                              fontSize: '0.8rem',
+                              textAlign: 'center',
+                              zIndex: 1000,
+                              minWidth: '100%',
+                              boxSizing: 'border-box'
+                            }}
+                          >
+                            No reviewers found
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -2583,7 +3019,7 @@ function CreateProofModal({ isOpen, onClose, onSuccess, parentProject }) {
 
 
 
-                  borderRadius: 8,
+                  borderRadius: 16, marginTop: 8, maxHeight: '200px', boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)', padding: '8px',
 
 
 
@@ -2952,7 +3388,7 @@ function CreateProofModal({ isOpen, onClose, onSuccess, parentProject }) {
 
 
 
-                      borderRadius: 8,
+                      borderRadius: 16, marginTop: 8, maxHeight: '200px', boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)', padding: '8px',
 
 
 
@@ -3181,261 +3617,239 @@ function CreateProofModal({ isOpen, onClose, onSuccess, parentProject }) {
 
 
                         {showUserDropdown && filteredUsers.length > 0 && (
-
-
-
                           <div ref={dropdownRef} style={{
-
-
-
                             position: 'absolute',
-
-
-
-                            top: '100%',
-
-
-
+                            top: 'calc(100% + 8px)',
                             left: 0,
-
-
-
                             right: 0,
-
-
-
-                            background: 'rgba(30, 30, 40, 0.95)',
-
-
-
-                            border: '1px solid rgba(255,255,255,0.2)',
-
-
-
-                            borderRadius: 8,
-
-
-
-                            marginTop: 4,
-
-
-
-                            maxHeight: '150px',
-
-
-
-                            overflow: 'auto',
-
-
-
-                            zIndex: 1000
-
-
-
+                            background: 'rgba(20, 20, 40, 0.98)',
+                            backdropFilter: 'blur(24px) saturate(180%)',
+                            border: '1px solid var(--glass-border)',
+                            borderRadius: 'var(--radius-md)',
+                            boxShadow: '0 16px 48px rgba(0,0,0,0.5), 0 0 0 1px rgba(10,132,255,0.1)',
+                            zIndex: 1000,
+                            maxHeight: 280,
+                            overflow: 'hidden',
+                            animation: 'fadeUp 0.2s cubic-bezier(0.4,0,0.2,1)'
                           }}>
-
-
-
-                            {filteredUsers
-
-
-
-                              .map((user, index) => (
-
-
-
-                                <div
-
-
-
+                            {/* Dropdown Header */}
+                            <div style={{
+                              padding: '12px 16px',
+                              borderBottom: '1px solid var(--glass-border)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between'
+                            }}>
+                              <span style={{
+                                fontSize: '0.7rem',
+                                fontWeight: 700,
+                                color: 'var(--text-tertiary)',
+                                letterSpacing: '0.06em',
+                                textTransform: 'uppercase'
+                              }}>
+                                Available Users ({filteredUsers.length})
+                              </span>
+                              <span style={{
+                                fontSize: '0.65rem',
+                                color: 'var(--text-tertiary)'
+                              }}>
+                                Click to select
+                              </span>
+                            </div>
+                            
+                            {/* User Options */}
+                            <div style={{
+                              maxHeight: 220,
+                              overflowY: 'auto',
+                              padding: 8
+                            }}>
+                              {filteredUsers.map((user, index) => (
+                                <button
                                   key={user.id}
-
-
-
+                                  type="button"
                                   ref={el => itemRefs.current[index] = el}
-
-
-
                                   onMouseDown={(e) => {
-
-
-
                                     e.preventDefault()
-
-
-
                                     e.stopPropagation()
-
-
-
                                     isSelectingRef.current = true
-
-
-
                                     setSelectedReviewers([...selectedReviewers, user])
-
-
-
                                     setReviewerPermissions({ ...reviewerPermissions, [user.id]: { comment: true, approve: false }})
-
-
-
                                     setSelectedUsername('')
-
-
-
                                     setHighlightedIndex(-1)
-
-
-
-                                    // Reset the ref after a short delay
-
-
-
                                     setTimeout(() => {
-
-
-
                                       isSelectingRef.current = false
-
-
-
                                     }, 200)
-
-
-
                                   }}
-
-
-
                                   onClick={(e) => e.preventDefault()}
-
-
-
+                                  onMouseEnter={() => setHighlightedIndex(index)}
                                   style={{
-
-
-
-                                    padding: '4px 10px',
-
-
-
-                                    color: '#fff',
-
-
-
+                                    width: '100%',
+                                    padding: '12px 14px',
+                                    background: highlightedIndex === index 
+                                      ? 'rgba(10,132,255,0.15)' 
+                                      : 'transparent',
+                                    border: 'none',
+                                    borderRadius: 'var(--radius-sm)',
                                     cursor: 'pointer',
-
-
-
-                                    borderBottom: '1px solid rgba(255,255,255,0.05)',
-
-
-
+                                    textAlign: 'left',
+                                    transition: 'all 0.15s ease',
                                     display: 'flex',
-
-
-
                                     alignItems: 'center',
-
-
-
-                                    gap: 6,
-
-
-
-                                    background: highlightedIndex === index ? 'rgba(10, 132, 255, 0.2)' : 'transparent'
-
-
-
+                                    gap: 12,
+                                    marginBottom: 4
                                   }}
-
-
-
                                 >
-
-
-
+                                  {/* Avatar */}
                                   <div style={{
-
-
-
-                                    width: 28,
-
-
-
-                                    height: 28,
-
-
-
+                                    width: 36,
+                                    height: 36,
                                     borderRadius: '50%',
-
-
-
                                     background: getAvatarColor(user.username, 0, []),
-
-
-
                                     display: 'flex',
-
-
-
                                     alignItems: 'center',
-
-
-
                                     justifyContent: 'center',
-
-
-
-                                    fontSize: '0.75rem',
-
-
-
-                                    fontWeight: 600
-
-
-
+                                    flexShrink: 0,
+                                    boxShadow: highlightedIndex === index 
+                                      ? '0 4px 12px rgba(0,0,0,0.3)' 
+                                      : 'none',
+                                    transition: 'all 0.2s ease'
                                   }}>
-
-
-
-                                    {user.username.charAt(0).toUpperCase()}
-
-
-
+                                    <span style={{
+                                      fontSize: '0.85rem',
+                                      fontWeight: 700,
+                                      color: '#fff'
+                                    }}>
+                                      {user.username.charAt(0).toUpperCase()}
+                                    </span>
                                   </div>
-
-
-
-                                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-
-
-
-                                    <span style={{ fontSize: '0.85rem' }}>{user.username}</span>
-
-
-
-                                    <span style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.5)' }}>{user.email}</span>
-
-
-
+                                  
+                                  {/* User Info */}
+                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: 8,
+                                      marginBottom: 2
+                                    }}>
+                                      <span style={{
+                                        fontSize: '0.9rem',
+                                        fontWeight: highlightedIndex === index ? 600 : 500,
+                                        color: 'var(--text-primary)'
+                                      }}>
+                                        {user.username}
+                                      </span>
+                                      {user.profile?.role && (
+                                        <span style={{
+                                          fontSize: '0.6rem',
+                                          fontWeight: 700,
+                                          color: 'var(--text-tertiary)',
+                                          background: 'rgba(255,255,255,0.08)',
+                                          padding: '2px 6px',
+                                          borderRadius: 4,
+                                          border: '1px solid var(--glass-border)',
+                                          textTransform: 'uppercase'
+                                        }}>
+                                          {user.profile.role}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <span style={{
+                                      fontSize: '0.75rem',
+                                      color: 'var(--text-secondary)',
+                                      display: 'block',
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap'
+                                    }}>
+                                      {user.email}
+                                    </span>
                                   </div>
-
-
-
-                                </div>
-
-
-
+                                  
+                                  {/* Selection Indicator */}
+                                  <div style={{
+                                    width: 20,
+                                    height: 20,
+                                    borderRadius: '50%',
+                                    border: highlightedIndex === index 
+                                      ? '2px solid var(--ios-blue)' 
+                                      : '2px solid rgba(255,255,255,0.2)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    flexShrink: 0,
+                                    transition: 'all 0.15s ease'
+                                  }}>
+                                    {highlightedIndex === index && (
+                                      <div style={{
+                                        width: 10,
+                                        height: 10,
+                                        borderRadius: '50%',
+                                        background: 'var(--ios-blue)'
+                                      }} />
+                                    )}
+                                  </div>
+                                </button>
                               ))}
-
-
-
+                            </div>
+                            
+                            {/* Dropdown Footer - Keyboard hints */}
+                            <div style={{
+                              padding: '10px 16px',
+                              borderTop: '1px solid var(--glass-border)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 16
+                            }}>
+                              <span style={{
+                                fontSize: '0.65rem',
+                                color: 'var(--text-tertiary)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 4
+                              }}>
+                                <kbd style={{
+                                  background: 'rgba(255,255,255,0.1)',
+                                  padding: '2px 6px',
+                                  borderRadius: 4,
+                                  fontFamily: 'inherit',
+                                  fontSize: '0.7rem'
+                                }}>↑↓</kbd>
+                                <span>Navigate</span>
+                              </span>
+                              <span style={{
+                                fontSize: '0.65rem',
+                                color: 'var(--text-tertiary)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 4
+                              }}>
+                                <kbd style={{
+                                  background: 'rgba(255,255,255,0.1)',
+                                  padding: '2px 6px',
+                                  borderRadius: 4,
+                                  fontFamily: 'inherit',
+                                  fontSize: '0.7rem'
+                                }}>Enter</kbd>
+                                <span>Select</span>
+                              </span>
+                              <span style={{
+                                fontSize: '0.65rem',
+                                color: 'var(--text-tertiary)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 4
+                              }}>
+                                <kbd style={{
+                                  background: 'rgba(255,255,255,0.1)',
+                                  padding: '2px 6px',
+                                  borderRadius: 4,
+                                  fontFamily: 'inherit',
+                                  fontSize: '0.7rem'
+                                }}>Esc</kbd>
+                                <span>Close</span>
+                              </span>
+                            </div>
                           </div>
-
-
-
                         )}
 
 
@@ -3532,7 +3946,7 @@ function CreateProofModal({ isOpen, onClose, onSuccess, parentProject }) {
 
 
 
-                        borderRadius: 8,
+                        borderRadius: 16, marginTop: 8, maxHeight: '200px', boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)', padding: '8px',
 
 
 
@@ -3792,7 +4206,7 @@ function CreateProofModal({ isOpen, onClose, onSuccess, parentProject }) {
 
 
 
-                                  background: 'transparent',
+                                  background: "rgba(255, 255, 255, 0.08)",
 
 
 
