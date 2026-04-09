@@ -483,52 +483,50 @@ Provide a JSON response with:
             raise
     
     def analyze_content(self, text, analysis_types):
-        """Analyze content for language improvements and compliance"""
+        """Analyze content for UI changes, copy changes, CTA changes, and compliance issues"""
         start_time = time.time()
         
         try:
-            analysis_prompts = {
-                'language': "Analyze the language and suggest improvements for clarity and professionalism.",
-                'compliance': "Check for legal and compliance issues (GDPR, contract requirements, etc.).",
-                'formatting': "Review formatting and structure for consistency."
-            }
-            
-            selected_analyses = [analysis_prompts.get(t, '') for t in analysis_types if t in analysis_prompts]
-            analysis_instructions = '\n'.join(selected_analyses)
-            
-            prompt = f"""Analyze the following document content:
+            prompt = f"""You are an expert UX reviewer + compliance analyst.
 
+Analyze the document and classify ALL changes and risks.
+
+Document:
 {text[:8000]}
 
-{analysis_instructions}
+Return STRICT JSON ONLY:
 
-Provide a JSON response with:
 {{
-    "language_suggestions": [
-        {{
-            "severity": "high/medium/low",
-            "current": "Current text",
-            "suggested": "Improved text",
-            "reason": "Why this change is recommended"
-        }}
-    ],
-    "compliance_issues": [
-        {{
-            "severity": "high/medium/low",
-            "issue": "Description of issue",
-            "suggested_action": "Recommended action"
-        }}
-    ],
-    "formatting_recommendations": ["List of formatting suggestions"]
-}}"""
+  "ui_changes": [
+    {{"change": "", "impact": "low|medium|high"}}
+  ],
+  "copy_changes": [
+    {{"original": "", "improved": "", "reason": ""}}
+  ],
+  "cta_changes": [
+    {{"before": "", "after": "", "impact": ""}}
+  ],
+  "compliance_issues": [
+    {{"issue": "", "severity": "high|medium|low", "fix": ""}}
+  ],
+  "risk_flags": [
+    {{"risk": "", "severity": "high|medium|low"}}
+  ],
+  "summary": "Overall assessment"
+}}
+
+Rules:
+- Always return valid JSON
+- Do not include explanations outside JSON
+- If nothing found, return empty arrays"""
             
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
-                    {"role": "system", "content": "You are an expert in legal document review and content analysis."},
+                    {"role": "system", "content": "You are an expert UX reviewer and compliance analyst. Analyze documents for UI changes, copy improvements, CTA updates, and compliance issues. Return only valid JSON."},
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.3,
+                temperature=0.1,
                 max_tokens=1500
             )
             
@@ -536,7 +534,38 @@ Provide a JSON response with:
             tokens_used = response.usage.total_tokens
             processing_time = time.time() - start_time
             
-            analysis_data = self._parse_summary_response(result)
+            logger.info(f"Raw OpenAI response: {result}")
+            
+            # Improved JSON parsing
+            import json
+            try:
+                analysis_data = json.loads(result)
+            except json.JSONDecodeError:
+                logger.error(f"Failed to parse JSON from OpenAI response: {result}")
+                # Fallback: try to extract JSON from response
+                json_match = re.search(r'\{.*\}', result, re.DOTALL)
+                if json_match:
+                    try:
+                        analysis_data = json.loads(json_match.group(0))
+                    except json.JSONDecodeError:
+                        logger.error("Failed to parse extracted JSON")
+                        analysis_data = {
+                            "ui_changes": [],
+                            "copy_changes": [],
+                            "cta_changes": [],
+                            "compliance_issues": [],
+                            "risk_flags": [],
+                            "summary": "Failed to parse AI response"
+                        }
+                else:
+                    analysis_data = {
+                        "ui_changes": [],
+                        "copy_changes": [],
+                        "cta_changes": [],
+                        "compliance_issues": [],
+                        "risk_flags": [],
+                        "summary": "No valid JSON found in response"
+                    }
             
             return {
                 'analysis': analysis_data,

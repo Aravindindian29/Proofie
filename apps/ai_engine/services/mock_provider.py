@@ -202,73 +202,39 @@ class MockProvider:
         }
     
     def analyze_content(self, text, analysis_types):
-        """Generate enhanced content analysis with UI/Copy/Legal/CTA classification"""
+        """Generate content analysis with UI changes, copy changes, CTA changes, and compliance issues"""
         time.sleep(random.uniform(1.0, 2.0))
         
         analysis_data = {
-            'ui_changes': [
-                'Removal of RF-1, RF-2 pages',
-                'Reduced / modified form fields in RF-3 & RF-4',
-                'Added Trustpilot section',
-                'Improved layout hierarchy'
+            "ui_changes": [
+                {"change": "Removed 'Required *' labels", "impact": "medium"},
+                {"change": "Introduced 4-digit OTP input fields", "impact": "high"},
+                {"change": "Added toast notifications", "impact": "medium"},
+                {"change": "Added countdown timers", "impact": "medium"},
+                {"change": "Separated Edit Email and Resend Email actions", "impact": "low"}
             ],
-            'copy_changes': [
-                'Introduction of "Extra Cash" messaging',
-                'Stronger CTA-driven language',
-                'Simplified user communication'
+            "copy_changes": [
+                {"original": "Check your spam or junk folder.", "improved": "Check your spam or junk folder if you don't see the email.", "reason": "More user-friendly tone"},
+                {"original": "Wait a few minutes for the email to arrive.", "improved": "It may take a few minutes for the email to arrive.", "reason": "More natural phrasing"},
+                {"original": "Verify your email address", "improved": "Let's verify your email", "reason": "Changed to conversational tone"}
             ],
-            'legal_compliance_changes': [
-                'APR clauses repeated across sections',
-                'Rate reduction explanation included',
-                'Soft vs Hard inquiry disclaimers added'
+            "cta_changes": [
+                {"before": "Send Email", "after": "Send Verification Email", "impact": "medium"},
+                {"before": "Continue", "after": "Confirm and Continue", "impact": "low"},
+                {"before": "", "after": "Resend Email", "impact": "high"}
             ],
-            'cta_changes': [
-                {
-                    'old': 'Get My Offer',
-                    'new': 'View My Offer',
-                    'classification': 'Conversion Optimization',
-                    'impact': 'Medium–High'
-                }
+            "compliance_issues": [
+                {"issue": "Inconsistent expiration times (3 hours vs 10 days)", "severity": "medium", "fix": "Standardize expiration across all templates"},
+                {"issue": "Missing GDPR/consent language in UI screens", "severity": "high", "fix": "Add explicit consent or data usage messaging"},
+                {"issue": "Footer disclaimer not consistently shown in TO-BE screens", "severity": "medium", "fix": "Ensure legal footer is present in all states"}
             ],
-            'compliance_risks': {
-                'high_severity': [
-                    {
-                        'issue': 'APR-related legal text repeated multiple times',
-                        'risk': 'Inconsistency across sections possible',
-                        'action': 'Validate against legal-approved master copy'
-                    }
-                ],
-                'medium_severity': [
-                    {
-                        'issue': 'Messaging variations across channels',
-                        'examples': ['"Unlock My Extra Cash"', '"View My Offer"'],
-                        'risk': 'Brand inconsistency',
-                        'action': 'Standardize messaging across touchpoints'
-                    }
-                ],
-                'low_severity': [
-                    {
-                        'issue': 'Minor grammar issues',
-                        'example': '"a excellent customer" → should be "an excellent customer"',
-                        'action': 'Copyediting pass recommended'
-                    }
-                ]
-            },
-            'missing_risky_checks': [
-                {'status': 'good', 'item': 'Disclaimer present'},
-                {'status': 'warning', 'item': 'No explicit regulatory reference validation'},
-                {'status': 'warning', 'item': 'Email vs Landing legal text mismatch risk'}
+            "risk_flags": [
+                {"risk": "Email expiry inconsistency", "severity": "high"},
+                {"risk": "Missing compliance messaging", "severity": "high"},
+                {"risk": "OTP error handling edge cases", "severity": "medium"},
+                {"risk": "No success state validation", "severity": "low"}
             ],
-            'language_improvements': [
-                'Replace repetitive financial clauses with summarized version',
-                'Improve readability of long legal paragraphs',
-                'Standardize CTA language'
-            ],
-            'severity_legend': {
-                'high': 'Legal risks, compliance issues',
-                'medium': 'UX inconsistency, brand misalignment',
-                'low': 'Language improvements, minor fixes'
-            }
+            "summary": "Overall assessment: UI improvements are good but compliance issues need attention"
         }
         
         return {

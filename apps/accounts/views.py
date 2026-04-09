@@ -81,11 +81,20 @@ class UserViewSet(viewsets.ModelViewSet):
     def permissions_version(self, request):
         """Lightweight endpoint for permission polling - returns only permissions_updated_at timestamp"""
         try:
-            permissions_updated_at = request.user.profile.permissions_updated_at
-            return Response({
-                'permissions_updated_at': permissions_updated_at.isoformat() if permissions_updated_at else None
-            })
-        except AttributeError:
+            # Check if user has a profile
+            if hasattr(request.user, 'profile') and request.user.profile:
+                permissions_updated_at = request.user.profile.permissions_updated_at
+                return Response({
+                    'permissions_updated_at': permissions_updated_at.isoformat() if permissions_updated_at else None
+                })
+            else:
+                # User doesn't have a profile, return None
+                return Response({'permissions_updated_at': None})
+        except Exception as e:
+            # Log the error for debugging but don't expose it
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error in permissions_version endpoint: {e}")
             return Response({'permissions_updated_at': None})
 
     @action(detail=False, methods=['get'], pagination_class=UsersPagination)

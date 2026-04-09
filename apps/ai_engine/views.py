@@ -853,33 +853,14 @@ def test_jira_connection(request):
 @api_view(['POST'])
 
 @permission_classes([IsAuthenticated])
-
 def post_to_jira(request):
-
     """
-
     Post AI-generated acceptance criteria to JIRA ticket.
 
-    Restricted to users with 'Manager' role.
+    Available to all authenticated users.
 
     """
-
-    # Role-based access control - only Managers can use JIRA integration
-
-    user_role = getattr(request.user, 'role', None)
-
-    if user_role != 'Manager':
-
-        return Response(
-
-            {'error': 'JIRA Integration is restricted to Manager role only'},
-
-            status=status.HTTP_403_FORBIDDEN
-
-        )
-
     
-
     version_id = request.data.get('version_id')
 
     cpi_id = request.data.get('cpi_id')

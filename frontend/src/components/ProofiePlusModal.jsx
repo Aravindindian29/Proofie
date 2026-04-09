@@ -290,7 +290,15 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
             <div className="space-y-2">
               {analysis.ui_changes.map((change, idx) => (
                 <div key={idx} className="bg-blue-50 p-3 rounded border-l-4 border-blue-500">
-                  <div className="text-gray-700">{change}</div>
+                  <div className="text-gray-700">{change.change}</div>
+                  {change.impact && (
+                    <div className="text-sm text-gray-500 mt-1">
+                      Impact: <span className={`font-medium ${
+                        change.impact === 'high' ? 'text-red-600' : 
+                        change.impact === 'medium' ? 'text-yellow-600' : 'text-green-600'
+                      }`}>{change.impact}</span>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -307,7 +315,11 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
             <div className="space-y-2">
               {analysis.copy_changes.map((change, idx) => (
                 <div key={idx} className="bg-purple-50 p-3 rounded border-l-4 border-purple-500">
-                  <div className="text-gray-700">{change}</div>
+                  <div className="text-sm text-gray-600 mb-1">Original: {change.original}</div>
+                  <div className="text-gray-700 font-medium">Improved: {change.improved}</div>
+                  {change.reason && (
+                    <div className="text-sm text-gray-500 mt-1">Reason: {change.reason}</div>
+                  )}
                 </div>
               ))}
             </div>
@@ -325,10 +337,9 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
               {analysis.cta_changes.map((cta, idx) => (
                 <div key={idx} className="bg-orange-50 p-3 rounded border-l-4 border-orange-500">
                   <div className="text-sm space-y-1">
-                    <div><strong>Old:</strong> "{cta.old}"</div>
-                    <div><strong>New:</strong> "{cta.new}"</div>
-                    <div><strong>Classification:</strong> {cta.classification}</div>
-                    <div><strong>Impact:</strong> {cta.impact}</div>
+                    {cta.before && <div><strong>Before:</strong> "{cta.before}"</div>}
+                    {cta.after && <div><strong>After:</strong> "{cta.after}"</div>}
+                    {cta.impact && <div><strong>Impact:</strong> {cta.impact}</div>}
                   </div>
                 </div>
               ))}
@@ -336,117 +347,66 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
           </div>
         )}
 
-        {/* Legal/Compliance Changes */}
-        {analysis.legal_compliance_changes && analysis.legal_compliance_changes.length > 0 && (
+        {/* Compliance Issues */}
+        {analysis.compliance_issues && analysis.compliance_issues.length > 0 && (
           <div>
             <h4 className="font-semibold text-gray-700 mb-2 flex items-center gap-2">
-              <span className="bg-red-100 text-red-800 px-2 py-1 rounded text-xs font-semibold">Legal</span>
-              Legal/Compliance Changes
+              <span className="bg-red-100 text-red-800 px-2 py-1 rounded text-xs font-semibold">⚠️</span>
+              Compliance Issues
             </h4>
             <div className="space-y-2">
-              {analysis.legal_compliance_changes.map((change, idx) => (
-                <div key={idx} className="bg-red-50 p-3 rounded border-l-4 border-red-500">
-                  <div className="text-gray-700">{change}</div>
+              {analysis.compliance_issues.map((issue, idx) => (
+                <div key={idx} className={`p-3 rounded border-l-4 ${
+                  issue.severity === 'high' ? 'bg-red-50 border-red-500' :
+                  issue.severity === 'medium' ? 'bg-yellow-50 border-yellow-500' :
+                  'bg-gray-50 border-gray-500'
+                }`}>
+                  <div className="text-gray-700 font-medium">{issue.issue}</div>
+                  <div className="text-sm text-gray-600 mt-1">Fix: {issue.fix}</div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    Severity: <span className={`font-medium ${
+                      issue.severity === 'high' ? 'text-red-600' : 
+                      issue.severity === 'medium' ? 'text-yellow-600' : 'text-gray-600'
+                    }`}>{issue.severity}</span>
+                  </div>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* Compliance Risks */}
-        {analysis.compliance_risks && (
+        {/* Risk Flags */}
+        {analysis.risk_flags && analysis.risk_flags.length > 0 && (
           <div>
-            <h4 className="font-semibold text-gray-700 mb-2">Compliance Risks</h4>
-            
-            {/* High Severity */}
-            {analysis.compliance_risks.high_severity && analysis.compliance_risks.high_severity.length > 0 && (
-              <div className="mb-4">
-                <h5 className="text-red-700 font-medium mb-2 flex items-center gap-2">
-                  <span className="bg-red-100 text-red-800 px-2 py-1 rounded text-xs font-semibold">High</span>
-                  High Priority Risks
-                </h5>
-                <div className="space-y-2">
-                  {analysis.compliance_risks.high_severity.map((risk, idx) => (
-                    <div key={idx} className="bg-red-50 p-3 rounded border-l-4 border-red-500">
-                      <div className="font-medium text-gray-800 mb-1">{risk.issue}</div>
-                      <div className="text-sm text-gray-700"><strong>Risk:</strong> {risk.risk}</div>
-                      <div className="text-sm text-gray-700"><strong>Action:</strong> {risk.action}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Medium Severity */}
-            {analysis.compliance_risks.medium_severity && analysis.compliance_risks.medium_severity.length > 0 && (
-              <div className="mb-4">
-                <h5 className="text-yellow-700 font-medium mb-2 flex items-center gap-2">
-                  <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-xs font-semibold">Medium</span>
-                  Medium Priority Risks
-                </h5>
-                <div className="space-y-2">
-                  {analysis.compliance_risks.medium_severity.map((risk, idx) => (
-                    <div key={idx} className="bg-yellow-50 p-3 rounded border-l-4 border-yellow-500">
-                      <div className="font-medium text-gray-800 mb-1">{risk.issue}</div>
-                      {risk.examples && (
-                        <div className="text-sm text-gray-600 mb-1">
-                          <strong>Examples:</strong>
-                          <ul className="list-disc list-inside ml-2">
-                            {risk.examples.map((example, i) => (
-                              <li key={i}>{example}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                      <div className="text-sm text-gray-700"><strong>Risk:</strong> {risk.risk}</div>
-                      <div className="text-sm text-gray-700"><strong>Action:</strong> {risk.action}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Low Severity */}
-            {analysis.compliance_risks.low_severity && analysis.compliance_risks.low_severity.length > 0 && (
-              <div>
-                <h5 className="text-green-700 font-medium mb-2 flex items-center gap-2">
-                  <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-semibold">Low</span>
-                  Low Priority Risks
-                </h5>
-                <div className="space-y-2">
-                  {analysis.compliance_risks.low_severity.map((risk, idx) => (
-                    <div key={idx} className="bg-green-50 p-3 rounded border-l-4 border-green-500">
-                      <div className="font-medium text-gray-800 mb-1">{risk.issue}</div>
-                      <div className="text-sm text-gray-700"><strong>Example:</strong> {risk.example}</div>
-                      <div className="text-sm text-gray-700"><strong>Action:</strong> {risk.action}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Missing Risk Checks */}
-        {analysis.missing_risky_checks && analysis.missing_risky_checks.length > 0 && (
-          <div>
-            <h4 className="font-semibold text-gray-700 mb-2">Risk Checks Status</h4>
+            <h4 className="font-semibold text-gray-700 mb-2 flex items-center gap-2">
+              <span className="bg-red-100 text-red-800 px-2 py-1 rounded text-xs font-semibold">🚨</span>
+              Risk Flags
+            </h4>
             <div className="space-y-2">
-              {analysis.missing_risky_checks.map((check, idx) => (
-                <div key={idx} className="flex items-center gap-2">
-                  <span className={`w-3 h-3 rounded-full ${
-                    check.status === 'good' ? 'bg-green-500' : 'bg-yellow-500'
-                  }`}></span>
-                  <span className="text-gray-700">{check.item}</span>
+              {analysis.risk_flags.map((flag, idx) => (
+                <div key={idx} className={`p-3 rounded border-l-4 ${
+                  flag.severity === 'high' ? 'bg-red-50 border-red-500' :
+                  flag.severity === 'medium' ? 'bg-orange-50 border-orange-500' :
+                  'bg-yellow-50 border-yellow-500'
+                }`}>
+                  <div className="text-gray-700">⚠️ {flag.risk}</div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    Severity: <span className={`font-medium ${
+                      flag.severity === 'high' ? 'text-red-600' : 
+                      flag.severity === 'medium' ? 'text-orange-600' : 'text-yellow-600'
+                    }`}>{flag.severity}</span>
+                  </div>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {data.tokens_used && (
-          <div className="text-xs text-gray-500">
-            Tokens used: {data.tokens_used} | Processing time: {data.processing_time?.toFixed(2)}s
+        {/* Summary */}
+        {analysis.summary && (
+          <div className="bg-gray-100 p-4 rounded-lg">
+            <h4 className="font-semibold text-gray-700 mb-2">Summary</h4>
+            <div className="text-gray-700">{analysis.summary}</div>
           </div>
         )}
       </div>
@@ -460,112 +420,17 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
 
     return (
       <div className="space-y-4">
-        {/* Version Comparison Header */}
-        <div className="bg-gradient-to-r from-purple-50 to-blue-50 p-4 rounded-lg">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-semibold">
-              {diff.version_comparison || 'Version Comparison'}
-            </span>
-          </div>
+        <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-4 rounded-lg">
+          <h3 className="text-xl font-bold text-gray-800 mb-2">📊 Version Comparison Complete</h3>
           <div className="flex gap-4 text-sm">
             <span className="bg-white px-3 py-1 rounded-full">
               <strong>Total Changes:</strong> {diff.total_changes || 0}
             </span>
             <span className="bg-white px-3 py-1 rounded-full">
-              <strong>Severity:</strong> {diff.severity_score || 0}/10
+              <strong>Severity Score:</strong> {diff.severity_score || 0}/10
             </span>
-            {data.pages_affected && data.pages_affected.length > 0 && (
-              <span className="bg-white px-3 py-1 rounded-full">
-                <strong>Pages:</strong> {data.pages_affected.join(', ')}
-              </span>
-            )}
           </div>
         </div>
-
-        {diff.summary && (
-          <div className="bg-blue-50 p-3 rounded">
-            <strong>Summary:</strong> {diff.summary}
-          </div>
-        )}
-
-        {/* Changes with Classification */}
-        {diff.changes && diff.changes.length > 0 && (
-          <div>
-            <h4 className="font-semibold text-gray-700 mb-2">Changes:</h4>
-            <div className="space-y-3">
-              {diff.changes.map((change, idx) => (
-                <div key={idx} className={`p-3 rounded border-l-4 ${
-                  change.severity === 'high' ? 'border-red-500 bg-red-50' :
-                  change.severity === 'medium' ? 'border-yellow-500 bg-yellow-50' :
-                  'border-blue-500 bg-blue-50'
-                }`}>
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="font-medium text-gray-800">
-                      {change.type === 'text_added' && '➕ '}
-                      {change.type === 'text_deleted' && '➖ '}
-                      {change.type === 'text_modified' && '✏️ '}
-                      {change.type === 'section_added' && '📄 '}
-                      {change.type === 'section_removed' && '🗑️ '}
-                      {change.section || 'Change'}
-                    </div>
-                    {change.classification && (
-                      <span className={`text-xs px-2 py-1 rounded ${
-                        change.classification.includes('UI') ? 'bg-blue-100 text-blue-800' :
-                        change.classification.includes('Copy') ? 'bg-purple-100 text-purple-800' :
-                        change.classification.includes('CTA') ? 'bg-orange-100 text-orange-800' :
-                        change.classification.includes('Legal') || change.classification.includes('Compliance') ? 'bg-red-100 text-red-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {change.classification}
-                      </span>
-                    )}
-                  </div>
-                  
-                  <div className="text-sm space-y-1">
-                    {change.location && (
-                      <div className="text-gray-600"><strong>Location:</strong> {change.location}</div>
-                    )}
-                    {change.description && (
-                      <div className="text-gray-700">{change.description}</div>
-                    )}
-                    {change.impact && (
-                      <div className="text-gray-600"><strong>Impact:</strong> {change.impact}</div>
-                    )}
-                    {change.v1_text && change.v2_text && (
-                      <div className="mt-2 p-2 bg-gray-50 rounded">
-                        <div><strong>v1:</strong> {change.v1_text}</div>
-                        <div><strong>v2:</strong> {change.v2_text}</div>
-                      </div>
-                    )}
-                    {change.old_text && change.new_text && (
-                      <div className="mt-2 p-2 bg-gray-50 rounded">
-                        <div><strong>Old:</strong> {change.old_text}</div>
-                        <div><strong>New:</strong> {change.new_text}</div>
-                      </div>
-                    )}
-                    {change.risk && (
-                      <div className="text-red-600 font-medium"><strong>Risk:</strong> {change.risk}</div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Recommendations */}
-        {diff.recommendations && diff.recommendations.length > 0 && (
-          <div>
-            <h4 className="font-semibold text-gray-700 mb-2">Recommendations:</h4>
-            <div className="space-y-2">
-              {diff.recommendations.map((rec, idx) => (
-                <div key={idx} className="bg-yellow-50 p-3 rounded border-l-4 border-yellow-500">
-                  <div className="text-gray-700">{rec}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
         {data.tokens_used && (
           <div className="text-xs text-gray-500">
