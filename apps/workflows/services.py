@@ -51,25 +51,15 @@ class WorkflowService:
             group.socd_status = 'decision_made'
             group.save()
             
-            # If rejected, stop workflow
+            # If rejected, mark review as rejected but don't stop other groups
             if rejected_count > 0:
-                return
+                # Don't return - allow other groups to continue reviewing
+                pass
             
-            # Unlock next group
-            next_group = ApprovalGroup.objects.filter(
-                review_cycle=group.review_cycle,
-                order=group.order + 1
-            ).first()
-            
-            if next_group:
-                next_group.status = 'unlocked'
-                next_group.unlocked_at = timezone.now()
-                next_group.save()
-                
-                group.review_cycle.current_stage = next_group.stage
-                group.review_cycle.save()
-            else:
-                # All groups completed - finalize review
+            # No need to unlock next group - all groups are already unlocked
+            # Check if all groups completed to finalize review
+            all_groups = group.review_cycle.groups.all()
+            if all(g.status == 'completed' for g in all_groups):
                 WorkflowService.finalize_review(group.review_cycle)
     
     @staticmethod
@@ -139,8 +129,8 @@ class WorkflowService:
         if new_index > current_index:
             group.socd_status = status
             
-            # Update group status to in_progress if opened
-            if status == 'open' and group.status == 'unlocked':
+            # Update group status to in_progress if opened (all groups start as unlocked)
+            if status == 'open' and group.status in ['unlocked', 'locked']:
                 group.status = 'in_progress'
             
             group.save()
@@ -157,10 +147,155 @@ class WorkflowService:
         """
         member.decision = decision
         member.feedback = feedback
+        
+        # Map decision to reviewer_progress
+        decision_to_progress = {
+            'approved': 'approved',
+            'changes_requested': 'approved_with_changes',
+            'rejected': 'rejected'
+        }
+        member.reviewer_progress = decision_to_progress.get(decision, 'not_started')
         member.save()
         
         # Update SOCD to decision_made
         WorkflowService.update_member_socd(member, 'decide')
+        
+        # Calculate and update stage status
+        WorkflowService.calculate_stage_status(member.group)
+        
+        # Calculate and update proof status
+        WorkflowService.calculate_proof_status(member.group.review_cycle)
+        
+        # Broadcast updates
+        WorkflowService.broadcast_review_cycle_update(member.group.review_cycle)
+    
+    @staticmethod
+    def update_reviewer_progress(member, progress_status):
+        """
+        Update individual member's reviewer progress.
+        
+        Args:
+            member: GroupMember instance
+            progress_status: 'not_started', 'reviewing', 'approved', 'approved_with_changes', 'rejected'
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        old_progress = member.reviewer_progress
+        member.reviewer_progress = progress_status
+        member.save()
+        logger.info(f"📊 Updated reviewer progress: {member.user.username} ({member.group.name}) - {old_progress} → {progress_status}")
+        
+        # Calculate and update stage status
+        WorkflowService.calculate_stage_status(member.group)
+        logger.info(f"📊 Calculated stage status for {member.group.name}: {member.group.stage_status}")
+        
+        # Calculate and update proof status
+        WorkflowService.calculate_proof_status(member.group.review_cycle)
+        logger.info(f"📊 Calculated proof status: {member.group.review_cycle.proof_status}")
+        
+        # Broadcast updates
+        WorkflowService.broadcast_review_cycle_update(member.group.review_cycle)
+        logger.info(f"📡 Broadcasted review cycle update for review cycle {member.group.review_cycle.id}")
+    
+    @staticmethod
+    def calculate_stage_status(group):
+        """
+        Calculate workflow stage status based on all members' reviewer progress.
+        
+        Args:
+            group: ApprovalGroup instance
+        """
+        members = group.members.all()
+        total_members = members.count()
+        
+        if total_members == 0:
+            group.stage_status = 'not_started'
+            group.save()
+            return
+        
+        # Count reviewer progress statuses
+        not_started_count = members.filter(reviewer_progress='not_started').count()
+        reviewing_count = members.filter(reviewer_progress='reviewing').count()
+        approved_count = members.filter(reviewer_progress='approved').count()
+        approved_with_changes_count = members.filter(reviewer_progress='approved_with_changes').count()
+        rejected_count = members.filter(reviewer_progress='rejected').count()
+        
+        # Logic for stage status
+        if not_started_count == total_members:
+            group.stage_status = 'not_started'
+        elif reviewing_count > 0:
+            group.stage_status = 'in_progress'
+        elif approved_count == total_members:
+            group.stage_status = 'approved'
+        elif rejected_count == total_members:
+            group.stage_status = 'rejected'
+        elif approved_with_changes_count == total_members:
+            group.stage_status = 'approved_with_changes'
+        else:
+            # Mixed decisions
+            group.stage_status = 'action_required'
+        
+        group.save()
+    
+    @staticmethod
+    def calculate_proof_status(review_cycle):
+        """
+        Calculate overall proof status based on last workflow stage.
+        
+        Args:
+            review_cycle: ReviewCycle instance
+        """
+        groups = review_cycle.groups.all().order_by('order')
+        
+        if not groups.exists():
+            review_cycle.proof_status = 'not_started'
+            review_cycle.save()
+            return
+        
+        # Check if any stage is in progress
+        if groups.filter(stage_status='in_progress').exists():
+            review_cycle.proof_status = 'in_progress'
+            review_cycle.save()
+            return
+        
+        # Get the last workflow stage
+        last_group = groups.last()
+        
+        # Map last stage status to proof status
+        if last_group.stage_status == 'approved':
+            review_cycle.proof_status = 'approved'
+        elif last_group.stage_status == 'rejected':
+            review_cycle.proof_status = 'rejected'
+        elif last_group.stage_status == 'approved_with_changes':
+            review_cycle.proof_status = 'approved_with_changes'
+        elif last_group.stage_status == 'action_required':
+            review_cycle.proof_status = 'in_progress'
+        else:
+            review_cycle.proof_status = 'not_started'
+        
+        review_cycle.save()
+    
+    @staticmethod
+    def track_file_viewer_open(review_cycle_id, user):
+        """
+        Track when member opens file viewer and set progress to 'reviewing'.
+        
+        Args:
+            review_cycle_id: ReviewCycle ID
+            user: User instance
+        """
+        try:
+            review_cycle = ReviewCycle.objects.get(id=review_cycle_id)
+            member = WorkflowService.get_member_for_user(review_cycle, user)
+            
+            if member and member.reviewer_progress == 'not_started':
+                WorkflowService.update_reviewer_progress(member, 'reviewing')
+                logger.info(f"Member {user.username} started reviewing - progress set to 'reviewing'")
+        except ReviewCycle.DoesNotExist:
+            logger.error(f"ReviewCycle {review_cycle_id} not found")
+        except Exception as e:
+            logger.error(f"Failed to track file viewer open: {e}")
     
     @staticmethod
     def create_groups_for_review(review_cycle, template):
@@ -179,8 +314,8 @@ class WorkflowService:
                 stage=stage,
                 name=stage.name,
                 order=idx + 1,
-                status='locked' if idx > 0 else 'unlocked',
-                unlocked_at=timezone.now() if idx == 0 else None
+                status='unlocked',  # All groups unlocked - no sequential restriction
+                unlocked_at=timezone.now()
             )
             
             # Add approvers as group members
@@ -391,15 +526,20 @@ class WorkflowService:
             )
             users_to_notify.update(managers_and_admins)
             
-            # Prepare update data
+            # Prepare update data with all status fields
+            from .serializers import ReviewCycleDetailSerializer
+            serializer = ReviewCycleDetailSerializer(review_cycle)
+            
             update_data = {
                 'type': 'review_cycle_update',
                 'review_cycle_id': review_cycle.id,
                 'status': review_cycle.status,
+                'proof_status': review_cycle.proof_status,
                 'current_stage_id': review_cycle.current_stage.id if review_cycle.current_stage else None,
                 'updated_at': review_cycle.updated_at.isoformat() if hasattr(review_cycle, 'updated_at') else timezone.now().isoformat(),
                 'asset_name': review_cycle.asset.name if review_cycle.asset else 'Untitled Proof',
                 'asset_id': review_cycle.asset.id if review_cycle.asset else None,
+                'review_cycle_data': serializer.data,  # Include full serialized data with all groups and members
             }
             
             # Send update to each user's notification channel

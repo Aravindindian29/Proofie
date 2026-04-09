@@ -1047,117 +1047,32 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
               // Check if this update is for our current review cycle
-
-
-
-
-
-
-
               if (reviewCycle && data.review_cycle_id === reviewCycle.id) {
-
-
-
-
-
-
-
                 console.log('✅ Update matches current review cycle - updating state')
 
+                // Update local state immediately with full review cycle data
+                if (data.review_cycle_data) {
+                  setReviewCycle(data.review_cycle_data)
 
-
-
-
-
-
-                // Update local state immediately
-
-
-
-
-
-
-
-                setReviewCycle(prev => ({ 
-
-
-
-
-
-
-
-                  ...prev, 
-
-
-
-
-
-
-
-                  status: data.status 
-
-
-
-
-
-
-
-                }))
-
-
-
-
-
-
-
+                  // Update groups with new status data
+                  if (data.review_cycle_data.groups) {
+                    setGroups(data.review_cycle_data.groups)
+                  }
+                } else {
+                  // Fallback to just updating status
+                  setReviewCycle(prev => ({ 
+                    ...prev, 
+                    status: data.status,
+                    proof_status: data.proof_status || data.status
+                  }))
+                }
               }
 
-
-
-
-
-
-
-              
-
-
-
-
-
-
-
               // Always refresh workflow data to ensure we have the latest information
-
-
-
-
-
-
-
               // This handles cases where review cycle was just created or updated
-
-
-
-
-
-
-
               console.log('🔄 Refreshing workflow data...')
 
-
-
-
-
-
-
               fetchWorkflowData()
-
-
-
-
-
-
-
             }
 
 
@@ -9010,7 +8925,7 @@ background: 'transparent',
                       {(() => {
 
                         // Show loading state instead of defaulting to not_started to prevent incorrect display
-                  const status = reviewCycle?.status || (project ? 'loading' : 'not_started')
+                  const status = reviewCycle?.proof_status || (project ? 'loading' : 'not_started')
 
                         const statusConfig = {
 
@@ -10010,69 +9925,51 @@ background: 'transparent',
 
 
 
+                                background: group.stage_status === 'not_started' ? 'rgba(107,114,128,0.2)' :
 
 
 
-
-                                background: group.status === 'locked' ? 'rgba(107,114,128,0.2)' :
-
+                                           group.stage_status === 'in_progress' ? 'rgba(10,132,255,0.2)' :
 
 
 
+                                           group.stage_status === 'approved' ? 'rgba(16,185,129,0.2)' :
 
 
 
-                                           group.status === 'unlocked' ? 'rgba(251,191,36,0.2)' :
+                                           group.stage_status === 'rejected' ? 'rgba(239,68,68,0.2)' :
 
 
 
+                                           group.stage_status === 'approved_with_changes' ? 'rgba(251,191,36,0.2)' :
 
 
 
-
-                                           group.status === 'in_progress' ? 'rgba(10,132,255,0.2)' :
-
+                                           'rgba(251,191,36,0.2)',
 
 
 
+                                color: group.stage_status === 'not_started' ? '#6B7280' :
 
 
 
-                                           'rgba(16,185,129,0.2)',
+                                       group.stage_status === 'in_progress' ? '#0A84FF' :
 
 
 
+                                       group.stage_status === 'approved' ? '#10B981' :
 
 
 
-
-                                color: group.status === 'locked' ? '#6B7280' :
-
+                                       group.stage_status === 'rejected' ? '#EF4444' :
 
 
 
+                                       group.stage_status === 'approved_with_changes' ? '#FBB024' :
 
 
 
-                                       group.status === 'unlocked' ? '#FBB F24' :
-
-
-
-
-
-
-
-                                       group.status === 'in_progress' ? '#0A84FF' :
-
-
-
-
-
-
-
-                                       '#10B981'
-
-
+                                       '#FBB024'
 
 
 
@@ -10082,41 +9979,25 @@ background: 'transparent',
 
 
 
+                                {group.stage_status === 'not_started' ? 'Not Started' :
 
 
 
-
-                                {group.status === 'locked' ? '🔒 Locked' :
-
+                                 group.stage_status === 'in_progress' ? 'In Progress' :
 
 
 
+                                 group.stage_status === 'approved' ? '✓ Approved' :
 
 
 
-                                 group.status === 'unlocked' ? 'Unlocked' :
+                                 group.stage_status === 'rejected' ? '✗ Rejected' :
 
 
 
+                                 group.stage_status === 'approved_with_changes' ? 'Approved with Changes' :
 
-
-
-
-                                 group.status === 'in_progress' ? 'In Progress' :
-
-
-
-
-
-
-
-                                 'Completed'}
-
-
-
-
-
-
+                                 'Action Required'}
 
                               </span>
 
@@ -10222,46 +10103,27 @@ background: 'transparent',
 
 
 
-                                      <span style={{ fontSize: '0.75rem' }}>
-
-
-
-
-
-
-
-                                        {member.socd_status === 'sent' ? '⚪' :
-
-
-
-
-
-
-
-                                         member.socd_status === 'open' ? '🟢' :
-
-
-
-
-
-
-
-                                         member.socd_status === 'commented' ? '🔵' :
-
-
-
-
-
-
-
-                                         '✅'}
-
-
-
-
-
-
-
+                                      <span style={{ 
+                                        fontSize: '0.7rem',
+                                        padding: '2px 8px',
+                                        borderRadius: '4px',
+                                        fontWeight: 600,
+                                        background: member.reviewer_progress === 'not_started' ? 'rgba(107,114,128,0.2)' :
+                                                   member.reviewer_progress === 'reviewing' ? 'rgba(10,132,255,0.2)' :
+                                                   member.reviewer_progress === 'approved' ? 'rgba(16,185,129,0.2)' :
+                                                   member.reviewer_progress === 'rejected' ? 'rgba(239,68,68,0.2)' :
+                                                   'rgba(251,191,36,0.2)',
+                                        color: member.reviewer_progress === 'not_started' ? '#6B7280' :
+                                               member.reviewer_progress === 'reviewing' ? '#0A84FF' :
+                                               member.reviewer_progress === 'approved' ? '#10B981' :
+                                               member.reviewer_progress === 'rejected' ? '#EF4444' :
+                                               '#FBB024'
+                                      }}>
+                                        {member.reviewer_progress === 'not_started' ? 'Not Started' :
+                                         member.reviewer_progress === 'reviewing' ? 'Reviewing' :
+                                         member.reviewer_progress === 'approved' ? 'Approved' :
+                                         member.reviewer_progress === 'rejected' ? 'Rejected' :
+                                         'Approved with Changes'}
                                       </span>
 
 

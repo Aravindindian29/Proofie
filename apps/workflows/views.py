@@ -162,19 +162,32 @@ class ReviewCycleViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def track_view(self, request, pk=None):
-        """Track when a user views the proof (SOCD: Sent -> Open)"""
+        """Track when a user views the proof in file viewer (SOCD: Sent -> Open, Progress: Not Started -> Reviewing)"""
         import logging
         logger = logging.getLogger(__name__)
         
         review_cycle = self.get_object()
         member = WorkflowService.get_member_for_user(review_cycle, request.user)
         
-        # Update member SOCD status if they are a member
+        # Update member SOCD status and reviewer progress if they are a member
         member_updated = False
         if member:
+            logger.info(f"Member found: {request.user.username}, Group: {member.group.name}, Current progress: {member.reviewer_progress}")
+            
             WorkflowService.update_member_socd(member, 'view')
+            
+            # Set reviewer_progress to 'reviewing' when file viewer opens
+            if member.reviewer_progress == 'not_started':
+                logger.info(f"Updating reviewer progress from 'not_started' to 'reviewing' for user {request.user.username}")
+                WorkflowService.update_reviewer_progress(member, 'reviewing')
+                logger.info(f"✅ Updated reviewer progress to 'reviewing' for user {request.user.username} in review cycle {review_cycle.id}, Group: {member.group.name}")
+            else:
+                logger.info(f"⚠️ Reviewer progress NOT updated - current status is '{member.reviewer_progress}' (not 'not_started')")
+            
             member_updated = True
             logger.info(f"Updated SOCD status for user {request.user.username} in review cycle {review_cycle.id}")
+        else:
+            logger.warning(f"⚠️ No member found for user {request.user.username} in review cycle {review_cycle.id}")
         
         # Update review cycle status from 'not_started' to 'in_progress'
         # Any authenticated user can trigger this transition
@@ -186,7 +199,7 @@ class ReviewCycleViewSet(viewsets.ModelViewSet):
             logger.info(f"Review cycle {review_cycle.id} status changed from 'not_started' to 'in_progress' by user {request.user.username}")
         
         # Broadcast status change via WebSocket to all relevant users
-        if status_changed:
+        if status_changed or member_updated:
             try:
                 WorkflowService.broadcast_review_cycle_update(review_cycle)
                 logger.info(f"Broadcasted status update for review cycle {review_cycle.id}")
@@ -200,9 +213,10 @@ class ReviewCycleViewSet(viewsets.ModelViewSet):
             'user_is_member': member is not None
         }
         
-        # Include member SOCD status if they are a member
+        # Include member SOCD status and reviewer progress if they are a member
         if member:
             response_data['socd_status'] = member.socd_status
+            response_data['reviewer_progress'] = member.reviewer_progress
         
         return Response(response_data)
     
@@ -234,12 +248,7 @@ class ReviewCycleViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN
             )
         
-        # Check if group is unlocked
-        if member.group.status == 'locked':
-            return Response(
-                {'error': 'This group is still locked. Wait for previous groups to complete.'},
-                status=status.HTTP_403_FORBIDDEN
-            )
+        # Removed group locking check - all groups can review simultaneously
         
         WorkflowService.record_member_decision(member, decision, feedback)
         

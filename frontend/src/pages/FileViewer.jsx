@@ -81,16 +81,15 @@ function FileViewer() {
     fetchCurrentUser()
   }, [id, contextAssetId, urlId])
 
-  // Auto-track view when review cycle is available and status is Not Started (only once)
+  // Auto-track view when review cycle is available (only once per session)
   useEffect(() => {
-    if (reviewCycleId && !viewTracked && asset?.review_cycles?.[0]?.status === 'not_started') {
+    if (reviewCycleId && !viewTracked) {
+      // Always track view regardless of review cycle status
+      // This ensures every member's view is tracked, not just the first one
       trackView()
       fetchMyStatus()
-    } else if (reviewCycleId && !viewTracked) {
-      // Just fetch status if already in progress or other status
-      fetchMyStatus()
     }
-  }, [reviewCycleId, viewTracked, asset?.review_cycles?.[0]?.status])
+  }, [reviewCycleId, viewTracked])
 
   // Setup WebSocket listener for real-time updates
   useEffect(() => {

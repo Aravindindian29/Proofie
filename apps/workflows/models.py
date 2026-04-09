@@ -98,10 +98,19 @@ class ReviewCycle(models.Model):
         ('approved_with_changes', 'Approved with Changes'),
         ('rejected', 'Rejected'),
     ]
+    
+    PROOF_STATUS_CHOICES = [
+        ('not_started', 'Not Started'),
+        ('in_progress', 'In Progress'),
+        ('approved', 'Approved'),
+        ('approved_with_changes', 'Approved with Changes'),
+        ('rejected', 'Rejected'),
+    ]
 
     asset = models.ForeignKey(CreativeAsset, on_delete=models.CASCADE, related_name='review_cycles')
     template = models.ForeignKey(WorkflowTemplate, on_delete=models.SET_NULL, null=True)
     status = models.CharField(max_length=30, choices=STATUS_CHOICES, default='not_started')
+    proof_status = models.CharField(max_length=30, choices=PROOF_STATUS_CHOICES, default='not_started')
     current_stage = models.ForeignKey(WorkflowStage, on_delete=models.SET_NULL, null=True, blank=True)
     
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='created_reviews')
@@ -140,12 +149,22 @@ class ApprovalGroup(models.Model):
         ('decision_made', 'Decision Made'),
     ]
     
+    STAGE_STATUS_CHOICES = [
+        ('not_started', 'Not Started'),
+        ('in_progress', 'In Progress'),
+        ('approved', 'Approved'),
+        ('approved_with_changes', 'Approved with Changes'),
+        ('rejected', 'Rejected'),
+        ('action_required', 'Action Required'),
+    ]
+    
     review_cycle = models.ForeignKey(ReviewCycle, on_delete=models.CASCADE, related_name='groups')
     stage = models.ForeignKey(WorkflowStage, on_delete=models.CASCADE)
     name = models.CharField(max_length=255)
     order = models.PositiveIntegerField()
     
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='locked')
+    stage_status = models.CharField(max_length=30, choices=STAGE_STATUS_CHOICES, default='not_started')
     group_decision = models.CharField(max_length=30, choices=DECISION_CHOICES, default='pending')
     socd_status = models.CharField(max_length=20, choices=SOCD_CHOICES, default='sent')
     
@@ -175,11 +194,20 @@ class GroupMember(models.Model):
         ('rejected', 'Rejected'),
     ]
     
+    REVIEWER_PROGRESS_CHOICES = [
+        ('not_started', 'Not Started'),
+        ('reviewing', 'Reviewing'),
+        ('approved', 'Approved'),
+        ('approved_with_changes', 'Approved with Changes'),
+        ('rejected', 'Rejected'),
+    ]
+    
     group = models.ForeignKey(ApprovalGroup, on_delete=models.CASCADE, related_name='members')
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     
     socd_status = models.CharField(max_length=20, choices=SOCD_STATUS_CHOICES, default='sent')
     decision = models.CharField(max_length=20, choices=DECISION_CHOICES, default='pending')
+    reviewer_progress = models.CharField(max_length=30, choices=REVIEWER_PROGRESS_CHOICES, default='not_started')
     feedback = models.TextField(blank=True)
     
     sent_at = models.DateTimeField(auto_now_add=True)

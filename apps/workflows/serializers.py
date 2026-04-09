@@ -62,7 +62,7 @@ class ReviewCycleSerializer(serializers.ModelSerializer):
     class Meta:
         model = ReviewCycle
         fields = [
-            'id', 'asset', 'template', 'status', 'current_stage', 'initiated_by',
+            'id', 'asset', 'template', 'status', 'proof_status', 'current_stage', 'initiated_by',
             'initiated_at', 'completed_at', 'notes', 'stage_approvals', 'transitions'
         ]
 
@@ -86,7 +86,7 @@ class GroupMemberSerializer(serializers.ModelSerializer):
     class Meta:
         model = GroupMember
         fields = [
-            'id', 'user', 'socd_status', 'decision', 'feedback',
+            'id', 'user', 'socd_status', 'decision', 'reviewer_progress', 'feedback',
             'sent_at', 'opened_at', 'commented_at', 'decision_made_at'
         ]
 
@@ -98,7 +98,7 @@ class ApprovalGroupSerializer(serializers.ModelSerializer):
     class Meta:
         model = ApprovalGroup
         fields = [
-            'id', 'name', 'order', 'status', 'group_decision', 'socd_status',
+            'id', 'name', 'order', 'status', 'stage_status', 'group_decision', 'socd_status',
             'stage', 'members', 'unlocked_at', 'completed_at'
         ]
 
@@ -113,6 +113,6 @@ class ReviewCycleDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = ReviewCycle
         fields = [
-            'id', 'asset', 'template', 'status', 'current_stage', 'initiated_by',
+            'id', 'asset', 'template', 'status', 'proof_status', 'current_stage', 'initiated_by',
             'initiated_at', 'completed_at', 'notes', 'groups', 'transitions'
         ]
