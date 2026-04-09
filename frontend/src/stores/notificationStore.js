@@ -54,4 +54,15 @@ export const useNotificationStore = create((set, get) => ({
     set({ notifications: [notification, ...get().notifications] })
     get().fetchUnreadCount()
   },
+
+  deleteNotification: async (notificationId) => {
+    try {
+      await api.delete(`/notifications/${notificationId}/`)
+      const notifications = get().notifications.filter(n => n.id !== notificationId)
+      set({ notifications })
+      get().fetchUnreadCount()
+    } catch (error) {
+      console.error('Failed to delete notification:', error)
+    }
+  },
 }))

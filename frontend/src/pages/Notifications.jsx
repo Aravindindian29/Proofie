@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react'
 import CrushLoader from '../components/CrushLoader'
-import { Bell, CheckCircle, AlertCircle, MessageSquare } from 'lucide-react'
+import { Bell, CheckCircle, AlertCircle, MessageSquare, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useNotificationStore } from '../stores/notificationStore'
+import Pagination from '../components/Pagination'
 
 function Notifications() {
-  const { notifications, loading, fetchNotifications, markAsRead, markAllAsRead } = useNotificationStore()
+  const { notifications, loading, fetchNotifications, markAsRead, markAllAsRead, deleteNotification } = useNotificationStore()
+  const [currentPage, setCurrentPage] = useState(1)
+  const NOTIFICATIONS_PER_PAGE = 4
 
   useEffect(() => {
     fetchNotifications()
@@ -19,6 +22,34 @@ function Notifications() {
   }
   const getConfig = (type) => typeConfig[type] || { icon: Bell, color: '#FF9F0A', bg: 'rgba(255,159,10,0.15)', border: 'rgba(255,159,10,0.3)' }
 
+  // Calculate pagination
+  const totalPages = Math.ceil(notifications.length / NOTIFICATIONS_PER_PAGE)
+  const startIndex = (currentPage - 1) * NOTIFICATIONS_PER_PAGE
+  const endIndex = startIndex + NOTIFICATIONS_PER_PAGE
+  const currentNotifications = notifications.slice(startIndex, endIndex)
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page)
+  }
+
+  const handleDeleteNotification = async (notificationId) => {
+    try {
+      // Dismiss any existing toasts to prevent stacking
+      toast.dismiss()
+      await deleteNotification(notificationId)
+      toast.success('Notification deleted')
+      
+      // Adjust current page if necessary after deletion
+      const newTotalPages = Math.ceil((notifications.length - 1) / NOTIFICATIONS_PER_PAGE)
+      if (currentPage > newTotalPages && newTotalPages > 0) {
+        setCurrentPage(newTotalPages)
+      }
+    } catch (error) {
+      toast.dismiss()
+      toast.error('Failed to delete notification')
+    }
+  }
+
   return (
     <div style={{ padding: '36px 40px' }}>
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 36 }}>
@@ -26,19 +57,41 @@ function Notifications() {
           <p style={{ fontSize: '0.82rem', color: 'rgba(255,255,255,0.38)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>Activity</p>
           <h1 style={{ fontSize: '2.2rem', fontWeight: 800, letterSpacing: '-0.03em', color: '#fff' }}>Notifications</h1>
         </div>
-        {notifications.some(n => !n.is_read) && (
-          <button className="btn-secondary" style={{ borderRadius: 12 }}
-            onClick={() => { markAllAsRead(); toast.success('All marked as read') }}>
-            Mark All Read
-          </button>
-        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          {totalPages > 1 && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={handlePageChange}
+            />
+          )}
+          {notifications.some(n => !n.is_read) && (
+            <button className="btn-secondary" style={{ borderRadius: 12 }}
+              onClick={() => { 
+                toast.dismiss();
+                markAllAsRead(); 
+                toast.success('All marked as read') 
+              }}>
+              Mark All Read
+            </button>
+          )}
+        </div>
       </div>
 
       {loading ? (
         <CrushLoader />
       ) : notifications.length > 0 ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {notifications.map((notif) => {
+        <div style={{
+          background: 'rgba(255, 255, 255, 0.02)',
+          backdropFilter: 'blur(10px)',
+          border: '1px solid rgba(255, 255, 255, 0.08)',
+          borderRadius: 20,
+          padding: 20,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 10
+        }}>
+          {currentNotifications.map((notif) => {
             const cfg = getConfig(notif.notification_type)
             const Icon = cfg.icon
             return (
@@ -64,13 +117,37 @@ function Notifications() {
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-                    <div>
+                    <div style={{ flex: 1 }}>
                       <p style={{ fontWeight: 600, color: '#fff', fontSize: '0.92rem', marginBottom: 4 }}>{notif.title}</p>
                       <p style={{ fontSize: '0.83rem', color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 }}>{notif.message}</p>
                     </div>
-                    {!notif.is_read && (
-                      <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#0A84FF', flexShrink: 0, marginTop: 6, boxShadow: '0 0 8px rgba(10,132,255,0.8)' }} />
-                    )}
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleDeleteNotification(notif.id)
+                        }}
+                        style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: 8,
+                          background: 'rgba(255, 55, 95, 0.1)',
+                          border: '1px solid rgba(255, 55, 95, 0.2)',
+                          color: '#FF375F',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          transition: 'all 0.2s',
+                          flexShrink: 0,
+                          marginTop: 2
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255, 55, 95, 0.2)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'rgba(255, 55, 95, 0.1)'}
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
                   </div>
                   <p style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.28)', marginTop: 8 }}>
                     {new Date(notif.created_at).toLocaleString()}
@@ -81,7 +158,14 @@ function Notifications() {
           })}
         </div>
       ) : (
-        <div className="glass-card-static" style={{ textAlign: 'center', padding: '80px 40px' }}>
+        <div style={{
+          background: 'rgba(255, 255, 255, 0.02)',
+          backdropFilter: 'blur(10px)',
+          border: '1px solid rgba(255, 255, 255, 0.08)',
+          borderRadius: 20,
+          padding: '80px 40px',
+          textAlign: 'center'
+        }}>
           <div style={{ width: 72, height: 72, borderRadius: 20, margin: '0 auto 20px',
             background: 'rgba(255,159,10,0.1)', border: '1px solid rgba(255,159,10,0.2)',
             display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

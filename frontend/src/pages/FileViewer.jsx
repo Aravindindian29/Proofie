@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, X, Workflow, CheckCircle, Sparkles } from 'lucide-react'
+import { ArrowLeft, X, CheckCircle, Sparkles } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../services/api'
 import PDFViewer from '../components/PDFViewer'
@@ -643,86 +643,7 @@ function FileViewer() {
               </button>
             )}
             
-            {reviewCycleId ? (
-              <button
-                onClick={() => setShowWorkflow(!showWorkflow)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  padding: '8px 16px',
-                  background: showWorkflow ? '#0A84FF' : 'rgba(255,255,255,0.1)',
-                  border: showWorkflow ? 'none' : '1px solid rgba(255,255,255,0.2)',
-                  borderRadius: 6,
-                  color: '#fff',
-                  cursor: 'pointer',
-                  fontSize: '0.85rem',
-                  fontWeight: 500
-                }}
-              >
-                <Workflow size={16} />
-                {showWorkflow ? 'Hide Workflow' : 'Show Workflow'}
-              </button>
-            ) : (
-              currentUser?.profile?.role === 'manager' || currentUser?.profile?.role === 'admin' ? (
-                <button
-                  onClick={() => alert('Create Workflow feature - Navigate to workflow creation page')}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    padding: '8px 16px',
-                    background: 'rgba(16, 185, 129, 0.2)',
-                    border: '1px solid rgba(16, 185, 129, 0.5)',
-                    borderRadius: 6,
-                    color: '#10B981',
-                    cursor: 'pointer',
-                    fontSize: '0.85rem',
-                    fontWeight: 500
-                  }}
-                >
-                  <Workflow size={16} />
-                  Create Workflow
-                </button>
-              ) : null
-            )}
-            
-            {currentUser && (currentUser.profile?.role === 'manager' || currentUser.profile?.role === 'admin') && (
-              <button
-                onClick={async () => {
-                  if (!confirm('Delete this proof? This action cannot be undone.')) return
-                  try {
-                    await api.delete(`/versioning/assets/${id}/`)
-                    toast.success('Proof deleted successfully')
-                    navigate('/proofs')
-                  } catch (error) {
-                    console.error('Delete error:', error)
-                    // Check for 403 Forbidden error and show appropriate message
-                    if (error.response?.status === 403) {
-                      toast.error('You do not have permission to perform this action.\nPlease contact your administrator for assistance.', { id: 'delete-access-denied' })
-                    } else {
-                      toast.error('Failed to delete proof: ' + (error.response?.data?.error || error.message), { id: 'file-viewer-delete-toast' })
-                    }
-                  }
-                }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  padding: '8px 16px',
-                  background: '#EF4444',
-                  border: 'none',
-                  borderRadius: 6,
-                  color: '#fff',
-                  cursor: 'pointer',
-                  fontSize: '0.85rem',
-                  fontWeight: 500
-                }}
-              >
-                Delete Proof
-              </button>
-            )}
-          </div>
+                      </div>
         </div>
       </div>
 
