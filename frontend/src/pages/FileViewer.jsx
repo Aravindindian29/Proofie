@@ -621,7 +621,7 @@ function FileViewer() {
               </>
             )}
             
-            {myMember && myMember.decision === 'pending' && canMakeDecisions() && (
+            {myMember && canMakeDecisions() && (
               <button
                 onClick={() => setShowDecisionModal(true)}
                 style={{
@@ -629,7 +629,7 @@ function FileViewer() {
                   alignItems: 'center',
                   gap: 8,
                   padding: '8px 16px',
-                  background: '#10B981',
+                  background: myMember.decision === 'pending' ? '#10B981' : '#F59E0B',
                   border: 'none',
                   borderRadius: 6,
                   color: '#fff',
@@ -639,7 +639,7 @@ function FileViewer() {
                 }}
               >
                 <CheckCircle size={16} />
-                Make Decision
+                {myMember.decision === 'pending' ? 'Make Decision' : 'Change Decision'}
               </button>
             )}
             

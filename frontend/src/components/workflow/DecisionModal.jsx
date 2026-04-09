@@ -91,7 +91,9 @@ const DecisionModal = ({ isOpen, onClose, reviewCycleId, myMember, onDecisionSuc
       <div className="bg-gray-800 rounded-lg shadow-2xl w-full max-w-md mx-4">
         {/* Header */}
         <div className="p-4 border-b border-gray-700 flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-100">Make Decision</h3>
+          <h3 className="text-lg font-semibold text-gray-100">
+            {myMember?.decision === 'pending' ? 'Make Decision' : 'Change Decision'}
+          </h3>
           <button
             onClick={onClose}
             className="p-1 hover:bg-gray-700 rounded transition-colors"
@@ -109,6 +111,14 @@ const DecisionModal = ({ isOpen, onClose, reviewCycleId, myMember, onDecisionSuc
               <div className="flex items-center gap-2">
                 <SOCDIcon status={myMember.socd_status} size="sm" showLabel />
               </div>
+              {myMember.decision !== 'pending' && (
+                <div className="mt-2 pt-2 border-t border-gray-700">
+                  <div className="text-sm text-gray-400">Current Decision</div>
+                  <div className="text-sm font-medium text-gray-200 capitalize">
+                    {myMember.decision.replace('_', ' ')}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

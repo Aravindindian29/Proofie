@@ -18,8 +18,8 @@ const ReviewerActionBar = ({
   // Check if user has already made a decision
   const hasDecided = myMember && myMember.decision !== 'pending';
   
-  // Determine if buttons should be disabled
-  const isDisabled = !canParticipate || isLocked || hasDecided || !myMember;
+  // Determine if buttons should be disabled (allow decision changes)
+  const isDisabled = !canParticipate || isLocked || !myMember;
   
   // Don't show the bar for lite users
   if (isLiteUser || !myMember) {
