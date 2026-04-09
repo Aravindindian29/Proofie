@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Sparkles, FileText, GitCompare, CheckCircle, ExternalLink, FileSpreadsheet, X, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
+import * as XLSX from 'xlsx';
 
 const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
   console.log('🔥🔥🔥 ProofiePlusModal LOADED with NEW titles!!!');
@@ -12,6 +13,8 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
   const [asIsVersion, setAsIsVersion] = useState('');
   const [toBeVersion, setToBeVersion] = useState('');
   const [attachToJira, setAttachToJira] = useState(false);
+  const [jiraContent, setJiraContent] = useState(null);
+  const [jiraPosted, setJiraPosted] = useState(false);
 
   const features = [
     {
@@ -105,10 +108,29 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
           analysis_types: ['language', 'compliance']
         };
       } else if (feature.id === 'jira') {
-        endpoint = '/ai-engine/jira-post/';
-        requestBody = {
-          version_id: versionId
-        };
+        // First get the summary to preview
+        const summaryResponse = await api.post('/ai-engine/summarize/', {
+          version_id: versionId,
+          detail_level: 'brief'
+        });
+        
+        console.log('JIRA Summary Response:', summaryResponse.data);
+        
+        // Format the content that will be posted
+        const summary = summaryResponse.data.summary;
+        const cpiId = summaryResponse.data.cpi_id || summary?.cpi_id;
+        
+        console.log('Summary:', summary);
+        console.log('CPI ID:', cpiId);
+        
+        const formattedContent = formatJiraContent(summary, cpiId);
+        console.log('Formatted Content:', formattedContent);
+        
+        setJiraContent({ summary, cpiId, formattedContent });
+        setJiraPosted(false);
+        setResult(null);
+        setLoading(false);
+        return;
       }
 
       const response = await api.post(endpoint, requestBody);
@@ -197,22 +219,58 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
 
     return (
       <div className="space-y-4">
-        <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-lg">
-          <h3 className="text-xl font-bold text-gray-800 mb-2">{summary.title || 'Document Summary'}</h3>
-          <div className="flex gap-4 text-sm">
-            <span className="bg-white px-3 py-1 rounded-full">
+        <div style={{
+          background: 'linear-gradient(135deg, #0A84FF, #5E5CE6)',
+          padding: 20,
+          borderRadius: 16,
+          border: '1px solid rgba(10, 132, 255, 0.3)'
+        }}>
+          <h3 style={{
+            fontSize: '1.25rem',
+            fontWeight: 700,
+            color: '#fff',
+            marginBottom: 12
+          }}>{summary.title || 'Document Summary'}</h3>
+          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: '0.875rem' }}>
+            <span style={{
+              background: 'rgba(255,255,255,0.2)',
+              padding: '6px 12px',
+              borderRadius: 20,
+              color: '#fff',
+              border: '1px solid rgba(255,255,255,0.3)'
+            }}>
               <strong>Type:</strong> {summary.type || 'N/A'}
             </span>
-            <span className="bg-white px-3 py-1 rounded-full">
+            <span style={{
+              background: 'rgba(255,255,255,0.2)',
+              padding: '6px 12px',
+              borderRadius: 20,
+              color: '#fff',
+              border: '1px solid rgba(255,255,255,0.3)'
+            }}>
               <strong>Pages:</strong> {summary.pages || 'N/A'}
             </span>
-            <span className="bg-white px-3 py-1 rounded-full">
+            <span style={{
+              background: 'rgba(255,255,255,0.2)',
+              padding: '6px 12px',
+              borderRadius: 20,
+              color: '#fff',
+              border: '1px solid rgba(255,255,255,0.3)'
+            }}>
               <strong>Complexity:</strong> {summary.complexity || 'N/A'}
             </span>
           </div>
           {summary.cpi_id && (
-            <div className="mt-2">
-              <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-sm font-semibold">
+            <div style={{ marginTop: 12 }}>
+              <span style={{
+                background: 'rgba(64, 224, 208, 0.3)',
+                color: '#40E0D0',
+                padding: '6px 12px',
+                borderRadius: 20,
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                border: '1px solid rgba(64, 224, 208, 0.4)'
+              }}>
                 CPI ID: {summary.cpi_id}
               </span>
             </div>
@@ -221,12 +279,12 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
 
         {summary.key_highlights && summary.key_highlights.length > 0 && (
           <div>
-            <h4 className="font-semibold text-gray-700 mb-2">Key Highlights:</h4>
-            <ul className="space-y-2">
+            <h4 style={{ fontWeight: 600, color: '#fff', marginBottom: 12, fontSize: '1rem' }}>Key Highlights:</h4>
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0, gap: 8, display: 'flex', flexDirection: 'column' }}>
               {summary.key_highlights.map((highlight, idx) => (
-                <li key={idx} className="flex items-start gap-2">
-                  <span className="text-blue-500 mt-1">•</span>
-                  <span className="text-gray-700">{highlight}</span>
+                <li key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 8 }}>
+                  <span style={{ color: '#0A84FF', marginTop: 2, fontSize: '1.2rem' }}>â¢</span>
+                  <span style={{ color: 'rgba(255,255,255,0.8)', lineHeight: 1.5 }}>{highlight}</span>
                 </li>
               ))}
             </ul>
@@ -253,8 +311,14 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
         )}
 
         {summary.estimated_review_time && (
-          <div className="bg-blue-50 p-3 rounded">
-            <strong>Estimated Review Time:</strong> {summary.estimated_review_time}
+          <div style={{
+            background: 'linear-gradient(135deg, #0A84FF, #5E5CE6)',
+            padding: 16,
+            borderRadius: 16,
+            border: '1px solid rgba(10, 132, 255, 0.3)'
+          }}>
+            <strong style={{ color: '#fff', fontSize: '0.875rem' }}>Estimated Review Time:</strong>{' '}
+            <span style={{ color: 'rgba(255,255,255,0.9)', fontSize: '0.875rem' }}>{summary.estimated_review_time}</span>
           </div>
         )}
 
@@ -441,41 +505,119 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
     );
   };
 
+  const formatJiraContent = (summary, cpiId) => {
+    let content = '*ProofiePlus AI - Acceptance Criteria*\n\n';
+    
+    if (cpiId) {
+      content += `*CPI ID:* ${cpiId}\n`;
+    }
+    
+    content += `*Document:* ${summary.title || 'Document Summary'}\n`;
+    content += `*Type:* ${summary.type || 'N/A'}\n`;
+    content += `*Complexity:* ${summary.complexity || 'N/A'}\n`;
+    content += `*Estimated Review Time:* ${summary.estimated_review_time || 'N/A'}\n\n`;
+    
+    if (summary.key_highlights && summary.key_highlights.length > 0) {
+      content += '*Key Requirements:*\n';
+      summary.key_highlights.forEach(highlight => {
+        content += `* ${highlight}\n`;
+      });
+      content += '\n';
+    }
+    
+    content += '\n_Generated by ProofiePlus AI_';
+    
+    return content;
+  };
+
+  const handlePostToJira = async () => {
+    setLoading(true);
+    try {
+      const response = await api.post('/ai-engine/jira-post/', {
+        version_id: versionId
+      });
+      
+      setResult(response.data);
+      setJiraPosted(true);
+      toast.success('Posted to JIRA successfully!');
+    } catch (error) {
+      console.error('Error posting to JIRA:', error);
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to post to JIRA';
+      toast.error(errorMessage);
+      setResult({ error: errorMessage });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const renderJiraResult = (data) => {
     if (!data.success) return null;
 
     return (
       <div className="space-y-4">
-        <div className="bg-gradient-to-r from-orange-50 to-yellow-50 p-4 rounded-lg">
-          <h3 className="text-xl font-bold text-gray-800 mb-2">✅ Posted to JIRA</h3>
-          <div className="space-y-2">
-            <div className="bg-white px-3 py-2 rounded">
-              <strong>Ticket:</strong> {data.ticket_key}
+        <div style={{
+          background: 'rgba(48, 209, 88, 0.1)',
+          border: '1px solid rgba(48, 209, 88, 0.2)',
+          borderRadius: 16,
+          padding: 20
+        }}>
+          <h3 style={{
+            fontSize: '1.25rem',
+            fontWeight: 700,
+            color: '#fff',
+            marginBottom: 16,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8
+          }}>
+            <CheckCircle className="w-6 h-6" style={{ color: '#30D158' }} />
+            Posted to JIRA Successfully
+          </h3>
+          {data.ticket_key && (
+            <div style={{
+              background: 'rgba(255,255,255,0.05)',
+              padding: '12px 16px',
+              borderRadius: 12,
+              border: '1px solid rgba(255,255,255,0.1)'
+            }}>
+              <strong style={{ color: 'rgba(255,255,255,0.7)' }}>Ticket:</strong>{' '}
+              <span style={{ color: '#fff' }}>{data.ticket_key}</span>
             </div>
-            <div className="bg-white px-3 py-2 rounded">
-              <strong>CPI ID:</strong> {data.cpi_id}
-            </div>
-          </div>
+          )}
         </div>
 
-        <div className="flex gap-2">
-          <a
-            href={data.ticket_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex-1 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-center"
-          >
-            View Ticket
-          </a>
-          <a
-            href={data.comment_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex-1 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-center"
-          >
-            View Comment
-          </a>
-        </div>
+        <a
+          href={data.ticket_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            width: '100%',
+            background: 'linear-gradient(135deg, #0A84FF, #5E5CE6)',
+            color: '#fff',
+            padding: '12px 24px',
+            borderRadius: 12,
+            fontWeight: 600,
+            textDecoration: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-2px)';
+            e.currentTarget.style.boxShadow = '0 8px 24px rgba(10, 132, 255, 0.4)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = 'none';
+          }}
+        >
+          <ExternalLink className="w-5 h-5" />
+          View Ticket
+        </a>
       </div>
     );
   };
@@ -635,46 +777,92 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+    <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="modal-box" style={{ maxWidth: '56rem', width: '100%', maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         {/* Header */}
-        <div className="bg-gradient-to-r from-purple-600 to-blue-600 p-6 text-white flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Sparkles className="w-8 h-8" />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <Sparkles className="w-8 h-8" style={{ color: '#667eea' }} />
             <div>
-              <h2 className="text-2xl font-bold">ProofiePlus</h2>
-              <p className="text-purple-100">Intelligent Document Analysis</p>
+              <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#fff', marginBottom: 4 }}>ProofiePlus</h2>
+              <p style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.6)' }}>Intelligent Document Analysis</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-white hover:bg-white/20 rounded-full p-2 transition"
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: 10,
+              background: 'rgba(255,255,255,0.08)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              color: 'rgba(255,255,255,0.5)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(255,255,255,0.12)';
+              e.currentTarget.style.color = 'rgba(255,255,255,0.8)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
+              e.currentTarget.style.color = 'rgba(255,255,255,0.5)';
+            }}
           >
-            <X className="w-6 h-6" />
+            <X size={16} />
           </button>
         </div>
 
         {/* Features Grid */}
         {!activeFeature && (
-          <div className="p-6 grid grid-cols-2 gap-4 overflow-y-auto">
+          <div style={{ padding: '0 24px 24px', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16, overflowY: 'auto' }}>
             {features.map((feature) => {
               const Icon = feature.icon;
+              const colorMap = {
+                blue: '#0A84FF',
+                purple: '#667eea',
+                green: '#30D158',
+                orange: '#FF9F0A',
+                pink: '#FF375F'
+              };
               return (
                 <button
                   key={feature.id}
                   onClick={() => handleFeatureClick(feature)}
                   disabled={feature.disabled}
-                  className={`p-4 rounded-lg border-2 transition-all text-left ${
-                    feature.disabled
-                      ? 'border-gray-200 bg-gray-50 opacity-50 cursor-not-allowed'
-                      : 'border-gray-200 hover:border-purple-500 hover:shadow-lg'
-                  }`}
+                  style={{
+                    padding: 20,
+                    borderRadius: 16,
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    background: feature.disabled ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.05)',
+                    cursor: feature.disabled ? 'not-allowed' : 'pointer',
+                    textAlign: 'left',
+                    transition: 'all 0.2s ease',
+                    opacity: feature.disabled ? 0.5 : 1
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!feature.disabled) {
+                      e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
+                      e.currentTarget.style.borderColor = colorMap[feature.color] || '#667eea';
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!feature.disabled) {
+                      e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+                      e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
+                      e.currentTarget.style.transform = 'translateY(0)';
+                    }
+                  }}
                 >
-                  <Icon className={`w-8 h-8 text-${feature.color}-500 mb-2`} />
-                  <h3 className="font-semibold text-lg">{feature.title}</h3>
-                  <p className="text-sm text-gray-600">{feature.description}</p>
+                  <Icon style={{ width: 32, height: 32, color: colorMap[feature.color] || '#667eea', marginBottom: 12 }} />
+                  <h3 style={{ fontWeight: 600, fontSize: '1rem', color: '#fff', marginBottom: 4 }}>{feature.title}</h3>
+                  <p style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.6)' }}>{feature.description}</p>
                   {feature.disabled && (
-                    <span className="text-xs text-gray-500 mt-2 block">Coming Soon</span>
+                    <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', marginTop: 8, display: 'block' }}>Coming Soon</span>
                   )}
                 </button>
               );
@@ -682,40 +870,79 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
           </div>
         )}
 
-        {/* Version Selection for Compare and Test Cases */}
+        {/* Version Selection for Compare */}
         {activeFeature === 'compare' && !loading && (
-          <div className="p-6 space-y-6 overflow-y-auto max-h-[70vh]">
-            <h3 className="text-xl font-semibold text-gray-800">Version Comparison</h3>
+          <div style={{ padding: 24, overflowY: 'auto', flex: 1 }}>
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#fff', marginBottom: 24 }}>Version Comparison</h3>
             
             {/* Version Selection */}
-            <div className="bg-gradient-to-r from-purple-50 to-blue-50 p-4 rounded-lg border border-purple-200">
-              <h4 className="text-lg font-semibold text-gray-800 mb-4">Select Versions to Compare</h4>
-              <div className="grid grid-cols-2 gap-4">
+            <div style={{
+              background: 'linear-gradient(135deg, #0A84FF, #5E5CE6)',
+              padding: 20,
+              borderRadius: 16,
+              border: '1px solid rgba(10, 132, 255, 0.3)',
+              marginBottom: 24
+            }}>
+              <h4 style={{
+                fontSize: '1.125rem',
+                fontWeight: 600,
+                color: '#fff',
+                marginBottom: 16
+              }}>Select Versions</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">AS-IS Version</label>
+                  <label style={{
+                    display: 'block',
+                    fontSize: '0.875rem',
+                    fontWeight: 500,
+                    color: 'rgba(255,255,255,0.8)',
+                    marginBottom: 8
+                  }}>Version 1</label>
                   <select
                     value={asIsVersion}
                     onChange={(e) => setAsIsVersion(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: 8,
+                      border: '1px solid rgba(255,255,255,0.2)',
+                      background: 'rgba(255,255,255,0.1)',
+                      color: '#fff',
+                      fontSize: '0.875rem'
+                    }}
                   >
-                    <option value="">Select AS-IS version...</option>
+                    <option value="" style={{ color: '#666' }}>Select version...</option>
                     {versions.map((v) => (
-                      <option key={v.id} value={v.id}>
+                      <option key={v.id} value={v.id} style={{ color: '#333' }}>
                         v{v.version_number} - {new Date(v.created_at).toLocaleDateString()}
                       </option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">TO-BE Version</label>
+                  <label style={{
+                    display: 'block',
+                    fontSize: '0.875rem',
+                    fontWeight: 500,
+                    color: 'rgba(255,255,255,0.8)',
+                    marginBottom: 8
+                  }}>Version 2</label>
                   <select
                     value={toBeVersion}
                     onChange={(e) => setToBeVersion(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: 8,
+                      border: '1px solid rgba(255,255,255,0.2)',
+                      background: 'rgba(255,255,255,0.1)',
+                      color: '#fff',
+                      fontSize: '0.875rem'
+                    }}
                   >
-                    <option value="">Select TO-BE version...</option>
+                    <option value="" style={{ color: '#666' }}>Select version...</option>
                     {versions.map((v) => (
-                      <option key={v.id} value={v.id}>
+                      <option key={v.id} value={v.id} style={{ color: '#333' }}>
                         v{v.version_number} - {new Date(v.created_at).toLocaleDateString()}
                       </option>
                     ))}
@@ -725,96 +952,175 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
               <button
                 onClick={handleCompareVersions}
                 disabled={!asIsVersion || !toBeVersion}
-                className="w-full bg-purple-600 text-white px-4 py-3 rounded-lg hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed font-semibold mt-4"
+                style={{
+                  width: '100%',
+                  background: !asIsVersion || !toBeVersion 
+                    ? 'rgba(255,255,255,0.1)' 
+                    : 'linear-gradient(135deg, #30D158, #0A84FF)',
+                  color: '#fff',
+                  padding: '12px 24px',
+                  borderRadius: 12,
+                  fontWeight: 600,
+                  border: 'none',
+                  cursor: !asIsVersion || !toBeVersion ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  transition: 'all 0.2s ease',
+                  marginTop: 16
+                }}
+                onMouseEnter={(e) => {
+                  if (asIsVersion && toBeVersion) {
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                    e.currentTarget.style.boxShadow = '0 8px 24px rgba(48, 209, 88, 0.4)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
               >
+                <GitCompare className="w-5 h-5" />
                 Compare Versions
               </button>
             </div>
 
             {/* Comparison Results */}
             {result && result.diff_summary && (
-              <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-lg border border-blue-200">
-                <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                  <span className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-semibold">
-                    {result.diff_summary.version_comparison || 'v1 → v2'}
+              <div style={{
+                background: 'linear-gradient(135deg, #5E5CE6, #667eea)',
+                padding: 20,
+                borderRadius: 16,
+                border: '1px solid rgba(94, 92, 230, 0.3)'
+              }}>
+                <h4 style={{
+                  fontSize: '1.125rem',
+                  fontWeight: 600,
+                  color: '#fff',
+                  marginBottom: 16,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8
+                }}>
+                  <span style={{
+                    background: 'rgba(255,255,255,0.2)',
+                    color: '#fff',
+                    padding: '4px 12px',
+                    borderRadius: 20,
+                    fontSize: '0.75rem',
+                    fontWeight: 600
+                  }}>
+                    {result.diff_summary.version_comparison || 'v1 -> v2'}
                   </span>
                   Version Differences
                 </h4>
                 
                 {/* Summary Stats */}
-                <div className="flex gap-4 mb-4">
-                  <span className="bg-white px-3 py-1 rounded-full text-sm">
+                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 16 }}>
+                  <span style={{
+                    background: 'rgba(255,255,255,0.2)',
+                    padding: '6px 12px',
+                    borderRadius: 20,
+                    color: '#fff',
+                    fontSize: '0.875rem'
+                  }}>
                     <strong>Total Changes:</strong> {result.diff_summary.total_changes || 0}
                   </span>
-                  <span className="bg-white px-3 py-1 rounded-full text-sm">
+                  <span style={{
+                    background: 'rgba(255,255,255,0.2)',
+                    padding: '6px 12px',
+                    borderRadius: 20,
+                    color: '#fff',
+                    fontSize: '0.875rem'
+                  }}>
                     <strong>Severity:</strong> {result.diff_summary.severity_score || 0}/10
                   </span>
                   {result.pages_affected && result.pages_affected.length > 0 && (
-                    <span className="bg-white px-3 py-1 rounded-full text-sm">
+                    <span style={{
+                      background: 'rgba(255,255,255,0.2)',
+                      padding: '6px 12px',
+                      borderRadius: 20,
+                      color: '#fff',
+                      fontSize: '0.875rem'
+                    }}>
                       <strong>Pages:</strong> {result.pages_affected.join(', ')}
                     </span>
                   )}
                 </div>
 
                 {result.diff_summary.summary && (
-                  <div className="bg-blue-50 p-3 rounded mb-4">
-                    <strong>Summary:</strong> {result.diff_summary.summary}
+                  <div style={{
+                    background: 'rgba(255,255,255,0.1)',
+                    padding: 12,
+                    borderRadius: 12,
+                    marginBottom: 16
+                  }}>
+                    <strong style={{ color: 'rgba(255,255,255,0.8)' }}>Summary:</strong>{' '}
+                    <span style={{ color: 'rgba(255,255,255,0.9)' }}>{result.diff_summary.summary}</span>
                   </div>
                 )}
 
                 {/* Changes List */}
                 {result.diff_summary.changes && result.diff_summary.changes.length > 0 && (
                   <div>
-                    <h5 className="font-semibold text-gray-700 mb-3">Detailed Changes:</h5>
-                    <div className="space-y-3 max-h-64 overflow-y-auto">
+                    <h5 style={{ fontWeight: 600, color: '#fff', marginBottom: 12, fontSize: '0.875rem' }}>Detailed Changes:</h5>
+                    <div style={{ maxHeight: 256, overflowY: 'auto', gap: 12, display: 'flex', flexDirection: 'column' }}>
                       {result.diff_summary.changes.map((change, idx) => (
-                        <div key={idx} className={`p-3 rounded border-l-4 ${
-                          change.severity === 'high' ? 'border-red-500 bg-red-50' :
-                          change.severity === 'medium' ? 'border-yellow-500 bg-yellow-50' :
-                          'border-blue-500 bg-blue-50'
-                        }`}>
-                          <div className="flex items-start justify-between mb-2">
-                            <div className="font-medium text-gray-800">
-                              {change.type === 'text_added' && '➕ '}
-                              {change.type === 'text_deleted' && '➖ '}
-                              {change.type === 'text_modified' && '✏️ '}
-                              {change.type === 'section_added' && '📄 '}
-                              {change.type === 'section_removed' && '🗑️ '}
+                        <div key={idx} style={{
+                          padding: 12,
+                          borderRadius: 12,
+                          borderLeft: '4px solid',
+                          background: 'rgba(255,255,255,0.05)',
+                          ...(change.severity === 'high' ? { borderLeftColor: '#FF375F', background: 'rgba(255, 55, 95, 0.1)' } :
+                            change.severity === 'medium' ? { borderLeftColor: '#FF9F0A', background: 'rgba(255, 159, 10, 0.1)' } :
+                            { borderLeftColor: '#0A84FF', background: 'rgba(10, 132, 255, 0.1)' })
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 8 }}>
+                            <div style={{ fontWeight: 500, color: '#fff', fontSize: '0.875rem' }}>
+                              {change.type === 'text_added' && 'â¢ '}
+                              {change.type === 'text_deleted' && 'â¢ '}
+                              {change.type === 'text_modified' && 'â¢ '}
+                              {change.type === 'section_added' && 'â¢ '}
+                              {change.type === 'section_removed' && 'â¢ '}
                               {change.section || 'Change'}
                             </div>
                             {change.classification && (
-                              <span className={`text-xs px-2 py-1 rounded ${
-                                change.classification.includes('UI') ? 'bg-blue-100 text-blue-800' :
-                                change.classification.includes('Copy') ? 'bg-purple-100 text-purple-800' :
-                                change.classification.includes('CTA') ? 'bg-orange-100 text-orange-800' :
-                                change.classification.includes('Legal') || change.classification.includes('Compliance') ? 'bg-red-100 text-red-800' :
-                                'bg-gray-100 text-gray-800'
-                              }`}>
+                              <span style={{
+                                fontSize: '0.75rem',
+                                padding: '2px 8px',
+                                borderRadius: 12,
+                                ...(change.classification.includes('UI') ? { background: 'rgba(10, 132, 255, 0.2)', color: '#0A84FF' } :
+                                  change.classification.includes('Copy') ? { background: 'rgba(102, 126, 234, 0.2)', color: '#667eea' } :
+                                  change.classification.includes('CTA') ? { background: 'rgba(255, 159, 10, 0.2)', color: '#FF9F0A' } :
+                                  change.classification.includes('Legal') || change.classification.includes('Compliance') ? { background: 'rgba(255, 55, 95, 0.2)', color: '#FF375F' } :
+                                  { background: 'rgba(255,255,255,0.2)', color: 'rgba(255,255,255,0.8)' })
+                              }}>
                                 {change.classification}
                               </span>
                             )}
                           </div>
                           
-                          <div className="text-sm space-y-1">
+                          <div style={{ fontSize: '0.875rem', gap: 4, display: 'flex', flexDirection: 'column' }}>
                             {change.location && (
-                              <div className="text-gray-600"><strong>Location:</strong> {change.location}</div>
+                              <div style={{ color: 'rgba(255,255,255,0.6)' }}><strong>Location:</strong> {change.location}</div>
                             )}
                             {change.description && (
-                              <div className="text-gray-700">{change.description}</div>
+                              <div style={{ color: 'rgba(255,255,255,0.8)' }}>{change.description}</div>
                             )}
                             {change.impact && (
-                              <div className="text-gray-600"><strong>Impact:</strong> {change.impact}</div>
+                              <div style={{ color: 'rgba(255,255,255,0.6)' }}><strong>Impact:</strong> {change.impact}</div>
                             )}
                             {change.v1_text && change.v2_text && (
-                              <div className="mt-2 p-2 bg-gray-50 rounded">
-                                <div><strong>v1:</strong> {change.v1_text}</div>
-                                <div><strong>v2:</strong> {change.v2_text}</div>
+                              <div style={{ marginTop: 8, padding: 8, borderRadius: 8, background: 'rgba(0,0,0,0.2)' }}>
+                                <div style={{ color: 'rgba(255,255,255,0.7)', marginBottom: 4 }}><strong>v1:</strong> {change.v1_text}</div>
+                                <div style={{ color: 'rgba(255,255,255,0.7)' }}><strong>v2:</strong> {change.v2_text}</div>
                               </div>
                             )}
                             {change.old_text && change.new_text && (
-                              <div className="mt-2 p-2 bg-gray-50 rounded">
-                                <div><strong>Old:</strong> {change.old_text}</div>
-                                <div><strong>New:</strong> {change.new_text}</div>
+                              <div style={{ marginTop: 8, padding: 8, borderRadius: 8, background: 'rgba(0,0,0,0.2)' }}>
+                                <div style={{ color: 'rgba(255,255,255,0.7)', marginBottom: 4 }}><strong>Old:</strong> {change.old_text}</div>
+                                <div style={{ color: 'rgba(255,255,255,0.7)' }}><strong>New:</strong> {change.new_text}</div>
                               </div>
                             )}
                             {change.risk && (
@@ -858,23 +1164,41 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
               <p className="text-gray-600 mb-4">Download comprehensive test scenarios with detailed steps and expected results.</p>
               <button
                 onClick={() => {
-                  // Generate test cases with mock data for download
+                  // Generate test cases with mock data for Excel download
                   const mockTestCases = [
                     { test_case_id: 'TC001', title: 'Landing Page Display Test', description: 'Verify landing page loads correctly', priority: 'high', type: 'functional' },
                     { test_case_id: 'TC002', title: 'Form Validation Test', description: 'Test form field validations', priority: 'medium', type: 'functional' },
                     { test_case_id: 'TC003', title: 'API Integration Test', description: 'Verify API endpoints work correctly', priority: 'high', type: 'integration' }
                   ];
                   
-                  // Create download link
-                  const dataStr = JSON.stringify(mockTestCases, null, 2);
-                  const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+                  // Create Excel workbook
+                  const wb = XLSX.utils.book_new();
+                  const ws = XLSX.utils.json_to_sheet(mockTestCases);
                   
-                  const exportFileDefaultName = 'test_scenarios.json';
+                  // Set column widths
+                  ws['!cols'] = [
+                    { wch: 12 }, // test_case_id
+                    { wch: 30 }, // title
+                    { wch: 40 }, // description
+                    { wch: 10 }, // priority
+                    { wch: 15 }  // type
+                  ];
+                  
+                  // Add worksheet to workbook
+                  XLSX.utils.book_append_sheet(wb, ws, "Test Scenarios");
+                  
+                  // Generate Excel file and download
+                  const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+                  const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                  const url = URL.createObjectURL(blob);
                   
                   const linkElement = document.createElement('a');
-                  linkElement.setAttribute('href', dataUri);
-                  linkElement.setAttribute('download', exportFileDefaultName);
+                  linkElement.href = url;
+                  linkElement.download = 'test_scenarios.xlsx';
                   linkElement.click();
+                  
+                  // Clean up
+                  URL.revokeObjectURL(url);
                   
                   toast.success('Test scenarios downloaded successfully!');
                 }}
@@ -959,20 +1283,108 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
 
         {/* Loading State */}
         {loading && (
-          <div className="p-6 text-center flex-1 flex items-center justify-center">
+          <div style={{ padding: 24, textAlign: 'center', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div>
-              <Loader2 className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto" />
-              <p className="mt-4 text-gray-600">Processing with AI...</p>
-              <p className="text-sm text-gray-500">This may take a few seconds</p>
+              <Loader2 className="animate-spin" style={{ width: 48, height: 48, color: '#667eea', margin: '0 auto' }} />
+              <p style={{ marginTop: 16, color: 'rgba(255,255,255,0.8)', fontSize: '1rem', fontWeight: 500 }}>Processing with AI...</p>
+              <p style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.5)', marginTop: 4 }}>This may take a few seconds</p>
             </div>
+          </div>
+        )}
+
+        {/* JIRA Content Preview */}
+        {activeFeature === 'jira' && jiraContent && !jiraPosted && !loading && (
+          <div style={{ padding: 24, overflowY: 'auto', flex: 1 }}>
+            <div style={{
+              background: 'rgba(255, 159, 10, 0.1)',
+              border: '1px solid rgba(255, 159, 10, 0.2)',
+              borderRadius: 16,
+              padding: 20,
+              marginBottom: 16
+            }}>
+              <h3 style={{
+                fontSize: '1.25rem',
+                fontWeight: 700,
+                color: '#fff',
+                marginBottom: 12,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8
+              }}>
+                <ExternalLink className="w-6 h-6" style={{ color: '#FF9F0A' }} />
+                JIRA Integration Preview
+              </h3>
+              <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.875rem' }}>
+                Review the content below that will be posted to your JIRA ticket.
+              </p>
+            </div>
+
+            <div style={{
+              background: 'rgba(255,255,255,0.05)',
+              padding: 20,
+              borderRadius: 16,
+              border: '1px solid rgba(255,255,255,0.1)',
+              marginBottom: 16
+            }}>
+              <h4 style={{ fontWeight: 600, color: 'rgba(255,255,255,0.8)', marginBottom: 12, fontSize: '0.875rem' }}>Content to be Posted:</h4>
+              <div style={{
+                background: 'rgba(0,0,0,0.2)',
+                padding: 16,
+                borderRadius: 12,
+                border: '1px solid rgba(255,255,255,0.1)',
+                fontSize: '0.875rem',
+                whiteSpace: 'pre-wrap',
+                fontFamily: 'monospace',
+                color: 'rgba(255,255,255,0.9)',
+                lineHeight: 1.6
+              }}>
+                {jiraContent.formattedContent || 'Loading content...'}
+              </div>
+            </div>
+
+            <button
+              onClick={handlePostToJira}
+              style={{
+                width: '100%',
+                background: 'linear-gradient(135deg, #FF9F0A, #FF6B35)',
+                color: '#fff',
+                padding: '12px 24px',
+                borderRadius: 12,
+                fontWeight: 600,
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 8px 24px rgba(255, 159, 10, 0.4)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
+            >
+              <ExternalLink className="w-5 h-5" />
+              Post to JIRA
+            </button>
           </div>
         )}
 
         {/* Results Area */}
         {result && !loading && !['compare', 'testcases'].includes(activeFeature) && (
-          <div className="p-6 bg-gray-50 overflow-y-auto flex-1">
+          <div style={{ padding: 24, overflowY: 'auto', flex: 1 }}>
             {result.error ? (
-              <div className="bg-red-50 border border-red-200 rounded p-4 text-red-700">
+              <div style={{
+                background: 'rgba(255, 55, 95, 0.1)',
+                border: '1px solid rgba(255, 55, 95, 0.2)',
+                borderRadius: 12,
+                padding: 16,
+                color: '#FF375F'
+              }}>
                 <strong>Error:</strong> {result.error}
               </div>
             ) : (
@@ -986,14 +1398,42 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
         )}
 
         {/* Footer */}
-        <div className="p-4 border-t flex justify-between items-center bg-white">
+        <div style={{
+          padding: 16,
+          borderTop: '1px solid rgba(255,255,255,0.1)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
           {activeFeature && (
             <button
               onClick={() => {
                 setActiveFeature(null);
                 setResult(null);
+                setJiraContent(null);
+                setJiraPosted(false);
               }}
-              className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded flex items-center gap-2"
+              style={{
+                padding: '8px 16px',
+                color: 'rgba(255,255,255,0.6)',
+                background: 'transparent',
+                border: 'none',
+                borderRadius: 8,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                fontSize: '0.875rem',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+                e.currentTarget.style.color = 'rgba(255,255,255,0.9)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.color = 'rgba(255,255,255,0.6)';
+              }}
             >
               ← Back to Features
             </button>
@@ -1001,7 +1441,24 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
           {!activeFeature && <div></div>}
           <button
             onClick={onClose}
-            className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded"
+            style={{
+              padding: '8px 16px',
+              color: 'rgba(255,255,255,0.6)',
+              background: 'transparent',
+              border: 'none',
+              borderRadius: 8,
+              cursor: 'pointer',
+              fontSize: '0.875rem',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+              e.currentTarget.style.color = 'rgba(255,255,255,0.9)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'transparent';
+              e.currentTarget.style.color = 'rgba(255,255,255,0.6)';
+            }}
           >
             Close
           </button>
