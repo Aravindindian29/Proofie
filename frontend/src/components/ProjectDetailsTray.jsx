@@ -14630,7 +14630,7 @@ background: 'transparent',
 
 
 
-                      label: (<span style={{ fontSize: '14.7px', marginLeft: '-2px' }}>Approved with Changes</span>)
+                      label: (<span style={{ fontSize: '14.7px', marginLeft: '-2px' }}>Approved</span>)
 
 
 

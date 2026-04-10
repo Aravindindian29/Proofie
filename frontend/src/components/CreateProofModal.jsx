@@ -2450,8 +2450,8 @@ function CreateProofModal({ isOpen, onClose, onSuccess, parentProject }) {
 
 
 
-              {/* Workflow Template Selection - Only for Manager/Admin */}
-              {(user?.profile?.role === 'manager' || user?.profile?.role === 'admin') && (
+              {/* Workflow Template Selection - Visible to Manager/Admin/Approver/Lite User */}
+              {(user?.profile?.role === 'manager' || user?.profile?.role === 'admin' || user?.profile?.role === 'approver' || user?.profile?.role === 'lite_user') && (
                 <div style={{ marginBottom: 24 }}>
                   <label style={{ 
                     display: 'block', 
