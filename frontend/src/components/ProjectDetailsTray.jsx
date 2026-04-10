@@ -6,7 +6,23 @@ import React, { useState, useEffect } from 'react'
 
 
 
+
+
+
+
+
+
+
+
 import { X, ChevronLeft, Link, Send, Download, MoreHorizontal, Eye, Users, Calendar, Clock, User, Trash2, MessageSquare, CheckCircle, XCircle, RefreshCw, Lock, ArrowRight, ChevronDown } from 'lucide-react'
+
+
+
+
+
+
+
+
 
 
 
@@ -22,7 +38,23 @@ import api from '../services/api'
 
 
 
+
+
+
+
+
+
+
+
 import { toastManager } from '../utils/toastManager'
+
+
+
+
+
+
+
+
 
 
 
@@ -34,7 +66,15 @@ import DeleteConfirmationModal from './DeleteConfirmationModal'
 
 
 
+
+
+
+
 import DecisionModal from './workflow/DecisionModal'
+
+
+
+
 
 
 
@@ -42,7 +82,27 @@ import CreateProofModal from './CreateProofModal'
 
 
 
+
+
+
+
 import { useAuthStore } from '../stores/authStore'
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -66,7 +126,23 @@ const colors = [
 
 
 
+
+
+
+
+
+
+
+
   'linear-gradient(135deg,#0A84FF,#5E5CE6)',
+
+
+
+
+
+
+
+
 
 
 
@@ -82,7 +158,23 @@ const colors = [
 
 
 
+
+
+
+
+
+
+
+
   'linear-gradient(135deg,#30D158,#0A84FF)',
+
+
+
+
+
+
+
+
 
 
 
@@ -98,6 +190,14 @@ const colors = [
 
 
 
+
+
+
+
+
+
+
+
   'linear-gradient(135deg,#FF375F,#5E5CE6)',
 
 
@@ -106,7 +206,23 @@ const colors = [
 
 
 
+
+
+
+
+
+
+
+
   'linear-gradient(135deg,#FFD60A,#FF9F0A)',
+
+
+
+
+
+
+
+
 
 
 
@@ -130,7 +246,31 @@ const colors = [
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProjectCreated, onProjectChanged }) {
+
+
+
+
+
+
+
+
 
 
 
@@ -146,7 +286,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
   const [projectWithAssets, setProjectWithAssets] = useState(null)
+
+
+
+
+
+
+
+
 
 
 
@@ -162,7 +318,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+
+
+
+
+
+
+
+
 
 
 
@@ -178,7 +350,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
   const [activeSubTab, setActiveSubTab] = useState('workflow')
+
+
+
+
+
+
+
+
 
 
 
@@ -194,6 +382,14 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
   const [myMember, setMyMember] = useState(null)
 
 
@@ -202,55 +398,119 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
   // Extract review cycle data immediately from project data (no API call)
+
   const extractReviewCycleFromProject = () => {
+
     if (!project) {
+
       console.log('No project data available')
+
       return
+
     }
+
     
+
     console.log('Extracting review cycle from project:', project)
+
     console.log('Project assets:', project.assets)
+
     
+
     // Check if project has assets with review cycles
+
     if (project.assets && project.assets.length > 0) {
+
       const firstAsset = project.assets[0]
+
       console.log('First asset:', firstAsset)
+
       
+
       // Check if asset has review cycles and set immediately
+
       if (firstAsset.review_cycles && firstAsset.review_cycles.length > 0) {
+
         const activeReview = firstAsset.review_cycles[0]
+
         setReviewCycle(activeReview)
+
         console.log('Review cycle extracted from project data:', activeReview.status)
+
       } else {
+
         console.log('No review cycles found in first asset')
+
       }
+
     } else {
+
       console.log('No assets found in project data')
+
       
+
       // Try alternative data structures
+
       if (project.review_cycles && project.review_cycles.length > 0) {
+
         const activeReview = project.review_cycles[0]
+
         setReviewCycle(activeReview)
+
         console.log('Review cycle extracted from project.review_cycles:', activeReview.status)
+
       } else if (project.current_review_cycle) {
+
         setReviewCycle(project.current_review_cycle)
+
         console.log('Review cycle extracted from project.current_review_cycle:', project.current_review_cycle.status)
+
       } else {
+
         console.log('No review cycles found in any expected location')
+
       }
+
     }
+
   }
 
+
+
   // Extract review cycle data immediately when project changes
+
   useEffect(() => {
+
     extractReviewCycleFromProject()
+
   }, [project])
 
 
 
 
+
+
+
+
+
   const [groups, setGroups] = useState([])
+
+
+
+
+
+
+
+
 
 
 
@@ -266,7 +526,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
   const [loadingWorkflow, setLoadingWorkflow] = useState(false)
+
+
+
+
+
+
+
+
 
 
 
@@ -280,103 +556,219 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
   const [preselectedDecision, setPreselectedDecision] = useState(null)
+
+
 
   const [showVersionDropdown, setShowVersionDropdown] = useState(false)
 
+
+
   const [showCreateModal, setShowCreateModal] = useState(false)
+
+
 
   const [allVersions, setAllVersions] = useState([])
 
+
+
   const [loadingVersions, setLoadingVersions] = useState(false)
 
+
+
   const [highestVersionId, setHighestVersionId] = useState(null)
+
+
 
   const [versionsFetched, setVersionsFetched] = useState(false)
 
 
 
+
+
+
+
   const handleCreateNewProof = () => {
+
+
 
     setShowCreateModal(true)
 
+
+
   }
+
+
+
+
 
 
 
   // Fetch all versions of the current proof
 
+
+
   const fetchAllVersions = async () => {
+
+
 
     if (!project?.id) return
 
+
+
     
+
+
 
     setLoadingVersions(true)
 
+
+
     try {
+
+
 
       const response = await api.get(`/versioning/projects/${project.id}/versions/`)
 
+
+
       setAllVersions(response.data.versions || [])
+
+
 
       setHighestVersionId(response.data.highest_version_id)
 
+
+
       setVersionsFetched(true)
+
+
 
     } catch (error) {
 
+
+
       console.error('Failed to fetch versions:', error)
+
+
 
       setAllVersions([])
 
+
+
       setHighestVersionId(null)
+
+
 
       setVersionsFetched(false)
 
+
+
     } finally {
+
+
 
       setLoadingVersions(false)
 
+
+
     }
+
+
 
   }
 
 
 
+
+
+
+
   // Fetch versions when version dropdown is opened (but only if not already fetched)
+
+
 
   useEffect(() => {
 
+
+
     if (showVersionDropdown && project?.id && !versionsFetched) {
+
+
 
       fetchAllVersions()
 
+
+
     }
+
+
 
   }, [showVersionDropdown, project?.id, versionsFetched])
 
 
 
+
+
+
+
   // Reset versions fetched when project changes
+
+
 
   useEffect(() => {
 
+
+
     if (project?.id) {
+
+
 
       setVersionsFetched(false)
 
+
+
       setAllVersions([])
+
+
 
       setHighestVersionId(null)
 
+
+
     }
+
+
 
   }, [project?.id])
 
 
 
+
+
+
+
   // ... rest of the code remains the same ...
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -398,7 +790,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
     e.stopPropagation()
+
+
+
+
+
+
+
+
 
 
 
@@ -414,7 +822,31 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
   }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -438,7 +870,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
     setDeleting(true)
+
+
+
+
+
+
+
+
 
 
 
@@ -454,7 +902,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
       await api.delete(`/versioning/projects/${displayProject.id}/`)
+
+
+
+
+
+
+
+
 
 
 
@@ -470,7 +934,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
       setShowDeleteModal(false)
+
+
+
+
+
+
+
+
 
 
 
@@ -486,7 +966,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
       if (onProjectDeleted) {
+
+
+
+
+
+
+
+
 
 
 
@@ -502,7 +998,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
       }
+
+
+
+
+
+
+
+
 
 
 
@@ -518,7 +1030,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
       console.error('Delete error:', error)
+
+
+
+
+
+
+
+
 
 
 
@@ -534,7 +1062,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
       if (error.response?.status === 403) {
+
+
+
+
+
+
+
+
 
 
 
@@ -550,7 +1094,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
           style: {
+
+
+
+
+
+
+
+
 
 
 
@@ -566,7 +1126,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
             whiteSpace: 'pre-line'
+
+
+
+
+
+
+
+
 
 
 
@@ -582,7 +1158,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
         })
+
+
+
+
+
+
+
+
 
 
 
@@ -598,7 +1190,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
         toastManager.error('Failed to delete proof: ' + (error.response?.data?.error || error.message), 'folder-toast')
+
+
+
+
+
+
+
+
 
 
 
@@ -614,7 +1222,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
     } finally {
+
+
+
+
+
+
+
+
 
 
 
@@ -630,6 +1254,14 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
     }
 
 
@@ -638,7 +1270,31 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
   }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -662,7 +1318,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
     setShowDeleteModal(false)
+
+
+
+
+
+
+
+
 
 
 
@@ -686,7 +1358,31 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   // Fetch current user
+
+
+
+
+
+
+
+
 
 
 
@@ -702,7 +1398,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
     const fetchCurrentUser = async () => {
+
+
+
+
+
+
+
+
 
 
 
@@ -718,7 +1430,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
         const response = await api.get('/accounts/users/me/')
+
+
+
+
+
+
+
+
 
 
 
@@ -734,7 +1462,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
       } catch (error) {
+
+
+
+
+
+
+
+
 
 
 
@@ -750,6 +1494,14 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
       }
 
 
@@ -758,7 +1510,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
     }
+
+
+
+
+
+
+
+
 
 
 
@@ -774,6 +1542,14 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
       fetchCurrentUser()
 
 
@@ -782,7 +1558,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
     }
+
+
+
+
+
+
+
+
 
 
 
@@ -806,6 +1598,22 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   // Setup WebSocket listener for real-time updates
 
 
@@ -814,7 +1622,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
   useEffect(() => {
+
+
+
+
+
+
+
+
 
 
 
@@ -838,7 +1662,31 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+
+
+
+
+
+
+
+
 
 
 
@@ -854,7 +1702,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
     
+
+
+
+
+
+
+
+
 
 
 
@@ -870,6 +1734,14 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
     let reconnectAttempts = 0
 
 
@@ -878,7 +1750,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
     const maxReconnectAttempts = 5
+
+
+
+
+
+
+
+
 
 
 
@@ -902,7 +1790,31 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     const connectWebSocket = () => {
+
+
+
+
+
+
+
+
 
 
 
@@ -918,6 +1830,14 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
         ws = new WebSocket(wsUrl)
 
 
@@ -926,7 +1846,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
         
+
+
+
+
+
+
+
+
 
 
 
@@ -942,7 +1878,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
           console.log('✅ ProjectDetailsTray WebSocket connected')
+
+
+
+
+
+
+
+
 
 
 
@@ -958,6 +1910,14 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
         }
 
 
@@ -966,7 +1926,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
         
+
+
+
+
+
+
+
+
 
 
 
@@ -982,7 +1958,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
           try {
+
+
+
+
+
+
+
+
 
 
 
@@ -998,7 +1990,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
             console.log('📨 ProjectDetailsTray WebSocket message:', data)
+
+
+
+
+
+
+
+
 
 
 
@@ -1014,7 +2022,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
             // Handle review cycle status updates
+
+
+
+
+
+
+
+
 
 
 
@@ -1030,7 +2054,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
               console.log('🔄 ProjectDetailsTray: Review cycle update received:', data.review_cycle_id, 'Status:', data.status)
+
+
+
+
+
+
+
+
 
 
 
@@ -1046,34 +2086,77 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
               // Check if this update is for our current review cycle
+
               if (reviewCycle && data.review_cycle_id === reviewCycle.id) {
+
                 console.log('✅ Update matches current review cycle - updating state')
 
+
+
                 // Update local state immediately with full review cycle data
+
                 if (data.review_cycle_data) {
+
                   setReviewCycle(data.review_cycle_data)
 
+
+
                   // Update groups with new status data
+
                   if (data.review_cycle_data.groups) {
+
                     setGroups(data.review_cycle_data.groups)
+
                   }
+
                 } else {
+
                   // Fallback to just updating status
+
                   setReviewCycle(prev => ({ 
+
                     ...prev, 
+
                     status: data.status,
+
                     proof_status: data.proof_status || data.status
+
                   }))
+
                 }
+
               }
 
+
+
               // Always refresh workflow data to ensure we have the latest information
+
               // This handles cases where review cycle was just created or updated
+
               console.log('🔄 Refreshing workflow data...')
 
+
+
               fetchWorkflowData()
+
             }
+
+
+
+
+
+
+
+
 
 
 
@@ -1089,7 +2172,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
             console.error('Failed to parse WebSocket message:', error)
+
+
+
+
+
+
+
+
 
 
 
@@ -1105,6 +2204,14 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
         }
 
 
@@ -1113,7 +2220,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
         
+
+
+
+
+
+
+
+
 
 
 
@@ -1129,6 +2252,14 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
           console.error('❌ ProjectDetailsTray WebSocket error:', error)
 
 
@@ -1137,7 +2268,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
         }
+
+
+
+
+
+
+
+
 
 
 
@@ -1153,7 +2300,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
         ws.onclose = () => {
+
+
+
+
+
+
+
+
 
 
 
@@ -1169,7 +2332,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
           // Attempt to reconnect
+
+
+
+
+
+
+
+
 
 
 
@@ -1185,7 +2364,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
             reconnectAttempts++
+
+
+
+
+
+
+
+
 
 
 
@@ -1201,7 +2396,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
             setTimeout(connectWebSocket, reconnectDelay)
+
+
+
+
+
+
+
+
 
 
 
@@ -1217,7 +2428,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
         }
+
+
+
+
+
+
+
+
 
 
 
@@ -1233,7 +2460,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
         console.error('Failed to connect ProjectDetailsTray WebSocket:', error)
+
+
+
+
+
+
+
+
 
 
 
@@ -1249,7 +2492,31 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
     }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1281,7 +2548,31 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     // Cleanup on unmount
+
+
+
+
+
+
+
+
 
 
 
@@ -1297,7 +2588,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
       if (ws) {
+
+
+
+
+
+
+
+
 
 
 
@@ -1313,6 +2620,14 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
       }
 
 
@@ -1321,7 +2636,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
     }
+
+
+
+
+
+
+
+
 
 
 
@@ -1345,7 +2676,31 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   // Fetch project assets when tray opens or project changes
+
+
+
+
+
+
+
+
 
 
 
@@ -1361,7 +2716,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
     if (isOpen && project?.id) {
+
+
+
+
+
+
+
+
 
 
 
@@ -1377,7 +2748,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
       fetchWorkflowData()
+
+
+
+
+
+
+
+
 
 
 
@@ -1393,7 +2780,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
       setProjectWithAssets(null)
+
+
+
+
+
+
+
+
 
 
 
@@ -1409,7 +2812,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
       setMyMember(null)
+
+
+
+
+
+
+
+
 
 
 
@@ -1425,6 +2844,14 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
       setActiveSubTab('workflow')
 
 
@@ -1433,7 +2860,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
     }
+
+
+
+
+
+
+
+
 
 
 
@@ -1457,6 +2900,22 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   // Refresh data when window regains focus (user returns from PDF viewer)
 
 
@@ -1465,7 +2924,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
   useEffect(() => {
+
+
+
+
+
+
+
+
 
 
 
@@ -1489,7 +2964,31 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     const handleFocus = () => {
+
+
+
+
+
+
+
+
 
 
 
@@ -1505,6 +3004,14 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
       fetchWorkflowData()
 
 
@@ -1513,7 +3020,31 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
     }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1545,7 +3076,31 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     return () => {
+
+
+
+
+
+
+
+
 
 
 
@@ -1561,7 +3116,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
     }
+
+
+
+
+
+
+
+
 
 
 
@@ -1585,7 +3156,31 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   // Fetch workflow data
+
+
+
+
+
+
+
+
 
 
 
@@ -1601,7 +3196,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
     if (!project?.id) return
+
+
+
+
+
+
+
+
 
 
 
@@ -1617,7 +3228,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
     setLoadingWorkflow(true)
+
+
+
+
+
+
+
+
 
 
 
@@ -1633,7 +3260,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
       // Get the first asset from the project
+
+
+
+
+
+
+
+
 
 
 
@@ -1649,7 +3292,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
       const assets = assetsResponse.data
+
+
+
+
+
+
+
+
 
 
 
@@ -1665,7 +3324,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
       if (assets && assets.length > 0) {
+
+
+
+
+
+
+
+
 
 
 
@@ -1681,7 +3356,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
         
+
+
+
+
+
+
+
+
 
 
 
@@ -1697,7 +3388,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
         if (firstAsset.review_cycles && firstAsset.review_cycles.length > 0) {
+
+
+
+
+
+
+
+
 
 
 
@@ -1713,6 +3420,14 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
           setReviewCycle(activeReview)
 
 
@@ -1721,7 +3436,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
           
+
+
+
+
+
+
+
+
 
 
 
@@ -1737,7 +3468,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
           try {
+
+
+
+
+
+
+
+
 
 
 
@@ -1753,7 +3500,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
             if (statusResponse.data.is_member) {
+
+
+
+
+
+
+
+
 
 
 
@@ -1769,6 +3532,14 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
             }
 
 
@@ -1777,7 +3548,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
           } catch (error) {
+
+
+
+
+
+
+
+
 
 
 
@@ -1793,7 +3580,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
           }
+
+
+
+
+
+
+
+
 
 
 
@@ -1809,7 +3612,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
           // Fetch group status
+
+
+
+
+
+
+
+
 
 
 
@@ -1825,7 +3644,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
             const groupResponse = await api.get(`/workflows/review-cycles/${activeReview.id}/group_status/`)
+
+
+
+
+
+
+
+
 
 
 
@@ -1841,7 +3676,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
           } catch (error) {
+
+
+
+
+
+
+
+
 
 
 
@@ -1857,7 +3708,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
           }
+
+
+
+
+
+
+
+
 
 
 
@@ -1873,7 +3740,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
       }
+
+
+
+
+
+
+
+
 
 
 
@@ -1889,7 +3772,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
       console.error('Failed to fetch workflow data:', error)
+
+
+
+
+
+
+
+
 
 
 
@@ -1905,6 +3804,14 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
       setLoadingWorkflow(false)
 
 
@@ -1913,7 +3820,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
     }
+
+
+
+
+
+
+
+
 
 
 
@@ -1937,7 +3860,31 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   // Reset version dropdown when tray closes
+
+
+
+
+
+
+
+
 
 
 
@@ -1953,7 +3900,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
     if (!isOpen) {
+
+
+
+
+
+
+
+
 
 
 
@@ -1969,7 +3932,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
     }
+
+
+
+
+
+
+
+
 
 
 
@@ -1993,7 +3972,31 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   // Close dropdown when clicking outside
+
+
+
+
+
+
+
+
 
 
 
@@ -2009,7 +4012,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
     const handleClickOutside = (event) => {
+
+
+
+
+
+
+
+
 
 
 
@@ -2025,7 +4044,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
         setShowVersionDropdown(false)
+
+
+
+
+
+
+
+
 
 
 
@@ -2041,7 +4076,31 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
     }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -2065,7 +4124,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
       document.addEventListener('click', handleClickOutside)
+
+
+
+
+
+
+
+
 
 
 
@@ -2081,7 +4156,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
         document.removeEventListener('click', handleClickOutside)
+
+
+
+
+
+
+
+
 
 
 
@@ -2097,7 +4188,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
     }
+
+
+
+
+
+
+
+
 
 
 
@@ -2121,7 +4228,31 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   // Action handlers
+
+
+
+
+
+
+
+
 
 
 
@@ -2131,15 +4262,53 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
   const handleAddComment = () => {
 
+
+
     // Navigate to ProofReviewer with the project's share_token
+
+
 
     if (project?.share_token) {
 
+
+
       window.open(`/proof-review/${project.share_token}`, '_blank')
+
+
 
     }
 
+
+
   } 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -2175,7 +4344,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
     setPreselectedDecision('approved')
+
+
+
+
+
+
+
+
 
 
 
@@ -2191,7 +4376,31 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
   }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -2215,7 +4424,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
     setPreselectedDecision('rejected')
+
+
+
+
+
+
+
+
 
 
 
@@ -2231,7 +4456,31 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
   }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -2255,7 +4504,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
     setPreselectedDecision('changes_requested')
+
+
+
+
+
+
+
+
 
 
 
@@ -2271,7 +4536,31 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
   }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -2295,7 +4584,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
     setShowDecisionModal(false)
+
+
+
+
+
+
+
+
 
 
 
@@ -2311,6 +4616,14 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
     toastManager.success('Decision submitted successfully', 'folder-toast')
 
 
@@ -2319,7 +4632,31 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
   }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -2343,7 +4680,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
     setLoadingAssets(true)
+
+
+
+
+
+
+
+
 
 
 
@@ -2359,7 +4712,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
       console.log('🔍 Fetching assets for project:', project.id)
+
+
+
+
+
+
+
+
 
 
 
@@ -2375,7 +4744,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
       
+
+
+
+
+
+
+
+
 
 
 
@@ -2391,7 +4776,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
       try {
+
+
+
+
+
+
+
+
 
 
 
@@ -2407,6 +4808,14 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
         console.log('✅ Success with assets endpoint:', assetsResponse.data)
 
 
@@ -2415,7 +4824,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
         
+
+
+
+
+
+
+
+
 
 
 
@@ -2431,7 +4856,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
         const projectWithAssets = {
+
+
+
+
+
+
+
+
 
 
 
@@ -2447,7 +4888,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
           assets: assetsResponse.data
+
+
+
+
+
+
+
+
 
 
 
@@ -2463,7 +4920,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
         
+
+
+
+
+
+
+
+
 
 
 
@@ -2479,6 +4952,14 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
         setProjectWithAssets(projectWithAssets)
 
 
@@ -2487,7 +4968,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
         
+
+
+
+
+
+
+
+
 
 
 
@@ -2503,7 +5000,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
         console.log('❌ Assets endpoint failed:', assetsError.message)
+
+
+
+
+
+
+
+
 
 
 
@@ -2519,7 +5032,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
         // Fallback: try global assets endpoint and filter
+
+
+
+
+
+
+
+
 
 
 
@@ -2535,7 +5064,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
           const allAssetsResponse = await api.get('/versioning/assets/')
+
+
+
+
+
+
+
+
 
 
 
@@ -2551,6 +5096,14 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
           console.log('📦 Filtered assets for project:', projectAssets)
 
 
@@ -2559,7 +5112,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
           
+
+
+
+
+
+
+
+
 
 
 
@@ -2575,7 +5144,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
             ...project,
+
+
+
+
+
+
+
+
 
 
 
@@ -2591,6 +5176,14 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
           }
 
 
@@ -2599,7 +5192,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
           
+
+
+
+
+
+
+
+
 
 
 
@@ -2615,7 +5224,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
           
+
+
+
+
+
+
+
+
 
 
 
@@ -2631,7 +5256,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
           console.log('❌ Fallback assets call failed:', fallbackError.message)
+
+
+
+
+
+
+
+
 
 
 
@@ -2647,7 +5288,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
           // Final fallback: empty assets array
+
+
+
+
+
+
+
+
 
 
 
@@ -2663,7 +5320,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
         }
+
+
+
+
+
+
+
+
 
 
 
@@ -2679,7 +5352,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
       
+
+
+
+
+
+
+
+
 
 
 
@@ -2695,7 +5384,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
       console.error('❌ Failed to fetch project assets:', error)
+
+
+
+
+
+
+
+
 
 
 
@@ -2711,7 +5416,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
       
+
+
+
+
+
+
+
+
 
 
 
@@ -2727,7 +5448,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
       setProjectWithAssets({ ...project, assets: [] })
+
+
+
+
+
+
+
+
 
 
 
@@ -2743,7 +5480,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
       // Show user-friendly error
+
+
+
+
+
+
+
+
 
 
 
@@ -2759,7 +5512,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
         console.log('💡 Project not found - using fallback data')
+
+
+
+
+
+
+
+
 
 
 
@@ -2775,7 +5544,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
         console.log('💡 Access denied - using fallback data')
+
+
+
+
+
+
+
+
 
 
 
@@ -2791,7 +5576,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
         console.log('💡 API error - using fallback data')
+
+
+
+
+
+
+
+
 
 
 
@@ -2807,7 +5608,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
     } finally {
+
+
+
+
+
+
+
+
 
 
 
@@ -2823,6 +5640,14 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
     }
 
 
@@ -2831,7 +5656,31 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
   }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -2863,7 +5712,31 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   // Helper to get the first asset for preview
+
+
+
+
+
+
+
+
 
 
 
@@ -2879,7 +5752,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
     if (displayProject?.assets?.length > 0) {
+
+
+
+
+
+
+
+
 
 
 
@@ -2895,7 +5784,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
     }
+
+
+
+
+
+
+
+
 
 
 
@@ -2911,7 +5816,31 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
   }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -2943,7 +5872,31 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   return (
+
+
+
+
+
+
+
+
 
 
 
@@ -2959,7 +5912,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
       {/* Backdrop */}
+
+
+
+
+
+
+
+
 
 
 
@@ -2975,7 +5944,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
         style={{
+
+
+
+
+
+
+
+
 
 
 
@@ -2991,7 +5976,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
           top: 0,
+
+
+
+
+
+
+
+
 
 
 
@@ -3007,7 +6008,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
           right: 0,
+
+
+
+
+
+
+
+
 
 
 
@@ -3023,7 +6040,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
           background: 'rgba(0, 0, 0, 0.5)',
+
+
+
+
+
+
+
+
 
 
 
@@ -3039,7 +6072,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
           zIndex: 999,
+
+
+
+
+
+
+
+
 
 
 
@@ -3055,7 +6104,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
           transition: 'opacity 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+
+
+
+
+
+
+
+
 
 
 
@@ -3071,7 +6136,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
           visibility: isOpen ? 'visible' : 'hidden'
+
+
+
+
+
+
+
+
 
 
 
@@ -3087,6 +6168,14 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
         onClick={onClose}
 
 
@@ -3095,7 +6184,31 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
       />
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -3119,7 +6232,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
       <div
+
+
+
+
+
+
+
+
 
 
 
@@ -3135,7 +6264,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
           position: 'fixed',
+
+
+
+
+
+
+
+
 
 
 
@@ -3151,7 +6296,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
           right: isOpen ? '0px' : '-750px',
+
+
+
+
+
+
+
+
 
 
 
@@ -3167,7 +6328,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
           height: '100vh',
+
+
+
+
+
+
+
+
 
 
 
@@ -3183,7 +6360,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
           backdropFilter: 'blur(20px)',
+
+
+
+
+
+
+
+
 
 
 
@@ -3199,7 +6392,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
           borderLeft: '1px solid rgba(255, 255, 255, 0.1)',
+
+
+
+
+
+
+
+
 
 
 
@@ -3215,7 +6424,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
           transition: 'right 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+
+
+
+
+
+
+
+
 
 
 
@@ -3231,7 +6456,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
           overflow: 'auto',
+
+
+
+
+
+
+
+
 
 
 
@@ -3247,7 +6488,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
           flexDirection: 'column'
+
+
+
+
+
+
+
+
 
 
 
@@ -3263,7 +6520,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
       >
+
+
+
+
+
+
+
+
 
 
 
@@ -3279,7 +6552,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
         <div style={{
+
+
+
+
+
+
+
+
 
 
 
@@ -3295,7 +6584,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
           borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+
+
+
+
+
+
+
+
 
 
 
@@ -3311,7 +6616,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
           flexDirection: 'column'
+
+
+
+
+
+
+
+
 
 
 
@@ -3327,7 +6648,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
           <div style={{
+
+
+
+
+
+
+
+
 
 
 
@@ -3343,6 +6680,14 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
             alignItems: 'center',
 
 
@@ -3351,7 +6696,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
             justifyContent: 'space-between',
+
+
+
+
+
+
+
+
 
 
 
@@ -3367,6 +6728,14 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
           }}>
 
 
@@ -3375,7 +6744,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
             <button
+
+
+
+
+
+
+
+
 
 
 
@@ -3391,6 +6776,14 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
               style={{
 
 
@@ -3399,7 +6792,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                 width: 32, height: 32, borderRadius: 8,
+
+
+
+
+
+
+
+
 
 
 
@@ -3415,7 +6824,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                 border: '1px solid rgba(255, 255, 255, 0.2)',
+
+
+
+
+
+
+
+
 
 
 
@@ -3431,7 +6856,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                 cursor: 'pointer', transition: 'all 0.2s',
+
+
+
+
+
+
+
+
 
 
 
@@ -3447,6 +6888,14 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
               }}
 
 
@@ -3455,7 +6904,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
               onMouseEnter={(e) => {
+
+
+
+
+
+
+
+
 
 
 
@@ -3471,7 +6936,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                 e.target.style.color = '#fff'
+
+
+
+
+
+
+
+
 
 
 
@@ -3487,7 +6968,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
               onMouseLeave={(e) => {
+
+
+
+
+
+
+
+
 
 
 
@@ -3503,7 +7000,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                 e.target.style.color = 'rgba(255, 255, 255, 0.7)'
+
+
+
+
+
+
+
+
 
 
 
@@ -3519,7 +7032,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
             >
+
+
+
+
+
+
+
+
 
 
 
@@ -3535,7 +7064,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
             </button>
+
+
+
+
+
+
+
+
 
 
 
@@ -3551,7 +7096,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
               <h2 style={{ 
+
+
+
+
+
+
+
+
 
 
 
@@ -3567,6 +7128,14 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                 fontSize: '1.3rem', 
 
 
@@ -3575,7 +7144,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
-                fontWeight: 700, 
+
+
+
+
+
+
+
+
+                fontWeight: 600, 
+
+
+
+
+
+
+
+
 
 
 
@@ -3591,7 +7176,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
               }}>
+
+
+
+
+
+
+
+
 
 
 
@@ -3607,7 +7208,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
               </h2>
+
+
+
+
+
+
+
+
 
 
 
@@ -3623,7 +7240,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
             <button
+
+
+
+
+
+
+
+
 
 
 
@@ -3639,7 +7272,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
               style={{
+
+
+
+
+
+
+
+
 
 
 
@@ -3655,7 +7304,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                 background: '#EF4444',
+
+
+
+
+
+
+
+
 
 
 
@@ -3671,7 +7336,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
+
+
+
+
+
+
+
+
 
 
 
@@ -3687,6 +7368,14 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                 color: '#fff'
 
 
@@ -3695,7 +7384,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
               }}
+
+
+
+
+
+
+
+
 
 
 
@@ -3711,6 +7416,14 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                 e.target.style.background = '#DC2626'
 
 
@@ -3719,7 +7432,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
               }}
+
+
+
+
+
+
+
+
 
 
 
@@ -3735,7 +7464,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                 e.target.style.background = '#EF4444'
+
+
+
+
+
+
+
+
 
 
 
@@ -3751,7 +7496,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
               title="Delete project"
+
+
+
+
+
+
+
+
 
 
 
@@ -3767,7 +7528,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
               <Trash2 size={16} />
+
+
+
+
+
+
+
+
 
 
 
@@ -3783,6 +7560,14 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
           </div>
 
 
@@ -3791,7 +7576,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
           
+
+
+
+
+
+
+
+
 
 
 
@@ -3807,7 +7608,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
           <div style={{
+
+
+
+
+
+
+
+
 
 
 
@@ -3823,7 +7640,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
             height: '1px',
+
+
+
+
+
+
+
+
 
 
 
@@ -3839,7 +7672,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
           }} />
+
+
+
+
+
+
+
+
 
 
 
@@ -3855,7 +7704,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
           {/* Version and Actions Container */}
+
+
+
+
+
+
+
+
 
 
 
@@ -3871,7 +7736,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
             display: 'flex',
+
+
+
+
+
+
+
+
 
 
 
@@ -3887,7 +7768,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
             alignItems: 'center',
+
+
+
+
+
+
+
+
 
 
 
@@ -3903,7 +7800,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
             marginBottom: '8px',
+
+
+
+
+
+
+
+
 
 
 
@@ -3919,7 +7832,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
           }}>
+
+
+
+
+
+
+
+
 
 
 
@@ -3935,7 +7864,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
             <div style={{
+
+
+
+
+
+
+
+
 
 
 
@@ -3951,7 +7896,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
               gap: '8px',
+
+
+
+
+
+
+
+
 
 
 
@@ -3967,7 +7928,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
             }}>
+
+
+
+
+
+
+
+
 
 
 
@@ -3983,7 +7960,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
               <button
+
+
+
+
+
+
+
+
 
 
 
@@ -3999,7 +7992,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                 style={{
+
+
+
+
+
+
+
+
 
 
 
@@ -4015,7 +8024,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   alignItems: 'center',
+
+
+
+
+
+
+
+
 
 
 
@@ -4031,7 +8056,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   padding: '6px 12px',
+
+
+
+
+
+
+
+
 
 
 
@@ -4047,7 +8088,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   border: '1px solid rgba(255, 255, 255, 0.15)',
+
+
+
+
+
+
+
+
 
 
 
@@ -4063,7 +8120,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   color: 'rgba(255, 255, 255, 0.8)',
+
+
+
+
+
+
+
+
 
 
 
@@ -4079,7 +8152,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   fontWeight: 500,
+
+
+
+
+
+
+
+
 
 
 
@@ -4095,6 +8184,14 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   transition: 'all 0.2s'
 
 
@@ -4103,7 +8200,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                 }}
+
+
+
+
+
+
+
+
 
 
 
@@ -4119,7 +8232,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   e.target.style.background = 'rgba(255, 255, 255, 0.12)'
+
+
+
+
+
+
+
+
 
 
 
@@ -4135,7 +8264,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                 }}
+
+
+
+
+
+
+
+
 
 
 
@@ -4151,7 +8296,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   e.target.style.background = 'rgba(255, 255, 255, 0.08)'
+
+
+
+
+
+
+
+
 
 
 
@@ -4167,7 +8328,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                 }}
+
+
+
+
+
+
+
+
 
 
 
@@ -4183,7 +8360,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                 <Link size={14} />
+
+
+
+
+
+
+
+
 
 
 
@@ -4199,7 +8392,31 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
               </button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4223,7 +8440,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
               <button
+
+
+
+
+
+
+
+
 
 
 
@@ -4239,7 +8472,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                 style={{
+
+
+
+
+
+
+
+
 
 
 
@@ -4255,7 +8504,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   alignItems: 'center',
+
+
+
+
+
+
+
+
 
 
 
@@ -4271,7 +8536,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   background: 'rgba(255, 255, 255, 0.08)',
+
+
+
+
+
+
+
+
 
 
 
@@ -4287,7 +8568,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   borderRadius: '6px',
+
+
+
+
+
+
+
+
 
 
 
@@ -4303,7 +8600,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   cursor: 'pointer',
+
+
+
+
+
+
+
+
 
 
 
@@ -4319,7 +8632,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                 }}
+
+
+
+
+
+
+
+
 
 
 
@@ -4335,7 +8664,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   e.target.style.background = 'rgba(255, 255, 255, 0.12)'
+
+
+
+
+
+
+
+
 
 
 
@@ -4351,7 +8696,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                 }}
+
+
+
+
+
+
+
+
 
 
 
@@ -4367,7 +8728,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   e.target.style.background = 'rgba(255, 255, 255, 0.08)'
+
+
+
+
+
+
+
+
 
 
 
@@ -4383,7 +8760,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                 }}
+
+
+
+
+
+
+
+
 
 
 
@@ -4399,6 +8792,14 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                 <Send size={14} />
 
 
@@ -4407,7 +8808,31 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
               </button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4431,7 +8856,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
               <button
+
+
+
+
+
+
+
+
 
 
 
@@ -4447,7 +8888,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                 style={{
+
+
+
+
+
+
+
+
 
 
 
@@ -4463,7 +8920,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   alignItems: 'center',
+
+
+
+
+
+
+
+
 
 
 
@@ -4479,7 +8952,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   background: 'rgba(255, 255, 255, 0.08)',
+
+
+
+
+
+
+
+
 
 
 
@@ -4495,7 +8984,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   borderRadius: '6px',
+
+
+
+
+
+
+
+
 
 
 
@@ -4511,7 +9016,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   cursor: 'pointer',
+
+
+
+
+
+
+
+
 
 
 
@@ -4527,7 +9048,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                 }}
+
+
+
+
+
+
+
+
 
 
 
@@ -4543,7 +9080,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   e.target.style.background = 'rgba(255, 255, 255, 0.12)'
+
+
+
+
+
+
+
+
 
 
 
@@ -4559,7 +9112,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                 }}
+
+
+
+
+
+
+
+
 
 
 
@@ -4575,7 +9144,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   e.target.style.background = 'rgba(255, 255, 255, 0.08)'
+
+
+
+
+
+
+
+
 
 
 
@@ -4591,7 +9176,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                 }}
+
+
+
+
+
+
+
+
 
 
 
@@ -4607,6 +9208,14 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                 <Download size={14} />
 
 
@@ -4615,7 +9224,31 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
               </button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4639,7 +9272,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
               <button
+
+
+
+
+
+
+
+
 
 
 
@@ -4655,7 +9304,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                 style={{
+
+
+
+
+
+
+
+
 
 
 
@@ -4671,7 +9336,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   alignItems: 'center',
+
+
+
+
+
+
+
+
 
 
 
@@ -4687,7 +9368,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   background: 'rgba(255, 255, 255, 0.08)',
+
+
+
+
+
+
+
+
 
 
 
@@ -4703,7 +9400,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   borderRadius: '6px',
+
+
+
+
+
+
+
+
 
 
 
@@ -4719,7 +9432,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   cursor: 'pointer',
+
+
+
+
+
+
+
+
 
 
 
@@ -4735,7 +9464,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                 }}
+
+
+
+
+
+
+
+
 
 
 
@@ -4751,7 +9496,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   e.target.style.background = 'rgba(255, 255, 255, 0.12)'
+
+
+
+
+
+
+
+
 
 
 
@@ -4767,7 +9528,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                 }}
+
+
+
+
+
+
+
+
 
 
 
@@ -4783,7 +9560,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   e.target.style.background = 'rgba(255, 255, 255, 0.08)'
+
+
+
+
+
+
+
+
 
 
 
@@ -4799,7 +9592,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                 }}
+
+
+
+
+
+
+
+
 
 
 
@@ -4815,7 +9624,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                 <MoreHorizontal size={14} />
+
+
+
+
+
+
+
+
 
 
 
@@ -4831,7 +9656,31 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
             </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4855,7 +9704,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
             <div style={{
+
+
+
+
+
+
+
+
 
 
 
@@ -4871,7 +9736,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
               alignItems: 'center',
+
+
+
+
+
+
+
+
 
 
 
@@ -4887,7 +9768,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
             }}>
+
+
+
+
+
+
+
+
 
 
 
@@ -4903,7 +9800,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                 onClick={(e) => {
+
+
+
+
+
+
+
+
 
 
 
@@ -4919,6 +9832,14 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   setShowVersionDropdown(!showVersionDropdown)
 
 
@@ -4927,7 +9848,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                 }}
+
+
+
+
+
+
+
+
 
 
 
@@ -4943,7 +9880,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                 style={{
+
+
+
+
+
+
+
+
 
 
 
@@ -4959,7 +9912,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   alignItems: 'center',
+
+
+
+
+
+
+
+
 
 
 
@@ -4975,6 +9944,14 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   fontSize: '0.85rem',
 
 
@@ -4983,7 +9960,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
-                  fontWeight: 700,
+
+
+
+
+
+
+
+
+                  fontWeight: 600,
+
+
+
+
+
+
+
+
 
 
 
@@ -4999,7 +9992,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   background: 'rgba(156, 163, 175, 0.15)',
+
+
+
+
+
+
+
+
 
 
 
@@ -5015,7 +10024,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   borderRadius: '6px',
+
+
+
+
+
+
+
+
 
 
 
@@ -5031,7 +10056,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   textTransform: 'uppercase',
+
+
+
+
+
+
+
+
 
 
 
@@ -5047,7 +10088,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   cursor: 'pointer',
+
+
+
+
+
+
+
+
 
 
 
@@ -5063,7 +10120,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                 }}
+
+
+
+
+
+
+
+
 
 
 
@@ -5079,7 +10152,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   e.target.style.background = 'rgba(156, 163, 175, 0.25)'
+
+
+
+
+
+
+
+
 
 
 
@@ -5095,7 +10184,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                 }}
+
+
+
+
+
+
+
+
 
 
 
@@ -5111,7 +10216,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   e.target.style.background = 'rgba(156, 163, 175, 0.15)'
+
+
+
+
+
+
+
+
 
 
 
@@ -5127,7 +10248,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                 }}
+
+
+
+
+
+
+
+
 
 
 
@@ -5143,7 +10280,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                 V{displayProject?.version_number || 1}
+
+
+
+
+
+
+
+
 
 
 
@@ -5159,7 +10312,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   size={12} 
+
+
+
+
+
+
+
+
 
 
 
@@ -5175,7 +10344,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   style={{
+
+
+
+
+
+
+
+
 
 
 
@@ -5191,7 +10376,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                     transform: showVersionDropdown ? 'rotate(180deg)' : 'rotate(0deg)',
+
+
+
+
+
+
+
+
 
 
 
@@ -5207,7 +10408,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                     boxShadow: 'none'
+
+
+
+
+
+
+
+
 
 
 
@@ -5223,153 +10440,311 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                 />
+
+
 
               </button>
 
+
+
               <span style={{
+
+
 
                 fontSize: '0.85rem',
 
+
+
                 fontWeight: 900,
+
+
 
                 color: '#fff',
 
+
+
                 background: 'rgba(59, 130, 246, 0.8)',
+
+
 
                 padding: '4px 10px',
 
+
+
                 borderRadius: '6px',
+
+
 
                 border: '1px solid rgba(59, 130, 246, 0.5)',
 
+
+
                 display: 'flex',
+
+
 
                 alignItems: 'center',
 
+
+
                 justifyContent: 'center',
+
+
 
                 cursor: 'pointer',
 
+
+
                 transition: 'all 0.2s'
 
+
+
               }}
+
+
 
               title="Create New Proof"
 
+
+
               onClick={handleCreateNewProof}
+
+
 
               onMouseEnter={(e) => {
 
+
+
                 e.target.style.background = 'rgba(59, 130, 246, 1)'
+
+
 
                 e.target.style.borderColor = 'rgba(59, 130, 246, 0.7)'
 
+
+
               }}
+
+
 
               onMouseLeave={(e) => {
 
+
+
                 e.target.style.background = 'rgba(59, 130, 246, 0.8)'
+
+
 
                 e.target.style.borderColor = 'rgba(59, 130, 246, 0.5)'
 
+
+
               }}
+
+
 
             >
 
+
+
               <span style={{
+
+
 
                 fontSize: '1.2rem',
 
+
+
                 fontWeight: 900,
+
+
 
                 lineHeight: 1,
 
+
+
                 display: 'flex',
+
+
 
                 alignItems: 'center',
 
+
+
                 justifyContent: 'center',
+
+
 
                 width: '100%',
 
+
+
                 height: '100%',
+
+
 
                 transform: 'translateY(-2px)'
 
+
+
               }}>+</span>
+
+
 
             </span>
 
 
 
+
+
+
+
             <span style={{
+
+
 
               fontSize: '0.85rem',
 
+
+
               fontWeight: 900,
+
+
 
               color: '#fff',
 
+
+
               background: 'rgba(59, 130, 246, 0.8)',
+
+
 
               padding: '4px 10px',
 
+
+
               borderRadius: '6px',
+
+
 
               border: '1px solid rgba(59, 130, 246, 0.5)',
 
+
+
               display: 'flex',
+
+
 
               alignItems: 'center',
 
+
+
               justifyContent: 'center',
+
+
 
               cursor: 'pointer',
 
+
+
               transition: 'all 0.2s'
 
+
+
             }}
+
+
 
             title="View PDF in new tab"
 
+
+
             onClick={() => {
+
+
 
               // Handle PDF review functionality
 
+
+
               if (project?.share_token) {
+
+
 
                 window.open(`/proof-review/${project.share_token}`, '_blank');
 
+
+
               } else {
+
+
 
                 toastManager.add('No proof ID available for this proof', 'error');
 
+
+
               }
 
+
+
             }}
+
+
 
             onMouseEnter={(e) => {
 
+
+
               e.target.style.background = 'rgba(59, 130, 246, 1)'
+
+
 
               e.target.style.borderColor = 'rgba(59, 130, 246, 0.7)'
 
+
+
             }}
+
+
 
             onMouseLeave={(e) => {
 
+
+
               e.target.style.background = 'rgba(59, 130, 246, 0.8)'
+
+
 
               e.target.style.borderColor = 'rgba(59, 130, 246, 0.5)'
 
+
+
             }}
+
+
 
           >
 
+
+
             Review
 
+
+
           </span>
+
+
+
+
 
 
 
@@ -5389,7 +10764,27 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
             {/* Version Dropdown Tray */}
+
+
+
+
 
 
 
@@ -5397,7 +10792,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
               <div style={{
+
+
+
+
 
 
 
@@ -5405,7 +10808,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 top: '100%',
+
+
+
+
 
 
 
@@ -5413,7 +10824,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 marginTop: '8px',
+
+
+
+
 
 
 
@@ -5421,7 +10840,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 backdropFilter: 'blur(20px)',
+
+
+
+
 
 
 
@@ -5429,7 +10856,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 border: '1px solid rgba(255, 255, 255, 0.1)',
+
+
+
+
 
 
 
@@ -5437,7 +10872,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 padding: '12px',
+
+
+
+
 
 
 
@@ -5445,7 +10888,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 maxWidth: '320px',
+
+
+
+
 
 
 
@@ -5453,7 +10904,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 overflow: 'auto',
+
+
+
+
 
 
 
@@ -5461,7 +10920,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 zIndex: 1000
+
+
+
+
 
 
 
@@ -5469,7 +10936,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 <div style={{
+
+
+
+
 
 
 
@@ -5477,7 +10952,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   color: 'rgba(255, 255, 255, 0.6)',
+
+
+
+
 
 
 
@@ -5485,7 +10968,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   textTransform: 'uppercase',
+
+
+
+
 
 
 
@@ -5493,7 +10984,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   marginBottom: '8px',
+
+
+
+
 
 
 
@@ -5501,7 +11000,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+
+
+
+
 
 
 
@@ -5509,7 +11016,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 }}>
+
+
+
+
 
 
 
@@ -5517,7 +11032,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 </div>
+
+
+
+
 
 
 
@@ -5525,7 +11048,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   <div style={{
+
+
+
+
 
 
 
@@ -5533,7 +11064,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                     justifyContent: 'center',
+
+
+
+
 
 
 
@@ -5541,7 +11080,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                     padding: '20px',
+
+
+
+
 
 
 
@@ -5549,7 +11096,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   }}>
+
+
+
+
 
 
 
@@ -5557,7 +11112,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   </div>
+
+
+
+
 
 
 
@@ -5565,11 +11128,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   <div style={{
 
 
 
+
+
+
+
                     display: 'flex',
+
+
+
+
 
 
 
@@ -5577,11 +11152,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                     gap: '6px'
 
 
 
+
+
+
+
                   }}>
+
+
+
+
 
 
 
@@ -5589,7 +11176,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                       <div
+
+
+
+
 
 
 
@@ -5597,35 +11192,71 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                         onClick={() => {
+
+
 
                           // Close current dropdown and switch to the selected version
 
+
+
                           setShowVersionDropdown(false)
+
+
 
                           
 
+
+
                           // Trigger switching to the selected version
+
+
 
                           if (onProjectChanged) {
 
+
+
                             onProjectChanged(version)
+
+
 
                           } else if (onProjectCreated) {
 
+
+
                             // Fallback to onProjectCreated if onProjectChanged is not provided
+
+
 
                             onProjectCreated(version)
 
+
+
                           } else {
+
+
 
                             // Final fallback: navigate to the project view
 
+
+
                             window.location.href = `/project/${version.id}`
+
+
 
                           }
 
+
+
                         }}
+
+
+
+
 
 
 
@@ -5633,7 +11264,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                           display: 'flex',
+
+
+
+
 
 
 
@@ -5641,7 +11280,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                           gap: '8px',
+
+
+
+
 
 
 
@@ -5649,7 +11296,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                           borderRadius: '6px',
+
+
+
+
 
 
 
@@ -5657,7 +11312,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                           transition: 'all 0.2s',
+
+
+
+
 
 
 
@@ -5665,11 +11328,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                           border: version.id === highestVersionId ? '1px solid rgba(255, 255, 255, 0.2)' : '1px solid transparent'
 
 
 
+
+
+
+
                         }}
+
+
+
+
 
 
 
@@ -5677,7 +11352,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                           if (version.id !== highestVersionId) {
+
+
+
+
 
 
 
@@ -5685,11 +11368,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                           }
 
 
 
+
+
+
+
                         }}
+
+
+
+
 
 
 
@@ -5697,7 +11392,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                           if (version.id !== highestVersionId) {
+
+
+
+
 
 
 
@@ -5705,7 +11408,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                           }
+
+
+
+
 
 
 
@@ -5713,11 +11424,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                       >
 
 
 
+
+
+
+
                         <span style={{
+
+
+
+
 
 
 
@@ -5725,7 +11448,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
-                          fontWeight: 700,
+
+
+
+
+                          fontWeight: 600,
+
+
+
+
 
 
 
@@ -5733,7 +11464,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                           textTransform: 'uppercase',
+
+
+
+
 
 
 
@@ -5741,7 +11480,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                           flexShrink: 0,
+
+
+
+
 
 
 
@@ -5749,7 +11496,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                         }}>
+
+
+
+
 
 
 
@@ -5757,7 +11512,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                         </span>
+
+
+
+
 
 
 
@@ -5765,7 +11528,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                           overflow: 'hidden',
+
+
+
+
 
 
 
@@ -5773,7 +11544,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                           whiteSpace: 'nowrap',
+
+
+
+
 
 
 
@@ -5781,7 +11560,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                           fontSize: '0.8rem',
+
+
+
+
 
 
 
@@ -5789,7 +11576,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                         }}>
+
+
+
+
 
 
 
@@ -5797,7 +11592,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                         </span>
+
+
+
+
 
 
 
@@ -5805,7 +11608,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                           <span style={{
+
+
+
+
 
 
 
@@ -5813,7 +11624,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                             color: 'rgba(255, 255, 255, 0.5)',
+
+
+
+
 
 
 
@@ -5821,7 +11640,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                           }}>
+
+
+
+
 
 
 
@@ -5829,7 +11656,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                           </span>
+
+
+
+
 
 
 
@@ -5837,7 +11672,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                       </div>
+
+
+
+
 
 
 
@@ -5845,7 +11688,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   </div>
+
+
+
+
 
 
 
@@ -5853,7 +11704,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                   <div style={{
+
+
+
+
 
 
 
@@ -5861,7 +11720,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                     justifyContent: 'center',
+
+
+
+
 
 
 
@@ -5869,7 +11736,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                     padding: '20px',
+
+
+
+
 
 
 
@@ -5877,7 +11752,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                     fontSize: '0.8rem'
+
+
+
+
 
 
 
@@ -5885,7 +11768,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                     No other versions found
+
+
+
+
 
 
 
@@ -5893,7 +11784,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                 )}
+
+
+
+
 
 
 
@@ -5901,7 +11800,19 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
             )}
+
+
+
+
+
+
+
+
 
 
 
@@ -5917,7 +11828,31 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
         </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -5941,7 +11876,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
         <div style={{ flex: 1, overflow: 'auto', padding: '24px' }}>
+
+
+
+
+
+
+
+
 
 
 
@@ -5957,7 +11908,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
           <div style={{ display: 'flex', gap: '60px', marginBottom: '24px', alignItems: 'flex-start' }}>
+
+
+
+
+
+
+
+
 
 
 
@@ -5973,7 +11940,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
             <div
+
+
+
+
+
+
+
+
 
 
 
@@ -5989,7 +11972,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                 width: '220px',
+
+
+
+
+
+
+
+
 
 
 
@@ -6005,7 +12004,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                 overflow: 'hidden',
+
+
+
+
+
+
+
+
 
 
 
@@ -6021,7 +12036,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                 border: '1px solid rgba(255,255,255,0.07)',
+
+
+
+
+
+
+
+
 
 
 
@@ -6037,7 +12068,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
               }}
+
+
+
+
+
+
+
+
 
 
 
@@ -6053,7 +12100,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
               {/* Thumbnail Preview Area Only - No Content Section */}
+
+
+
+
+
+
+
+
 
 
 
@@ -6069,7 +12132,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                 style={{
+
+
+
+
+
+
+
+
 
 
 
@@ -6085,7 +12164,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   height: '160px',
+
+
+
+
+
+
+
+
 
 
 
@@ -6101,7 +12196,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   backgroundSize: 'cover',
+
+
+
+
+
+
+
+
 
 
 
@@ -6117,7 +12228,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   display: 'flex',
+
+
+
+
+
+
+
+
 
 
 
@@ -6133,7 +12260,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   justifyContent: 'center',
+
+
+
+
+
+
+
+
 
 
 
@@ -6149,7 +12292,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   overflow: 'hidden',
+
+
+
+
+
+
+
+
 
 
 
@@ -6165,7 +12324,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                 }}
+
+
+
+
+
+
+
+
 
 
 
@@ -6175,13 +12350,29 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
                 onClick={() => {
 
+
+
                   if (project?.share_token) {
+
+
 
                     window.open(`/proof-review/${project.share_token}`, '_blank')
 
+
+
                   }
 
+
+
                 }}
+
+
+
+
+
+
+
+
 
 
 
@@ -6197,6 +12388,14 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                 {displayProject?.thumbnail_url ? (
 
 
@@ -6205,7 +12404,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   <img 
+
+
+
+
+
+
+
+
 
 
 
@@ -6221,7 +12436,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                     alt={displayProject.name}
+
+
+
+
+
+
+
+
 
 
 
@@ -6237,7 +12468,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                     onError={(e) => {
+
+
+
+
+
+
+
+
 
 
 
@@ -6253,7 +12500,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                       e.target.parentElement.style.background = colors[0]
+
+
+
+
+
+
+
+
 
 
 
@@ -6269,7 +12532,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   />
+
+
+
+
+
+
+
+
 
 
 
@@ -6285,7 +12564,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   <div style={{
+
+
+
+
+
+
+
+
 
 
 
@@ -6301,7 +12596,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                     height: '100%',
+
+
+
+
+
+
+
+
 
 
 
@@ -6317,7 +12628,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                     alignItems: 'center',
+
+
+
+
+
+
+
+
 
 
 
@@ -6333,7 +12660,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                     background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
+
+
+
+
+
+
+
+
 
 
 
@@ -6349,7 +12692,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   }}>
+
+
+
+
+
+
+
+
 
 
 
@@ -6365,7 +12724,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -6381,7 +12756,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   <img 
+
+
+
+
+
+
+
+
 
 
 
@@ -6397,7 +12788,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                     alt={displayProject.name}
+
+
+
+
+
+
+
+
 
 
 
@@ -6413,7 +12820,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                     onError={(e) => {
+
+
+
+
+
+
+
+
 
 
 
@@ -6429,7 +12852,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                       e.target.parentElement.style.background = colors[0]
+
+
+
+
+
+
+
+
 
 
 
@@ -6445,7 +12884,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   />
+
+
+
+
+
+
+
+
 
 
 
@@ -6461,7 +12916,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   <video
+
+
+
+
+
+
+
+
 
 
 
@@ -6477,7 +12948,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+
+
+
+
+
+
+
+
 
 
 
@@ -6493,6 +12980,14 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                     preload="metadata"
 
 
@@ -6501,7 +12996,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   />
+
+
+
+
+
+
+
+
 
 
 
@@ -6517,7 +13028,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   <div style={{
+
+
+
+
+
+
+
+
 
 
 
@@ -6533,7 +13060,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                     height: '100%',
+
+
+
+
+
+
+
+
 
 
 
@@ -6549,7 +13092,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                     alignItems: 'center',
+
+
+
+
+
+
+
+
 
 
 
@@ -6565,7 +13124,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                     background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
+
+
+
+
+
+
+
+
 
 
 
@@ -6581,7 +13156,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   }}>
+
+
+
+
+
+
+
+
 
 
 
@@ -6597,7 +13188,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -6613,7 +13220,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   <img 
+
+
+
+
+
+
+
+
 
 
 
@@ -6629,6 +13252,14 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                     alt={firstAsset.name}
 
 
@@ -6637,7 +13268,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+
+
+
+
+
+
+
+
 
 
 
@@ -6653,7 +13300,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                       e.target.style.display = 'none'
+
+
+
+
+
+
+
+
 
 
 
@@ -6669,6 +13332,14 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                     }}
 
 
@@ -6677,7 +13348,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   />
+
+
+
+
+
+
+
+
 
 
 
@@ -6693,7 +13380,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   <video
+
+
+
+
+
+
+
+
 
 
 
@@ -6709,7 +13412,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+
+
+
+
+
+
+
+
 
 
 
@@ -6725,7 +13444,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                     preload="metadata"
+
+
+
+
+
+
+
+
 
 
 
@@ -6741,7 +13476,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                 ) : (
+
+
+
+
+
+
+
+
 
 
 
@@ -6757,7 +13508,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                     width: 48, height: 48, borderRadius: 14,
+
+
+
+
+
+
+
+
 
 
 
@@ -6773,7 +13540,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
+
+
+
+
+
+
+
+
 
 
 
@@ -6789,7 +13572,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                     boxShadow: '0 6px 20px rgba(10,132,255,0.3)',
+
+
+
+
+
+
+
+
 
 
 
@@ -6805,7 +13604,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                     {displayProject?.name?.[0]?.toUpperCase()}
+
+
+
+
+
+
+
+
 
 
 
@@ -6821,7 +13636,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                 )}
+
+
+
+
+
+
+
+
 
 
 
@@ -6837,7 +13668,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                 <div style={{
+
+
+
+
+
+
+
+
 
 
 
@@ -6853,7 +13700,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   bottom: '8px',
+
+
+
+
+
+
+
+
 
 
 
@@ -6869,7 +13732,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   padding: '4px 8px',
+
+
+
+
+
+
+
+
 
 
 
@@ -6885,7 +13764,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   borderRadius: '4px',
+
+
+
+
+
+
+
+
 
 
 
@@ -6901,7 +13796,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   color: '#fff',
+
+
+
+
+
+
+
+
 
 
 
@@ -6917,7 +13828,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   fontWeight: 600
+
+
+
+
+
+
+
+
 
 
 
@@ -6933,7 +13860,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   {displayProject?.asset_file_type || firstAsset?.file_type || 'Project'}
+
+
+
+
+
+
+
+
 
 
 
@@ -6949,6 +13892,14 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
               </div>
 
 
@@ -6957,7 +13908,31 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
             </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -6981,7 +13956,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
+
+
+
+
+
+
+
+
 
 
 
@@ -6997,7 +13988,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
               <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '36px' }}>
+
+
+
+
+
+
+
+
 
 
 
@@ -7013,7 +14020,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                 <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 600 }}>
+
+
+
+
+
+
+
+
 
 
 
@@ -7029,6 +14052,14 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                 </span>
 
 
@@ -7037,7 +14068,31 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
               </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -7061,7 +14116,23 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
               <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '36px' }}>
+
+
+
+
+
+
+
+
 
 
 
@@ -7077,6 +14148,14 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                 {(() => {
 
 
@@ -7085,8 +14164,27 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
                   // Show loading state instead of defaulting to not_started to prevent incorrect display
+
                   const status = reviewCycle?.status || (project ? 'loading' : 'not_started')
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -7106,7 +14204,27 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
+
+
                     loading: {
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -7120,7 +14238,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                       background: 'transparent',
+
+
+
+
 
 
 
@@ -7128,7 +14254,15 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
                       icon: '...',
+
+
+
+
 
 
 
@@ -7142,7 +14276,25 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
+
+
                     }, 
+
+
+
+
+
+
+
+
 
 
 
@@ -7160,7 +14312,25 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
+
+
                       color: '#FFFFFF', 
+
+
+
+
+
+
+
+
 
 
 
@@ -7176,7 +14346,6 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
-                      border: '1px solid #D1D5DB', 
 
 
 
@@ -7184,7 +14353,8 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
-                      icon: '\ud83d\ude34', 
+
+                      border: '', 
 
 
 
@@ -7192,7 +14362,41 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
-                      label: 'Not Started' 
+
+
+
+
+
+
+
+
+                      icon: '😴', 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                      label: (<span style={{ fontSize: '13.5px', marginLeft: '-3px' }}>Not Started</span>)
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -7210,6 +14414,14 @@ function ProjectDetailsTray({ isOpen, onClose, project, onProjectDeleted, onProj
 
 
 
+
+
+
+
+
+
+
+
 in_progress: {
 
 
@@ -7220,7 +14432,25 @@ in_progress: {
 
 
 
-color: '#D97706', 
+
+
+
+
+
+
+
+
+
+
+color: '#FFD60A', 
+
+
+
+
+
+
+
+
 
 
 
@@ -7238,7 +14468,6 @@ background: 'transparent',
 
 
 
-                      border: '1px solid #F59E0B', 
 
 
 
@@ -7246,7 +14475,10 @@ background: 'transparent',
 
 
 
-                      icon: '\u231B', 
+
+
+
+                      border: '', 
 
 
 
@@ -7254,7 +14486,39 @@ background: 'transparent',
 
 
 
-                      label: 'In Progress' 
+
+
+
+
+
+
+
+
+                      icon: '⌛', 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                      label: (<span style={{ fontSize: '13.5px', marginLeft: '-5px' }}>In Progress</span>)
+
+
+
+
+
+
+
+
 
 
 
@@ -7263,6 +14527,14 @@ background: 'transparent',
 
 
                     }, 
+
+
+
+
+
+
+
+
 
 
 
@@ -7282,6 +14554,18 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
                       color: '#10B981',
 
 
@@ -7290,7 +14574,6 @@ background: 'transparent',
 
 
 
-                      background: 'rgba(16,185,129,0.15)',
 
 
 
@@ -7298,7 +14581,32 @@ background: 'transparent',
 
 
 
-                      border: '1px solid rgba(16,185,129,0.4)',
+
+                      background: 'transparent',
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                      border: '',
+
+
+
+
+
+
+
+
 
 
 
@@ -7314,7 +14622,23 @@ background: 'transparent',
 
 
 
-                      label: 'Approved'
+
+
+
+
+
+
+
+
+                      label: (<span style={{ fontSize: '14.7px', marginLeft: '-2px' }}>Approved with Changes</span>)
+
+
+
+
+
+
+
+
 
 
 
@@ -7323,6 +14647,14 @@ background: 'transparent',
 
 
                     },
+
+
+
+
+
+
+
+
 
 
 
@@ -7338,7 +14670,6 @@ background: 'transparent',
 
 
 
-                      color: '#3B82F6',
 
 
 
@@ -7346,7 +14677,8 @@ background: 'transparent',
 
 
 
-                      background: 'rgba(59,130,246,0.15)',
+
+                      color: '#FFD60A',
 
 
 
@@ -7354,7 +14686,6 @@ background: 'transparent',
 
 
 
-                      border: '1px solid rgba(59,130,246,0.4)',
 
 
 
@@ -7362,7 +14693,8 @@ background: 'transparent',
 
 
 
-                      icon: '✓',
+
+                      background: 'transparent',
 
 
 
@@ -7370,7 +14702,56 @@ background: 'transparent',
 
 
 
-                      label: 'Approved with Changes'
+
+
+
+
+
+
+
+
+                      border: '',
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                      icon: '⚠️',
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                      label: (<span style={{ fontSize: '14.7px', marginLeft: '-2px' }}>Approved with Changes</span>)
+                      
+
+
+
+
+
+
+
+
 
 
 
@@ -7386,7 +14767,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                     rejected: {
+
+
+
+
+
+
+
+
 
 
 
@@ -7402,7 +14799,6 @@ background: 'transparent',
 
 
 
-                      background: 'rgba(239,68,68,0.15)',
 
 
 
@@ -7410,7 +14806,32 @@ background: 'transparent',
 
 
 
-                      border: '1px solid rgba(239,68,68,0.4)',
+
+                      background: 'transparent',
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                      border: '',
+
+
+
+
+
+
+
+
 
 
 
@@ -7426,7 +14847,23 @@ background: 'transparent',
 
 
 
-                      label: 'Rejected'
+
+
+
+
+
+
+
+
+                      label: (<span style={{ fontSize: '13.7px', marginLeft: '-2px' }}>Rejected</span>)
+
+
+
+
+
+
+
+
 
 
 
@@ -7442,7 +14879,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                   }
+
+
+
+
+
+
+
+
 
 
 
@@ -7458,7 +14911,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                   
+
+
+
+
+
+
+
+
 
 
 
@@ -7474,7 +14943,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                     <span style={{ 
+
+
+
+
+
+
+
+
 
 
 
@@ -7490,7 +14975,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                       color: config.color, 
+
+
+
+
+
+
+
+
 
 
 
@@ -7506,7 +15007,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                       display: 'flex',
+
+
+
+
+
+
+
+
 
 
 
@@ -7522,6 +15039,14 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                       gap: '6px',
 
 
@@ -7530,7 +15055,23 @@ background: 'transparent',
 
 
 
-                      padding: '4px 10px',
+
+
+
+
+
+
+
+
+                      padding: '2px 8px',
+
+
+
+
+
+
+
+
 
 
 
@@ -7546,7 +15087,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                       borderRadius: '6px',
+
+
+
+
+
+
+
+
 
 
 
@@ -7562,7 +15119,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                     }}>
+
+
+
+
+
+
+
+
 
 
 
@@ -7578,7 +15151,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                         <span style={{ fontSize: (config.icon === '\u231B' || config.icon === '\ud83d\ude34') ? '18px' : '14px' }}>{config.icon}</span>
+
+
+
+
+
+
+
+
 
 
 
@@ -7594,7 +15183,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                         config.icon
+
+
+
+
+
+
+
+
 
 
 
@@ -7610,7 +15215,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                       {config.label}
+
+
+
+
+
+
+
+
 
 
 
@@ -7626,7 +15247,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                   )
+
+
+
+
+
+
+
+
 
 
 
@@ -7642,7 +15279,31 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
               </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -7666,7 +15327,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
               <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '36px' }}>
+
+
+
+
+
+
+
+
 
 
 
@@ -7682,7 +15359,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+
+
+
+
+
+
+
+
 
 
 
@@ -7698,7 +15391,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                   <div style={{
+
+
+
+
+
+
+
+
 
 
 
@@ -7714,7 +15423,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                     height: 36,
+
+
+
+
+
+
+
+
 
 
 
@@ -7730,7 +15455,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                     background: 'linear-gradient(135deg,#0A84FF,#5E5CE6)',
+
+
+
+
+
+
+
+
 
 
 
@@ -7746,7 +15487,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                     alignItems: 'center',
+
+
+
+
+
+
+
+
 
 
 
@@ -7762,6 +15519,14 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                     fontSize: '0.9rem',
 
 
@@ -7770,7 +15535,23 @@ background: 'transparent',
 
 
 
-                    fontWeight: 700,
+
+
+
+
+
+
+
+
+                    fontWeight: 600,
+
+
+
+
+
+
+
+
 
 
 
@@ -7786,7 +15567,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                     flexShrink: 0
+
+
+
+
+
+
+
+
 
 
 
@@ -7802,7 +15599,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                     {displayProject?.owner?.username?.[0]?.toUpperCase() || 
+
+
+
+
+
+
+
+
 
 
 
@@ -7818,6 +15631,14 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                      <User size={18} />}
 
 
@@ -7826,7 +15647,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                   </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -7842,7 +15679,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
+
+
+
+
+
+
+
+
 
 
 
@@ -7858,7 +15711,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                       {displayProject?.owner?.username || 
+
+
+
+
+
+
+
+
 
 
 
@@ -7874,7 +15743,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                        displayProject?.created_by?.username || 
+
+
+
+
+
+
+
+
 
 
 
@@ -7890,7 +15775,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                     </span>
+
+
+
+
+
+
+
+
 
 
 
@@ -7906,7 +15807,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                       {displayProject?.owner?.email || 
+
+
+
+
+
+
+
+
 
 
 
@@ -7922,7 +15839,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                        ''}
+
+
+
+
+
+
+
+
 
 
 
@@ -7938,7 +15871,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                   </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -7954,7 +15903,31 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
               </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -7978,7 +15951,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
               <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '36px' }}>
+
+
+
+
+
+
+
+
 
 
 
@@ -7994,7 +15983,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                 <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 600 }}>
+
+
+
+
+
+
+
+
 
 
 
@@ -8010,7 +16015,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                     ? (() => {
+
+
+
+
+
+
+
+
 
 
 
@@ -8026,7 +16047,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                         const dateStr = date.toLocaleDateString()
+
+
+
+
+
+
+
+
 
 
 
@@ -8042,7 +16079,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                         timeStr = timeStr.replace(/\s?(am|pm)$/i, (match) => match.toUpperCase())
+
+
+
+
+
+
+
+
 
 
 
@@ -8058,7 +16111,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                       })()
+
+
+
+
+
+
+
+
 
 
 
@@ -8074,6 +16143,14 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                 </span>
 
 
@@ -8082,7 +16159,31 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
               </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -8106,7 +16207,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
               <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start', gap: '36px' }}>
+
+
+
+
+
+
+
+
 
 
 
@@ -8122,7 +16239,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 }}>
+
+
+
+
+
+
+
+
 
 
 
@@ -8138,7 +16271,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                     displayProject.assets.map((asset, index) => (
+
+
+
+
+
+
+
+
 
 
 
@@ -8154,7 +16303,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                         <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 600 }}>
+
+
+
+
+
+
+
+
 
 
 
@@ -8170,7 +16335,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                         </span>
+
+
+
+
+
+
+
+
 
 
 
@@ -8186,7 +16367,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                     ))
+
+
+
+
+
+
+
+
 
 
 
@@ -8202,7 +16399,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                     <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 600 }}>0</span>
+
+
+
+
+
+
+
+
 
 
 
@@ -8218,7 +16431,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                 </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -8234,6 +16463,14 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
             </div>
 
 
@@ -8242,7 +16479,31 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
           </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -8266,7 +16527,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
             <div style={{ textAlign: 'center', padding: '40px 0' }}>
+
+
+
+
+
+
+
+
 
 
 
@@ -8282,7 +16559,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                 Loading assets...
+
+
+
+
+
+
+
+
 
 
 
@@ -8298,7 +16591,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
             </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -8322,7 +16631,31 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
           {/* Workflow Section Divider */}
+
+
+
+
+
+
+
+
 
 
 
@@ -8338,7 +16671,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
             width: '100%',
+
+
+
+
+
+
+
+
 
 
 
@@ -8354,6 +16703,14 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
             background: 'rgba(255, 255, 255, 0.15)',
 
 
@@ -8362,7 +16719,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
             margin: '32px 0 24px 0'
+
+
+
+
+
+
+
+
 
 
 
@@ -8386,7 +16759,31 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
           {/* Sub-Tab Navigation */}
+
+
+
+
+
+
+
+
 
 
 
@@ -8402,7 +16799,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
             display: 'flex',
+
+
+
+
+
+
+
+
 
 
 
@@ -8418,7 +16831,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
             marginBottom: '20px',
+
+
+
+
+
+
+
+
 
 
 
@@ -8434,7 +16863,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
             paddingBottom: '0'
+
+
+
+
+
+
+
+
 
 
 
@@ -8450,7 +16895,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
             {['workflow', 'brief', 'integrations', 'settings', 'activity', 'emails'].map((tab) => (
+
+
+
+
+
+
+
+
 
 
 
@@ -8466,7 +16927,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                 key={tab}
+
+
+
+
+
+
+
+
 
 
 
@@ -8482,7 +16959,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                 style={{
+
+
+
+
+
+
+
+
 
 
 
@@ -8498,7 +16991,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                   background: activeSubTab === tab ? 'rgba(10, 132, 255, 0.1)' : 'transparent',
+
+
+
+
+
+
+
+
 
 
 
@@ -8514,7 +17023,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                   borderBottom: activeSubTab === tab ? '2px solid #0A84FF' : '2px solid transparent',
+
+
+
+
+
+
+
+
 
 
 
@@ -8530,7 +17055,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                   fontSize: '0.85rem',
+
+
+
+
+
+
+
+
 
 
 
@@ -8546,7 +17087,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                   cursor: 'pointer',
+
+
+
+
+
+
+
+
 
 
 
@@ -8562,7 +17119,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                   textTransform: 'capitalize',
+
+
+
+
+
+
+
+
 
 
 
@@ -8578,7 +17151,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                 }}
+
+
+
+
+
+
+
+
 
 
 
@@ -8594,7 +17183,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                   if (activeSubTab !== tab) {
+
+
+
+
+
+
+
+
 
 
 
@@ -8610,7 +17215,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                     e.target.style.color = 'rgba(255, 255, 255, 0.8)'
+
+
+
+
+
+
+
+
 
 
 
@@ -8626,7 +17247,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                 }}
+
+
+
+
+
+
+
+
 
 
 
@@ -8642,7 +17279,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                   if (activeSubTab !== tab) {
+
+
+
+
+
+
+
+
 
 
 
@@ -8658,7 +17311,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                     e.target.style.color = 'rgba(255, 255, 255, 0.6)'
+
+
+
+
+
+
+
+
 
 
 
@@ -8674,7 +17343,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                 }}
+
+
+
+
+
+
+
+
 
 
 
@@ -8690,7 +17375,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                 {tab}
+
+
+
+
+
+
+
+
 
 
 
@@ -8706,7 +17407,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
             ))}
+
+
+
+
+
+
+
+
 
 
 
@@ -8730,7 +17447,31 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
           {/* Sub-Tab Content */}
+
+
+
+
+
+
+
+
 
 
 
@@ -8746,7 +17487,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
             <div>
+
+
+
+
+
+
+
+
 
 
 
@@ -8762,7 +17519,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                 <div style={{ textAlign: 'center', padding: '40px 0' }}>
+
+
+
+
+
+
+
+
 
 
 
@@ -8778,7 +17551,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                     Loading workflow...
+
+
+
+
+
+
+
+
 
 
 
@@ -8794,7 +17583,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                 </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -8810,7 +17615,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                 <div style={{ textAlign: 'center', padding: '40px 0' }}>
+
+
+
+
+
+
+
+
 
 
 
@@ -8826,7 +17647,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                   <h3 style={{ color: '#fff', fontSize: '1.2rem', fontWeight: 600, marginBottom: '8px' }}>
+
+
+
+
+
+
+
+
 
 
 
@@ -8842,7 +17679,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                   </h3>
+
+
+
+
+
+
+
+
 
 
 
@@ -8858,7 +17711,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                     This proof doesn't have an active workflow yet.
+
+
+
+
+
+
+
+
 
 
 
@@ -8874,7 +17743,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                 </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -8890,646 +17775,1301 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                 <>
+
+
 
                   {/* Workflow Status Overview - HIDDEN */}
 
+
+
                   {/* <div style={{
+
+
 
                     background: 'rgba(255,255,255,0.03)',
 
+
+
                     border: '1px solid rgba(255,255,255,0.08)',
+
+
 
                     borderRadius: '12px',
 
+
+
                     padding: '16px 20px',
+
+
 
                     marginBottom: '24px',
 
+
+
                     display: 'flex',
+
+
 
                     alignItems: 'center',
 
+
+
                     justifyContent: 'space-between'
+
+
 
                   }}>
 
+
+
                     <div>
+
+
 
                       <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.5)', marginBottom: '6px' }}>
 
+
+
                         Overall Status
+
+
 
                       </div>
 
+
+
                       {(() => {
 
+
+
                         // Show loading state instead of defaulting to not_started to prevent incorrect display
+
                   const status = reviewCycle?.proof_status || (project ? 'loading' : 'not_started')
+
+
 
                         const statusConfig = {
 
+
+
                           loading: {
+
+
 
                             color: 'rgba(255,255,255,0.5)',
 
+
+
                             background: 'transparent',
+
+
 
                             border: '1px solid rgba(255,255,255,0.3)',
 
+
+
                             icon: '...',
+
+
 
                             label: 'Loading'
 
+
+
                           },
+
+
 
                           not_started: {
 
+
+
                             color: '#FFFFFF',
 
+
+
                             background: 'transparent',
+
+
 
                             border: '1px solid #D1D5DB',
 
+
+
                             icon: '\ud83d\ude34',
+
+
 
                             label: 'Not Started'
 
+
+
                           },
+
+
 
                           in_progress: {
 
-                            color: '#D97706',
 
-                            background: 'transparent',
+
+                            color: '#D97706', 
+
+
+
+                            background: 'transparent', 
+
+
 
                             border: '1px solid #F59E0B',
 
+
+
                             icon: '\u231B',
+
+
 
                             label: 'In Progress'
 
+
+
                           },
+
+
 
                           approved: {
 
+
+
                             color: '#10B981',
+
+
 
                             background: 'rgba(16,185,129,0.15)',
 
+
+
                             border: '1px solid rgba(16,185,129,0.4)',
+
+
 
                             icon: '✅',
 
+
+
                             label: 'Approved'
 
+
+
                           },
+
+
 
                           approved_with_changes: {
 
+
+
                             color: '#3B82F6',
+
+
 
                             background: 'rgba(59,130,246,0.15)',
 
+
+
                             border: '1px solid rgba(59,130,246,0.4)',
+
+
 
                             icon: '✓',
 
+
+
                             label: 'Approved with Changes'
+
+
 
                           },
 
+
+
                           rejected: {
+
+
 
                             color: '#EF4444',
 
+
+
                             background: 'rgba(239,68,68,0.15)',
+
+
 
                             border: '1px solid rgba(239,68,68,0.4)',
 
+
+
                             icon: '❌',
+
+
 
                             label: 'Rejected'
 
+
+
                           }
+
+
 
                         }
 
+
+
                         const config = statusConfig[status] || statusConfig.not_started
+
+
 
                         
 
+
+
                         return (
+
+
 
                           <span style={{ 
 
+
+
                             fontSize: '0.85rem', 
+
+
 
                             color: config.color, 
 
+
+
                             fontWeight: 600,
+
+
 
                             display: 'flex',
 
+
+
                             alignItems: 'center',
 
-                            gap: '8px',
 
-                            padding: '6px 12px',
 
-                            background: config.background,
+                            gap: '8px', 
+
+
+
+                            padding: '4px 10px', 
+
+
+
+                            background: config.background, 
+
+
 
                             borderRadius: '8px',
 
+
+
                             border: config.border,
+
+
 
                             width: 'fit-content'
 
+
+
                           }}>
+
+
 
                             {typeof config.icon === 'string' ? (
 
+
+
                               <span style={{ fontSize: (config.icon === '\u231B' || config.icon === '\ud83d\ude34') ? '20px' : '16px' }}>{config.icon}</span>
+
+
 
                             ) : (
 
+
+
                               config.icon
+
+
 
                             )}
 
+
+
                             {config.label}
+
+
 
                           </span>
 
+
+
                         )
+
+
 
                       })()}
 
+
+
                     </div>
+
+
 
                   </div> */}
 
 
 
+
+
+
+
                   {/* User Status Card - HIDDEN */}
+
+
 
                   {/* {myMember && (
 
+
+
                     <div style={{
+
+
 
                       background: 'rgba(255,255,255,0.05)',
 
+
+
                       border: '1px solid rgba(255,255,255,0.1)',
+
+
 
                       borderRadius: '12px',
 
+
+
                       padding: '20px',
+
+
 
                       marginBottom: '24px'
 
+
+
                     }}>
+
+
 
                       <div style={{ marginBottom: '16px' }}>
 
+
+
                         <div style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)', marginBottom: '8px' }}>
+
+
 
                           Your Status
 
+
+
                         </div>
+
+
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
 
+
+
                           <span style={{
+
+
 
                             padding: '6px 12px',
 
+
+
                             borderRadius: '6px',
+
+
 
                             fontSize: '0.85rem',
 
+
+
                             fontWeight: 600,
+
+
 
                             background: myMember.socd_status === 'sent' ? 'rgba(156,163,175,0.2)' :
 
+
+
                                        myMember.socd_status === 'open' ? 'rgba(16,185,129,0.2)' :
+
+
 
                                        myMember.socd_status === 'commented' ? 'rgba(59,130,246,0.2)' :
 
+
+
                                        'rgba(16,185,129,0.2)',
+
+
 
                             color: myMember.socd_status === 'sent' ? '#9CA3AF' :
 
+
+
                                    myMember.socd_status === 'open' ? '#10B981' :
+
+
 
                                    myMember.socd_status === 'commented' ? '#3B82F6' :
 
+
+
                                    '#10B981',
+
+
 
                             border: myMember.socd_status === 'sent' ? '1px solid rgba(156,163,175,0.3)' :
 
+
+
                                     myMember.socd_status === 'open' ? '1px solid rgba(16,185,129,0.3)' :
+
+
 
                                     myMember.socd_status === 'commented' ? '1px solid rgba(59,130,246,0.3)' :
 
+
+
                                     '1px solid rgba(16,185,129,0.3)'
+
+
 
                           }}>
 
+
+
                             {myMember.socd_status === 'sent' ? '⚪ Sent' :
+
+
 
                              myMember.socd_status === 'open' ? '🟢 Opened' :
 
+
+
                              myMember.socd_status === 'commented' ? '🔵 Commented' :
+
+
 
                              '✅ Decision Made'}
 
+
+
                           </span>
+
+
 
                         </div>
 
+
+
                       </div>
+
+
 
                       
 
+
+
                       <div style={{ marginBottom: '16px' }}>
+
+
 
                         <div style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)', marginBottom: '8px' }}>
 
+
+
                           Group
 
+
+
                         </div>
+
+
 
                         <div style={{ fontSize: '1rem', color: '#fff', fontWeight: 600 }}>
 
+
+
                           {myMember.group?.name || 'Unknown Group'}
+
+
 
                         </div>
 
+
+
                       </div>
+
+
+
+
 
 
 
                       {myMember.group?.status === 'locked' && (
 
+
+
                         <div style={{
+
+
 
                           display: 'flex',
 
+
+
                           alignItems: 'center',
+
+
 
                           gap: '8px',
 
+
+
                           padding: '12px',
+
+
 
                           background: 'rgba(251,191,36,0.1)',
 
+
+
                           border: '1px solid rgba(251,191,36,0.3)',
+
+
 
                           borderRadius: '8px',
 
+
+
                           color: '#FBBF24',
+
+
 
                           fontSize: '0.85rem'
 
+
+
                         }}>
+
+
 
                           <Lock size={16} />
 
+
+
                           <span>Group is locked - waiting for previous stage</span>
+
+
 
                         </div>
 
+
+
                       )}
+
+
+
+
 
 
 
                       {myMember.decision !== 'pending' && (
 
+
+
                         <div style={{
+
+
 
                           display: 'flex',
 
+
+
                           alignItems: 'center',
+
+
 
                           gap: '8px',
 
+
+
                           padding: '12px',
+
+
 
                           background: 'rgba(16,185,129,0.1)',
 
+
+
                           border: '1px solid rgba(16,185,129,0.3)',
+
+
 
                           borderRadius: '8px',
 
+
+
                           color: '#10B981',
+
+
 
                           fontSize: '0.85rem'
 
+
+
                         }}>
+
+
 
                           <CheckCircle size={16} />
 
+
+
                           <span>You have made your decision: {myMember.decision}</span>
+
+
 
                         </div>
 
+
+
                       )}
+
+
 
                     </div>
 
+
+
                   )} */}
+
+
+
+
 
 
 
                   {/* Action Buttons - HIDDEN */}
 
+
+
                   {/* {myMember && currentUser?.profile?.role !== 'lite_user' && (
+
+
 
                     <div style={{ marginBottom: '24px' }}>
 
+
+
                       <div style={{ fontSize: '0.9rem', color: 'rgba(255,255,255,0.6)', marginBottom: '12px', fontWeight: 600 }}>
+
+
 
                         Actions
 
+
+
                       </div>
+
+
 
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
 
+
+
                         <button
+
+
 
                           onClick={handleAddComment}
 
+
+
                           disabled={myMember.group?.status === 'locked' || myMember.decision !== 'pending'}
+
+
 
                           style={{
 
+
+
                             display: 'flex',
+
+
 
                             alignItems: 'center',
 
+
+
                             gap: '12px',
 
+
+
                             padding: '14px 18px',
+
+
 
                             background: myMember.group?.status === 'locked' || myMember.decision !== 'pending' 
 
+
+
                               ? 'rgba(255,255,255,0.05)' 
+
+
 
                               : 'rgba(59,130,246,0.15)',
 
+
+
                             border: myMember.group?.status === 'locked' || myMember.decision !== 'pending'
 
+
+
                               ? '1px solid rgba(255,255,255,0.1)'
+
+
 
                               : '1px solid rgba(59,130,246,0.3)',
 
+
+
                             borderRadius: '10px',
+
+
 
                             color: myMember.group?.status === 'locked' || myMember.decision !== 'pending'
 
+
+
                               ? 'rgba(255,255,255,0.4)'
+
+
 
                               : '#3B82F6',
 
+
+
                             fontSize: '0.95rem',
+
+
 
                             fontWeight: 600,
 
+
+
                             cursor: myMember.group?.status === 'locked' || myMember.decision !== 'pending' ? 'not-allowed' : 'pointer',
+
+
 
                             transition: 'all 0.2s'
 
+
+
                           }}
+
+
 
                           onMouseEnter={(e) => {
 
+
+
                             if (myMember.group?.status !== 'locked' && myMember.decision === 'pending') {
+
+
 
                               e.target.style.background = 'rgba(59,130,246,0.25)'
 
+
+
                             }
+
+
 
                           }}
 
+
+
                           onMouseLeave={(e) => {
 
+
+
                             if (myMember.group?.status !== 'locked' && myMember.decision === 'pending') {
+
+
 
                               e.target.style.background = 'rgba(59,130,246,0.15)'
 
+
+
                             }
+
+
 
                           }}
 
+
+
                         >
+
+
 
                           <MessageSquare size={20} />
 
+
+
                           <span>Add Comment</span>
+
+
 
                         </button>
 
 
 
+
+
+
+
                         <button
+
+
 
                           onClick={handleApprove}
 
+
+
                           disabled={myMember.group?.status === 'locked' || myMember.decision !== 'pending'}
+
+
 
                           style={{
 
+
+
                             display: 'flex',
+
+
 
                             alignItems: 'center',
 
+
+
                             gap: '12px',
+
+
 
                             padding: '14px 18px',
 
+
+
                             background: myMember.group?.status === 'locked' || myMember.decision !== 'pending'
+
+
 
                               ? 'rgba(255,255,255,0.05)'
 
+
+
                               : 'rgba(16,185,129,0.15)',
+
+
 
                             border: myMember.group?.status === 'locked' || myMember.decision !== 'pending'
 
+
+
                               ? '1px solid rgba(255,255,255,0.1)'
+
+
 
                               : '1px solid rgba(16,185,129,0.3)',
 
+
+
                             borderRadius: '10px',
+
+
 
                             color: myMember.group?.status === 'locked' || myMember.decision !== 'pending'
 
+
+
                               ? 'rgba(255,255,255,0.4)'
+
+
 
                               : '#10B981',
 
+
+
                             fontSize: '0.95rem',
+
+
 
                             fontWeight: 600,
 
+
+
                             cursor: myMember.group?.status === 'locked' || myMember.decision !== 'pending' ? 'not-allowed' : 'pointer',
+
+
 
                             transition: 'all 0.2s'
 
+
+
                           }}
+
+
 
                           onMouseEnter={(e) => {
 
+
+
                             if (myMember.group?.status !== 'locked' && myMember.decision === 'pending') {
+
+
 
                               e.target.style.background = 'rgba(16,185,129,0.25)'
 
+
+
                             }
 
+
+
                           }}
+
+
 
                           onMouseLeave={(e) => {
 
+
+
                             if (myMember.group?.status !== 'locked' && myMember.decision === 'pending') {
+
+
 
                               e.target.style.background = 'rgba(16,185,129,0.15)'
 
+
+
                             }
+
+
 
                           }}
 
+
+
                         >
+
+
 
                           <CheckCircle size={20} />
 
+
+
                           <span>Approve</span>
 
+
+
                         </button>
+
+
+
+
 
 
 
                         <button
 
+
+
                           onClick={handleReject}
+
+
 
                           disabled={myMember.group?.status === 'locked' || myMember.decision !== 'pending'}
 
+
+
                           style={{
+
+
 
                             display: 'flex',
 
+
+
                             alignItems: 'center',
+
+
 
                             gap: '12px',
 
+
+
                             padding: '14px 18px',
+
+
 
                             background: myMember.group?.status === 'locked' || myMember.decision !== 'pending'
 
+
+
                               ? 'rgba(255,255,255,0.05)'
+
+
 
                               : 'rgba(239,68,68,0.15)',
 
+
+
                             border: myMember.group?.status === 'locked' || myMember.decision !== 'pending'
+
+
 
                               ? '1px solid rgba(255,255,255,0.1)'
 
+
+
                               : '1px solid rgba(239,68,68,0.3)',
+
+
 
                             borderRadius: '10px',
 
+
+
                             color: myMember.group?.status === 'locked' || myMember.decision !== 'pending'
+
+
 
                               ? 'rgba(255,255,255,0.4)'
 
+
+
                               : '#EF4444',
+
+
 
                             fontSize: '0.95rem',
 
+
+
                             fontWeight: 600,
+
+
 
                             cursor: myMember.group?.status === 'locked' || myMember.decision !== 'pending' ? 'not-allowed' : 'pointer',
 
+
+
                             transition: 'all 0.2s'
 
+
+
                           }}
+
+
 
                           onMouseEnter={(e) => {
 
+
+
                             if (myMember.group?.status !== 'locked' && myMember.decision === 'pending') {
+
+
 
                               e.target.style.background = 'rgba(239,68,68,0.25)'
 
+
+
                             }
 
+
+
                           }}
+
+
 
                           onMouseLeave={(e) => {
 
+
+
                             if (myMember.group?.status !== 'locked' && myMember.decision === 'pending') {
+
+
 
                               e.target.style.background = 'rgba(239,68,68,0.15)'
 
+
+
                             }
+
+
 
                           }}
 
+
+
                         >
+
+
 
                           <XCircle size={20} />
 
+
+
                           <span>Reject</span>
+
+
 
                         </button>
 
+
+
                       </div>
+
+
 
                     </div>
 
+
+
                   )} */}
+
+
+
+
 
 
 
                   {/* Lite User View Only Message - HIDDEN */}
 
+
+
                   {/* {currentUser?.profile?.role === 'lite_user' && (
+
+
 
                     <div style={{
 
+
+
                       padding: '20px',
+
+
 
                       background: 'rgba(156,163,175,0.1)',
 
+
+
                       border: '1px solid rgba(156,163,175,0.2)',
+
+
 
                       borderRadius: '12px',
 
+
+
                       textAlign: 'center',
+
+
 
                       marginBottom: '24px'
 
+
+
                     }}>
+
+
 
                       <Eye size={32} style={{ color: '#9CA3AF', marginBottom: '12px' }} />
 
+
+
                       <div style={{ color: '#9CA3AF', fontSize: '0.95rem', fontWeight: 600 }}>
+
+
 
                         View Only Access
 
+
+
                       </div>
+
+
 
                       <div style={{ color: 'rgba(156,163,175,0.7)', fontSize: '0.85rem', marginTop: '4px' }}>
 
+
+
                         You can view the workflow but cannot make decisions
+
+
 
                       </div>
 
+
+
                     </div>
+
+
 
                   )} */}
 
 
 
+
+
+
+
                   {/* Workflow Progress */}
+
+
+
+
+
+
+
+
 
 
 
@@ -9545,7 +19085,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                     <div>
+
+
+
+
+
+
+
+
 
 
 
@@ -9561,6 +19117,14 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                         Workflow Progress
 
 
@@ -9569,7 +19133,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                       </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -9585,7 +19165,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                         {groups.map((group, index) => (
+
+
+
+
+
+
+
+
 
 
 
@@ -9601,7 +19197,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                             key={group.id}
+
+
+
+
+
+
+
+
 
 
 
@@ -9617,7 +19229,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                               padding: '16px',
+
+
+
+
+
+
+
+
 
 
 
@@ -9633,6 +19261,14 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                                 ? 'rgba(10,132,255,0.1)'
 
 
@@ -9641,7 +19277,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                                 : group.status === 'completed'
+
+
+
+
+
+
+
+
 
 
 
@@ -9657,7 +19309,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                                 : 'rgba(255,255,255,0.05)',
+
+
+
+
+
+
+
+
 
 
 
@@ -9673,7 +19341,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                                 ? '1px solid rgba(10,132,255,0.3)'
+
+
+
+
+
+
+
+
 
 
 
@@ -9689,7 +19373,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                                 ? '1px solid rgba(16,185,129,0.3)'
+
+
+
+
+
+
+
+
 
 
 
@@ -9705,7 +19405,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                               borderRadius: '10px'
+
+
+
+
+
+
+
+
 
 
 
@@ -9721,7 +19437,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                           >
+
+
+
+
+
+
+
+
 
 
 
@@ -9737,7 +19469,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+
+
+
+
+
+
+
+
 
 
 
@@ -9753,7 +19501,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                                   width: '28px',
+
+
+
+
+
+
+
+
 
 
 
@@ -9769,7 +19533,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                                   borderRadius: '50%',
+
+
+
+
+
+
+
+
 
 
 
@@ -9785,7 +19565,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                                   color: '#fff',
+
+
+
+
+
+
+
+
 
 
 
@@ -9801,7 +19597,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                                   alignItems: 'center',
+
+
+
+
+
+
+
+
 
 
 
@@ -9817,7 +19629,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                                   fontSize: '0.85rem',
+
+
+
+
+
+
+
+
 
 
 
@@ -9833,7 +19661,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                                 }}>
+
+
+
+
+
+
+
+
 
 
 
@@ -9849,7 +19693,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                                 </span>
+
+
+
+
+
+
+
+
 
 
 
@@ -9865,7 +19725,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                                   {group.name}
+
+
+
+
+
+
+
+
 
 
 
@@ -9881,7 +19757,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                               </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -9897,7 +19789,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                                 padding: '4px 10px',
+
+
+
+
+
+
+
+
 
 
 
@@ -9913,7 +19821,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                                 fontSize: '0.75rem',
+
+
+
+
+
+
+
+
 
 
 
@@ -9925,7 +19849,15 @@ background: 'transparent',
 
 
 
+
+
+
+
                                 background: group.stage_status === 'not_started' ? 'rgba(107,114,128,0.2)' :
+
+
+
+
 
 
 
@@ -9933,7 +19865,15 @@ background: 'transparent',
 
 
 
+
+
+
+
                                            group.stage_status === 'approved' ? 'rgba(16,185,129,0.2)' :
+
+
+
+
 
 
 
@@ -9941,7 +19881,15 @@ background: 'transparent',
 
 
 
+
+
+
+
                                            group.stage_status === 'approved_with_changes' ? 'rgba(251,191,36,0.2)' :
+
+
+
+
 
 
 
@@ -9949,7 +19897,15 @@ background: 'transparent',
 
 
 
+
+
+
+
                                 color: group.stage_status === 'not_started' ? '#6B7280' :
+
+
+
+
 
 
 
@@ -9957,7 +19913,15 @@ background: 'transparent',
 
 
 
+
+
+
+
                                        group.stage_status === 'approved' ? '#10B981' :
+
+
+
+
 
 
 
@@ -9965,7 +19929,15 @@ background: 'transparent',
 
 
 
+
+
+
+
                                        group.stage_status === 'approved_with_changes' ? '#FBB024' :
+
+
+
+
 
 
 
@@ -9975,7 +19947,17 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
                               }}>
+
+
+
+
 
 
 
@@ -9983,7 +19965,15 @@ background: 'transparent',
 
 
 
+
+
+
+
                                  group.stage_status === 'in_progress' ? 'In Progress' :
+
+
+
+
 
 
 
@@ -9991,15 +19981,35 @@ background: 'transparent',
 
 
 
+
+
+
+
                                  group.stage_status === 'rejected' ? '✗ Rejected' :
+
+
+
+
 
 
 
                                  group.stage_status === 'approved_with_changes' ? 'Approved with Changes' :
 
+
+
                                  'Action Required'}
 
+
+
                               </span>
+
+
+
+
+
+
+
+
 
 
 
@@ -10015,7 +20025,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                             {group.members && group.members.length > 0 && (
+
+
+
+
+
+
+
+
 
 
 
@@ -10031,7 +20057,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                                 <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.5)', marginBottom: '8px' }}>
+
+
+
+
+
+
+
+
 
 
 
@@ -10047,7 +20089,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                                 </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -10063,7 +20121,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                                   {group.members.map(member => (
+
+
+
+
+
+
+
+
 
 
 
@@ -10079,7 +20153,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                                       <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.85rem' }}>
+
+
+
+
+
+
+
+
 
 
 
@@ -10095,7 +20185,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                                       </span>
+
+
+
+
+
+
+
+
 
 
 
@@ -10104,27 +20210,56 @@ background: 'transparent',
 
 
                                       <span style={{ 
-                                        fontSize: '0.7rem',
-                                        padding: '2px 8px',
+
+                                        fontSize: '0.75rem',
+
+                                        padding: '4px 10px',
+
                                         borderRadius: '4px',
+
                                         fontWeight: 600,
+
                                         background: member.reviewer_progress === 'not_started' ? 'rgba(107,114,128,0.2)' :
+
                                                    member.reviewer_progress === 'reviewing' ? 'rgba(10,132,255,0.2)' :
+
                                                    member.reviewer_progress === 'approved' ? 'rgba(16,185,129,0.2)' :
+
                                                    member.reviewer_progress === 'rejected' ? 'rgba(239,68,68,0.2)' :
+
                                                    'rgba(251,191,36,0.2)',
+
                                         color: member.reviewer_progress === 'not_started' ? '#6B7280' :
+
                                                member.reviewer_progress === 'reviewing' ? '#0A84FF' :
+
                                                member.reviewer_progress === 'approved' ? '#10B981' :
+
                                                member.reviewer_progress === 'rejected' ? '#EF4444' :
+
                                                '#FBB024'
+
                                       }}>
+
                                         {member.reviewer_progress === 'not_started' ? 'Not Started' :
+
                                          member.reviewer_progress === 'reviewing' ? 'Reviewing' :
+
                                          member.reviewer_progress === 'approved' ? 'Approved' :
+
                                          member.reviewer_progress === 'rejected' ? 'Rejected' :
+
                                          'Approved with Changes'}
+
                                       </span>
+
+
+
+
+
+
+
+
 
 
 
@@ -10140,7 +20275,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                                   ))}
+
+
+
+
+
+
+
+
 
 
 
@@ -10156,7 +20307,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                               </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -10172,7 +20339,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                           </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -10188,7 +20371,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                       </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -10204,7 +20403,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                   )}
+
+
+
+
+
+
+
+
 
 
 
@@ -10220,6 +20435,14 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
               )}
 
 
@@ -10228,7 +20451,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
             </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -10244,7 +20483,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
             /* Placeholder for other sub-tabs */
+
+
+
+
+
+
+
+
 
 
 
@@ -10260,7 +20515,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
               textAlign: 'center',
+
+
+
+
+
+
+
+
 
 
 
@@ -10276,7 +20547,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
               background: 'rgba(255,255,255,0.02)',
+
+
+
+
+
+
+
+
 
 
 
@@ -10292,7 +20579,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
               border: '1px solid rgba(255,255,255,0.05)'
+
+
+
+
+
+
+
+
 
 
 
@@ -10308,7 +20611,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
               <div style={{ fontSize: '48px', marginBottom: '16px' }}>🚧</div>
+
+
+
+
+
+
+
+
 
 
 
@@ -10324,7 +20643,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
                 Coming Soon
+
+
+
+
+
+
+
+
 
 
 
@@ -10340,7 +20675,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
               <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.9rem' }}>
+
+
+
+
+
+
+
+
 
 
 
@@ -10356,7 +20707,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
               </p>
+
+
+
+
+
+
+
+
 
 
 
@@ -10372,7 +20739,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
           )}
+
+
+
+
+
+
+
+
 
 
 
@@ -10388,6 +20771,14 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
       </div>
 
 
@@ -10396,7 +20787,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
       
+
+
+
+
+
+
+
+
 
 
 
@@ -10412,7 +20819,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
       {showDecisionModal && reviewCycle && myMember && (
+
+
+
+
+
+
+
+
 
 
 
@@ -10428,7 +20851,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
           isOpen={showDecisionModal}
+
+
+
+
+
+
+
+
 
 
 
@@ -10444,7 +20883,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
           reviewCycleId={reviewCycle.id}
+
+
+
+
+
+
+
+
 
 
 
@@ -10460,7 +20915,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
           onDecisionSuccess={handleDecisionSuccess}
+
+
+
+
+
+
+
+
 
 
 
@@ -10476,7 +20947,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
         />
+
+
+
+
+
+
+
+
 
 
 
@@ -10492,7 +20979,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
       
+
+
+
+
+
+
+
+
 
 
 
@@ -10508,7 +21011,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
         isOpen={showDeleteModal}
+
+
+
+
+
+
+
+
 
 
 
@@ -10524,7 +21043,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
         onConfirm={handleConfirmDelete}
+
+
+
+
+
+
+
+
 
 
 
@@ -10540,6 +21075,14 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
         deleting={deleting}
 
 
@@ -10548,7 +21091,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
       />
+
+
+
+
+
+
+
+
 
 
 
@@ -10564,7 +21123,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
         isOpen={showCreateModal}
+
+
+
+
+
+
+
+
 
 
 
@@ -10580,19 +21155,47 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
         onSuccess={() => {
+
+
 
           setShowCreateModal(false)
 
+
+
           onClose() // Close the ProjectDetailsTray
+
+
 
           if (onProjectCreated) {
 
+
+
             onProjectCreated() // Refresh parent data
+
+
 
           }
 
+
+
         }}
+
+
+
+
+
+
+
+
 
 
 
@@ -10608,7 +21211,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
       />
+
+
+
+
+
+
+
+
 
 
 
@@ -10624,7 +21243,23 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
   )
+
+
+
+
+
+
+
+
 
 
 
@@ -10648,7 +21283,31 @@ background: 'transparent',
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 export default ProjectDetailsTray
+
+
+
+
+
+
+
+
 
 
 

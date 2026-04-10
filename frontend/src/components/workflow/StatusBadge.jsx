@@ -3,7 +3,7 @@ import React from 'react'
 const StatusBadge = ({ status, size = 'md' }) => {
   const sizeClasses = {
     sm: 'px-2 py-0.5 text-xs',
-    md: 'px-3 py-1 text-sm'
+    md: 'px-3 py-2 text-sm'
   }
 
   const getStatusConfig = () => {
@@ -27,6 +27,7 @@ const StatusBadge = ({ status, size = 'md' }) => {
           bg: 'bg-green-500',
           text: 'text-white',
           label: 'Approved',
+          icon: ' ',
           pulse: false
         }
       case 'approved_with_changes':
@@ -95,6 +96,11 @@ const StatusBadge = ({ status, size = 'md' }) => {
         ${config.pulse ? 'animate-pulse' : ''}
       `}
     >
+      {config.icon && (
+        <span className="text-lg mr-1" style={{ fontSize: '1.2em' }}>
+          {config.icon}
+        </span>
+      )}
       {config.label}
     </span>
   )

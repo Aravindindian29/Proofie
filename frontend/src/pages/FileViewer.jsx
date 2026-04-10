@@ -323,6 +323,12 @@ function FileViewer() {
     }
   }
 
+  const handleAnnotationsChange = () => {
+    if (asset?.current_version?.id) {
+      fetchAnnotations(asset.current_version.id)
+    }
+  }
+
   const createReviewCycleForAsset = async (assetId) => {
     try {
       console.log('🔄 Creating review cycle for asset:', assetId)
@@ -720,10 +726,12 @@ function FileViewer() {
                 
                 {/* Comment Sidebar */}
                 <CommentSidebar
+                  key={`sidebar-${annotations.length}`}
                   versionId={asset.current_version?.id}
                   currentPage={currentPage}
                   onCommentClick={handleCommentClick}
                   activeCommentId={activeCommentId}
+                  onAnnotationsChange={handleAnnotationsChange}
                 />
               </>
             )

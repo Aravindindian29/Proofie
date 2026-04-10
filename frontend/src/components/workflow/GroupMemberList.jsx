@@ -16,7 +16,7 @@ const GroupMemberList = ({ members }) => {
   const getDecisionBadge = (decision) => {
     switch (decision) {
       case 'approved':
-        return <StatusBadge status="approved" size="sm" />
+        return <StatusBadge status="approved" size="md" />
       case 'rejected':
         return <StatusBadge status="rejected" size="sm" />
       case 'changes_requested':

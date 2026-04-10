@@ -2,7 +2,7 @@ from rest_framework import serializers
 from .models import (
     WorkflowTemplate, WorkflowStage, WorkflowStageApprover, 
     ReviewCycle, StageApproval, WorkflowTransition,
-    ApprovalGroup, GroupMember
+    ApprovalGroup, GroupMember, Activity
 )
 from apps.versioning.serializers import UserBasicSerializer
 
@@ -116,3 +116,19 @@ class ReviewCycleDetailSerializer(serializers.ModelSerializer):
             'id', 'asset', 'template', 'status', 'proof_status', 'current_stage', 'initiated_by',
             'initiated_at', 'completed_at', 'notes', 'groups', 'transitions'
         ]
+
+
+class ActivitySerializer(serializers.ModelSerializer):
+    user = UserBasicSerializer(read_only=True)
+    formatted_time = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Activity
+        fields = [
+            'id', 'user', 'activity_type', 'content', 'metadata', 
+            'timestamp', 'formatted_time'
+        ]
+    
+    def get_formatted_time(self, obj):
+        """Format timestamp in 12-hour format"""
+        return obj.timestamp.strftime('%b %d, %I:%M %p')

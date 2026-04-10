@@ -11,4 +11,5 @@ urlpatterns = [
     path('test-jira/', views.test_jira_connection, name='test_jira'),
     path('jira-post/', views.post_to_jira, name='post_to_jira'),
     path('generate-tests/', views.generate_test_cases, name='generate_tests'),
+    path('generate-tests-single/', views.generate_test_cases_single, name='generate_tests_single'),
 ]

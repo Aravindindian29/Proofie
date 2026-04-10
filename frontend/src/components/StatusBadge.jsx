@@ -5,37 +5,37 @@ const StatusBadge = ({ status, size = 'default' }) => {
     not_started: {
       color: '#FFFFFF',
       background: 'transparent',
-      border: '1px solid #D1D5DB',
-      icon: '\ud83d\ude34',
-      label: 'Not Started'
+      border: '2px solid #D1D5DB',
+      icon: <span style={{ fontSize: '12.5px' }}>😴</span>,
+      label: <span style={{ fontSize: '12px', marginLeft: '-2px' }}><b>Not Started</b></span>
     },
     in_progress: {
-      color: '#D97706',
+      color: '#EAB308',
       background: 'transparent',
-      border: '1px solid #F59E0B',
-      icon: '\u231B',
-      label: 'In Progress'
+      border: '2px solid rgba(255, 214, 10)',
+      icon: <span style={{ fontSize: '12.5px' }}>⌛</span>,
+      label: <span style={{ fontSize: '12px', marginLeft: '-2px' }}><b>In Progress</b></span>
     },
     approved: {
       color: '#10B981',
-      background: 'rgba(16,185,129,0.15)',
-      border: '2px solid rgba(16,185,129,0.4)',
-      icon: '✅',
-      label: 'Approved'
+      background: 'transparent',
+      border: '2px solid rgba(9, 237, 161, 0.86)',
+      icon: <span style={{ fontSize: '12.5px' }}>✅</span>,
+      label: <span style={{ fontSize: '12px', marginLeft: '-2px' }}><b>Approved</b></span>
     },
     approved_with_changes: {
-      color: '#3B82F6',
-      background: 'rgba(59,130,246,0.15)',
-      border: '2px solid rgba(59,130,246,0.4)',
-      icon: '✓',
-      label: 'Approved with Changes'
+      color: '#EAB308',
+      background: 'transparent',
+      border: '2px solid rgba(255, 214, 10)',
+      icon: <span style={{ fontSize: '12.5px' }}>⚠️</span>,
+      label: <span style={{ fontSize: '12px', marginLeft: '-2px' }}><b>Approved with Changes</b></span>
     },
     rejected: {
       color: '#EF4444',
-      background: 'rgba(239,68,68,0.15)',
-      border: '2px solid rgba(239,68,68,0.4)',
-      icon: '❌',
-      label: 'Rejected'
+      background: 'transparent',
+      border: '2px solid rgba(242, 8, 8, 0.87)',
+      icon: <span style={{ fontSize: '12px' }}>❌</span>,
+      label: <span style={{ fontSize: '12px', marginLeft: '-1px' }}><b>Rejected</b></span>
     }
   }
 
@@ -78,7 +78,7 @@ const StatusBadge = ({ status, size = 'default' }) => {
       border: config.border
     }}>
       <span style={{ 
-        fontSize: (config.icon === '\u231B' || config.icon === '\ud83d\ude34') ? sizeStyle.iconSize + 4 : sizeStyle.iconSize,
+        fontSize: (config.icon === '\u231B' || config.icon === '\ud83d\ude34' || config.icon === ' ') ? sizeStyle.iconSize + 4 : sizeStyle.iconSize,
         display: 'flex',
         alignItems: 'center'
       }}>{config.icon}</span>

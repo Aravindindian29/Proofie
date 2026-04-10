@@ -384,11 +384,18 @@ function CreateProofModal({ isOpen, onClose, onSuccess, parentProject }) {
       return
     }
 
-    // Validate stage reviewers - at least Stage 1 must have reviewers
+    // Validate stage reviewers - all stages must have reviewers
     if (selectedTemplate && stageReviewers) {
-      const firstStage = selectedTemplate.stages.find(s => s.order === 1)
-      if (firstStage && (!stageReviewers[firstStage.id] || stageReviewers[firstStage.id].length === 0)) {
-        toast.error('Please add at least one reviewer to Stage 1', { id: 'validation-error' })
+      const emptyStages = []
+      selectedTemplate.stages.forEach(stage => {
+        if (!stageReviewers[stage.id] || stageReviewers[stage.id].length === 0) {
+          emptyStages.push(stage.order)
+        }
+      })
+      
+      if (emptyStages.length > 0) {
+        const stageNumbers = emptyStages.sort((a, b) => a - b).join(', ')
+        toast.error(`Please add at least one reviewer to Stage${emptyStages.length > 1 ? 's' : ''} ${stageNumbers}`, { id: 'validation-error' })
         return
       }
     }

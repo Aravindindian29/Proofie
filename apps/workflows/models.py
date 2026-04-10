@@ -257,6 +257,31 @@ class StageApproval(models.Model):
         return f"{approver_name} - {self.stage.name}"
 
 
+class Activity(models.Model):
+    ACTIVITY_TYPES = [
+        ('comment', 'Comment Added'),
+        ('comment_deleted', 'Comment Deleted'),
+        ('decision', 'Decision Made'),
+    ]
+    
+    review_cycle = models.ForeignKey(ReviewCycle, on_delete=models.CASCADE, related_name='activities')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='activities')
+    activity_type = models.CharField(max_length=20, choices=ACTIVITY_TYPES)
+    content = models.TextField(help_text="Formatted activity description")
+    metadata = models.JSONField(default=dict, help_text="Store decision type, comment text, etc.")
+    timestamp = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-timestamp']
+        indexes = [
+            models.Index(fields=['review_cycle', 'timestamp']),
+            models.Index(fields=['user', 'timestamp']),
+        ]
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.get_activity_type_display()} on {self.review_cycle.asset.name}"
+
+
 class WorkflowTransition(models.Model):
     review_cycle = models.ForeignKey(ReviewCycle, on_delete=models.CASCADE, related_name='transitions')
     from_stage = models.ForeignKey(WorkflowStage, on_delete=models.SET_NULL, null=True, blank=True, related_name='transitions_from')

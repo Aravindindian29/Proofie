@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Sparkles, FileText, GitCompare, CheckCircle, ExternalLink, FileSpreadsheet, X, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
+import * as XLSX from 'xlsx';
 
 const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
   console.log('🔥🔥🔥 ProofiePlusModal LOADED with NEW titles!!!');
@@ -12,6 +13,8 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
   const [asIsVersion, setAsIsVersion] = useState('');
   const [toBeVersion, setToBeVersion] = useState('');
   const [attachToJira, setAttachToJira] = useState(false);
+  const [jiraContent, setJiraContent] = useState(null);
+  const [jiraPosted, setJiraPosted] = useState(false);
 
   const features = [
     {
@@ -29,21 +32,21 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
       description: 'Version Comparison',
       color: 'purple',
       endpoint: '/ai-engine/compare/',
-      disabled: false
+      disabled: true
     },
     {
       id: 'analyze',
-      title: 'Content Analysis + Compliance Checks. ',
+      title: 'Content Analysis + Smart UX Change Detection',
       icon: CheckCircle,
-      description: 'Content Analysis + Compliance Checks. ',
+      description: 'Content Analysis + Smart UX Change Detection',
       color: 'green',
       endpoint: '/ai-engine/analyze-content/'
     },
     {
       id: 'jira',
-      title: 'Post Summary to jira ticket',
+      title: 'Jira Integration',
       icon: ExternalLink,
-      description: 'Post Summary to jira ticket',
+      description: 'Jira Integration',
       color: 'orange',
       disabled: false
     },
@@ -105,10 +108,29 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
           analysis_types: ['language', 'compliance']
         };
       } else if (feature.id === 'jira') {
-        endpoint = '/ai-engine/jira-post/';
-        requestBody = {
-          version_id: versionId
-        };
+        // First get the summary to preview
+        const summaryResponse = await api.post('/ai-engine/summarize/', {
+          version_id: versionId,
+          detail_level: 'brief'
+        });
+        
+        console.log('JIRA Summary Response:', summaryResponse.data);
+        
+        // Format the content that will be posted
+        const summary = summaryResponse.data.summary;
+        const cpiId = summaryResponse.data.cpi_id || summary?.cpi_id;
+        
+        console.log('Summary:', summary);
+        console.log('CPI ID:', cpiId);
+        
+        const formattedContent = formatJiraContent(summary, cpiId);
+        console.log('Formatted Content:', formattedContent);
+        
+        setJiraContent({ summary, cpiId, formattedContent });
+        setJiraPosted(false);
+        setResult(null);
+        setLoading(false);
+        return;
       }
 
       const response = await api.post(endpoint, requestBody);
@@ -158,28 +180,32 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
   };
 
   const handleGenerateTestCases = async () => {
-    if (!asIsVersion || !toBeVersion) {
-      toast.error('Please select both AS-IS and TO-BE versions');
-      return;
-    }
-
-    if (asIsVersion === toBeVersion) {
-      toast.error('Please select different versions');
-      return;
-    }
-
     setLoading(true);
     setResult(null);
 
     try {
-      const response = await api.post('/ai-engine/generate-tests/', {
-        as_is_version_id: asIsVersion,
-        to_be_version_id: toBeVersion,
-        attach_to_jira: attachToJira
+      const response = await api.post('/ai-engine/generate-tests-single/', {
+        version_id: versionId
       });
       
       setResult(response.data);
-      toast.success('Test cases generated!');
+      
+      // Automatically trigger Excel download
+      if (response.data.excel_url) {
+        const link = document.createElement('a');
+        link.href = response.data.excel_url;
+        link.download = response.data.excel_filename || 'test_cases.xlsx';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        toast.success('Test cases downloaded successfully!');
+        
+        // Return to ProofiePlus features after download
+        setTimeout(() => {
+          setActiveFeature(null);
+          setResult(null);
+        }, 1500); // Wait 1.5 seconds for user to see the success message
+      }
     } catch (error) {
       console.error('Error:', error);
       const errorMessage = error.response?.data?.error || error.message || 'Failed to generate test cases';
@@ -197,42 +223,274 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
 
     return (
       <div className="space-y-4">
-        <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-lg">
-          <h3 className="text-xl font-bold text-gray-800 mb-2">{summary.title || 'Document Summary'}</h3>
-          <div className="flex gap-4 text-sm">
-            <span className="bg-white px-3 py-1 rounded-full">
-              <strong>Type:</strong> {summary.type || 'N/A'}
-            </span>
-            <span className="bg-white px-3 py-1 rounded-full">
+        {/* Header with high-level summary */}
+        <div style={{
+          background: 'linear-gradient(135deg, #0A84FF, #5E5CE6)',
+          padding: 20,
+          borderRadius: 16,
+          border: '1px solid rgba(10, 132, 255, 0.3)'
+        }}>
+          <h3 style={{
+            fontSize: '1.25rem',
+            fontWeight: 700,
+            color: '#fff',
+            marginBottom: 12
+          }}>Document Summary</h3>
+          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: '0.875rem' }}>
+            <span style={{
+              background: 'rgba(255,255,255,0.2)',
+              padding: '6px 12px',
+              borderRadius: 20,
+              color: '#fff',
+              border: '1px solid rgba(255,255,255,0.3)'
+            }}>
               <strong>Pages:</strong> {summary.pages || 'N/A'}
             </span>
-            <span className="bg-white px-3 py-1 rounded-full">
+            <span style={{
+              background: 'rgba(255,255,255,0.2)',
+              padding: '6px 12px',
+              borderRadius: 20,
+              color: '#fff',
+              border: '1px solid rgba(255,255,255,0.3)'
+            }}>
               <strong>Complexity:</strong> {summary.complexity || 'N/A'}
             </span>
           </div>
           {summary.cpi_id && (
-            <div className="mt-2">
-              <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-sm font-semibold">
-                CPI ID: {summary.cpi_id}
+            <div style={{ marginTop: 12 }}>
+              <span style={{
+                background: 'rgba(64, 224, 208, 0.3)',
+                color: '#40E0D0',
+                padding: '6px 12px',
+                borderRadius: 20,
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                border: '1px solid rgba(64, 224, 208, 0.4)'
+              }}>
+                {summary.cpi_id}
               </span>
             </div>
           )}
         </div>
 
+        {/* High-level summary */}
+        {summary.high_level_summary && (
+          <div>
+            <h4 style={{ fontWeight: 600, color: '#fff', marginBottom: 12, fontSize: '1rem' }}>High-Level Summary:</h4>
+            <div style={{
+              background: 'rgba(255,255,255,0.1)',
+              padding: 16,
+              borderRadius: 12,
+              border: '1px solid rgba(255,255,255,0.2)',
+              color: 'rgba(255,255,255,0.9)',
+              lineHeight: 1.6
+            }}>
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0, gap: 8, display: 'flex', flexDirection: 'column' }}>
+                {(() => {
+                  const text = summary.high_level_summary;
+                  // Split by common separators and create meaningful bullet points
+                  const points = text.split(/,?\s*(?:by|and|to|for|with|in)\s+/).filter(point => point.trim().length > 0);
+                  
+                  // If the split doesn't work well, fallback to sentence splitting
+                  const finalPoints = points.length > 1 ? points : text.split(/[.!?]+/).filter(sentence => sentence.trim().length > 0);
+                  
+                  return finalPoints.map((point, idx) => {
+                    const cleanPoint = point.trim().replace(/^[,\s]+|[,\s]+$/g, '');
+                    const formattedPoint = cleanPoint.charAt(0).toUpperCase() + cleanPoint.slice(1) + (cleanPoint.endsWith('.') ? '' : '.');
+                    return (
+                      <li key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 8 }}>
+                        <span style={{ color: '#0A84FF', marginTop: 2, fontSize: '1.2rem' }}>â¢</span>
+                        <span style={{ color: 'rgba(255,255,255,0.8)', lineHeight: 1.5 }}>
+                          {formattedPoint}
+                        </span>
+                      </li>
+                    );
+                  });
+                })()}
+              </ul>
+            </div>
+          </div>
+        )}
+
+        {/* Changes included */}
+        {summary.changes_included && summary.changes_included.length > 0 && (
+          <div>
+            <h4 style={{ fontWeight: 600, color: '#fff', marginBottom: 12, fontSize: '1rem' }}>Changes Included:</h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {summary.changes_included.map((change, idx) => (
+                <div key={idx} style={{
+                  background: 'rgba(255,255,255,0.05)',
+                  padding: 16,
+                  borderRadius: 12,
+                  border: '1px solid rgba(255,255,255,0.1)'
+                }}>
+                  <div style={{ color: '#fff', fontWeight: 600, marginBottom: 8 }}>{change.description}</div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {change.affected_channels && change.affected_channels.map((channel, channelIdx) => (
+                      <span key={channelIdx} style={{
+                        background: 'rgba(10, 132, 255, 0.2)',
+                        color: '#0A84FF',
+                        padding: '4px 8px',
+                        borderRadius: 12,
+                        fontSize: '0.75rem',
+                        fontWeight: 500
+                      }}>
+                        {channel}
+                      </span>
+                    ))}
+                    <span style={{
+                      background: change.impact_level === 'high' ? 'rgba(255, 59, 48, 0.2)' : 
+                                 change.impact_level === 'medium' ? 'rgba(255, 149, 0, 0.2)' : 
+                                 'rgba(52, 199, 89, 0.2)',
+                      color: change.impact_level === 'high' ? '#FF3B30' : 
+                             change.impact_level === 'medium' ? '#FF9500' : 
+                             '#34C759',
+                      padding: '4px 8px',
+                      borderRadius: 12,
+                      fontSize: '0.75rem',
+                      fontWeight: 500
+                    }}>
+                      {change.impact_level} impact
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Application pages with changes */}
+        {summary.application_pages_with_changes && summary.application_pages_with_changes.length > 0 && (
+          <div>
+            <h4 style={{ fontWeight: 600, color: '#fff', marginBottom: 12, fontSize: '1rem' }}>Application Pages with Changes:</h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {summary.application_pages_with_changes.map((page, idx) => (
+                <div key={idx} style={{
+                  background: 'rgba(255,255,255,0.05)',
+                  padding: 16,
+                  borderRadius: 12,
+                  border: '1px solid rgba(255,255,255,0.1)'
+                }}>
+                  <div style={{ color: '#fff', fontWeight: 600, marginBottom: 4 }}>{page.page_name}</div>
+                  <div style={{ 
+                    color: 'rgba(255,255,255,0.6)', 
+                    fontSize: '0.875rem', 
+                    marginBottom: 8 
+                  }}>
+                    Type: {page.change_type}
+                  </div>
+                  <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.875rem' }}>
+                    {page.description}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* A/B Testing */}
+        {summary.ab_testing_included && (
+          <div>
+            <h4 style={{ fontWeight: 600, color: '#fff', marginBottom: 12, fontSize: '1rem' }}>A/B Testing:</h4>
+            <div style={{
+              background: summary.ab_testing_included.has_ab_testing ? 'rgba(52, 199, 89, 0.1)' : 'rgba(255,255,255,0.05)',
+              padding: 16,
+              borderRadius: 12,
+              border: summary.ab_testing_included.has_ab_testing ? '1px solid rgba(52, 199, 89, 0.3)' : '1px solid rgba(255,255,255,0.1)'
+            }}>
+              <div style={{
+                color: summary.ab_testing_included.has_ab_testing ? '#34C759' : 'rgba(255,255,255,0.6)',
+                fontWeight: 600,
+                marginBottom: 8
+              }}>
+                {summary.ab_testing_included.has_ab_testing ? 'â A/B Testing Included' : 'â No A/B Testing'}
+              </div>
+              {summary.ab_testing_included.test_details && (
+                <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.875rem' }}>
+                  {summary.ab_testing_included.test_details}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        
+        {/* Disclosures */}
+        {summary.disclosures && summary.disclosures.length > 0 && (
+          <div>
+            <h4 style={{ fontWeight: 600, color: '#fff', marginBottom: 12, fontSize: '1rem' }}>Disclosures:</h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {summary.disclosures.map((disclosure, idx) => (
+                <div key={idx} style={{
+                  background: disclosure.importance === 'high' ? 'rgba(255, 59, 48, 0.1)' : 
+                             disclosure.importance === 'medium' ? 'rgba(255, 149, 0, 0.1)' : 
+                             'rgba(255,255,255,0.05)',
+                  padding: 16,
+                  borderRadius: 12,
+                  border: disclosure.importance === 'high' ? '1px solid rgba(255, 59, 48, 0.3)' : 
+                           disclosure.importance === 'medium' ? '1px solid rgba(255, 149, 0, 0.3)' : 
+                           '1px solid rgba(255,255,255,0.1)'
+                }}>
+                  <div style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'flex-start',
+                    marginBottom: 8 
+                  }}>
+                    <span style={{
+                      background: disclosure.type === 'new' ? 'rgba(52, 199, 89, 0.2)' : 'rgba(255, 149, 0, 0.2)',
+                      color: disclosure.type === 'new' ? '#34C759' : '#FF9500',
+                      padding: '4px 8px',
+                      borderRadius: 12,
+                      fontSize: '0.75rem',
+                      fontWeight: 500
+                    }}>
+                      {disclosure.type.toUpperCase()}
+                    </span>
+                    <span style={{
+                      background: disclosure.importance === 'high' ? 'rgba(255, 59, 48, 0.2)' : 
+                                 disclosure.importance === 'medium' ? 'rgba(255, 149, 0, 0.2)' : 
+                                 'rgba(52, 199, 89, 0.2)',
+                      color: disclosure.importance === 'high' ? '#FF3B30' : 
+                             disclosure.importance === 'medium' ? '#FF9500' : 
+                             '#34C759',
+                      padding: '4px 8px',
+                      borderRadius: 12,
+                      fontSize: '0.75rem',
+                      fontWeight: 500
+                    }}>
+                      {disclosure.importance} importance
+                    </span>
+                  </div>
+                  <div style={{ color: '#fff', fontWeight: 600, marginBottom: 4 }}>
+                    {disclosure.location}
+                  </div>
+                  <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.875rem' }}>
+                    {disclosure.disclosure_text}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Additional highlights (fallback for old structure) */}
         {summary.key_highlights && summary.key_highlights.length > 0 && (
           <div>
-            <h4 className="font-semibold text-gray-700 mb-2">Key Highlights:</h4>
-            <ul className="space-y-2">
+            <h4 style={{ fontWeight: 600, color: '#fff', marginBottom: 12, fontSize: '1rem' }}>Key Highlights:</h4>
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0, gap: 8, display: 'flex', flexDirection: 'column' }}>
               {summary.key_highlights.map((highlight, idx) => (
-                <li key={idx} className="flex items-start gap-2">
-                  <span className="text-blue-500 mt-1">•</span>
-                  <span className="text-gray-700">{highlight}</span>
+                <li key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 8 }}>
+                  <span style={{ color: '#0A84FF', marginTop: 2, fontSize: '1.2rem' }}>â¢</span>
+                  <span style={{ color: 'rgba(255,255,255,0.8)', lineHeight: 1.5 }}>{highlight}</span>
                 </li>
               ))}
             </ul>
           </div>
         )}
 
+        
+        {/* Sections (fallback for old structure) */}
         {summary.sections && summary.sections.length > 0 && (
           <div>
             <h4 className="font-semibold text-gray-700 mb-2">Sections:</h4>
@@ -253,8 +511,14 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
         )}
 
         {summary.estimated_review_time && (
-          <div className="bg-blue-50 p-3 rounded">
-            <strong>Estimated Review Time:</strong> {summary.estimated_review_time}
+          <div style={{
+            background: 'linear-gradient(135deg, #0A84FF, #5E5CE6)',
+            padding: 16,
+            borderRadius: 16,
+            border: '1px solid rgba(10, 132, 255, 0.3)'
+          }}>
+            <strong style={{ color: '#fff', fontSize: '0.875rem' }}>Estimated Review Time:</strong>{' '}
+            <span style={{ color: 'rgba(255,255,255,0.9)', fontSize: '0.875rem' }}>{summary.estimated_review_time}</span>
           </div>
         )}
 
@@ -441,41 +705,200 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
     );
   };
 
+  const formatJiraContent = (summary, cpiId) => {
+    let content = '*ProofiePlus AI - Acceptance Criteria*\n\n';
+    
+    if (cpiId) {
+      content += `*CPI ID:* ${cpiId}\n`;
+    }
+    
+    // Determine document type based on content analysis
+    let docType = 'Technical Specification';
+    if (summary.new_email_templates && summary.new_email_templates.length > 0) {
+      docType = 'Email Templates Specification';
+    } else if (summary.ab_testing_included && summary.ab_testing_included.has_ab_testing) {
+      docType = 'A/B Testing Specification';
+    } else if (summary.application_pages_with_changes && summary.application_pages_with_changes.length > 0) {
+      docType = 'Application Flow Changes';
+    } else if (summary.high_level_summary && (summary.high_level_summary.toLowerCase().includes('ux') || summary.high_level_summary.toLowerCase().includes('ui'))) {
+      docType = 'UX Specification';
+    }
+    
+    content += `*Type:* ${docType}\n`;
+    content += `*Complexity:* ${summary.complexity || 'N/A'}\n\n`;
+    
+    // Add high-level summary as bullet points
+    if (summary.high_level_summary) {
+      content += '*Summary:*\n';
+      // Split summary by common separators to create meaningful bullet points
+      let points = [];
+      const text = summary.high_level_summary;
+      
+      // Try splitting by "through", "by", "via", "including", commas followed by "and"
+      const splitPatterns = [
+        /\s+through\s+/i,
+        /\s+by\s+/i,
+        /\s+via\s+/i,
+        /,\s*and\s+/i,
+        /\s+including\s+/i
+      ];
+      
+      // Split the text into parts
+      let parts = [text];
+      splitPatterns.forEach(pattern => {
+        let newParts = [];
+        parts.forEach(part => {
+          const split = part.split(pattern);
+          newParts.push(...split);
+        });
+        parts = newParts;
+      });
+      
+      // Clean and format each part as a bullet point
+      parts.forEach(part => {
+        const trimmed = part.trim();
+        if (trimmed && trimmed.length > 10) { // Only add meaningful points
+          // Capitalize first letter and ensure proper formatting
+          let formatted = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+          // Remove trailing periods or commas
+          formatted = formatted.replace(/[,.]$/, '');
+          content += `* ${formatted}\n`;
+        }
+      });
+      content += '\n';
+    }
+    
+    // Add changes included
+    if (summary.changes_included && summary.changes_included.length > 0) {
+      content += '*Changes Included:*\n';
+      summary.changes_included.forEach(change => {
+        content += `* ${change.description}`;
+        if (change.affected_channels && change.affected_channels.length > 0) {
+          content += ` (Channels: ${change.affected_channels.join(', ')})`;
+        }
+        content += '\n';
+      });
+      content += '\n';
+    }
+    
+    // Add application pages with changes
+    if (summary.application_pages_with_changes && summary.application_pages_with_changes.length > 0) {
+      content += '*Application Pages with Changes:*\n';
+      summary.application_pages_with_changes.forEach(page => {
+        content += `* ${page.page_name}: ${page.description}\n`;
+      });
+      content += '\n';
+    }
+    
+    // Add A/B testing info
+    if (summary.ab_testing_included && summary.ab_testing_included.has_ab_testing) {
+      content += '*A/B Testing:*\n';
+      content += `* ${summary.ab_testing_included.test_details || 'A/B testing is included'}\n\n`;
+    }
+    
+    // Fallback to key_highlights if present (for backward compatibility)
+    if (summary.key_highlights && summary.key_highlights.length > 0) {
+      content += '*Key Requirements:*\n';
+      summary.key_highlights.forEach(highlight => {
+        content += `* ${highlight}\n`;
+      });
+      content += '\n';
+    }
+    
+    content += '\n_Generated by ProofiePlus AI_';
+    
+    return content;
+  };
+
+  const handlePostToJira = async () => {
+    setLoading(true);
+    try {
+      const response = await api.post('/ai-engine/jira-post/', {
+        version_id: versionId
+      });
+      
+      setResult(response.data);
+      setJiraPosted(true);
+      toast.success('Posted to JIRA successfully!');
+    } catch (error) {
+      console.error('Error posting to JIRA:', error);
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to post to JIRA';
+      toast.error(errorMessage);
+      setResult({ error: errorMessage });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  
   const renderJiraResult = (data) => {
     if (!data.success) return null;
 
     return (
       <div className="space-y-4">
-        <div className="bg-gradient-to-r from-orange-50 to-yellow-50 p-4 rounded-lg">
-          <h3 className="text-xl font-bold text-gray-800 mb-2">✅ Posted to JIRA</h3>
-          <div className="space-y-2">
-            <div className="bg-white px-3 py-2 rounded">
-              <strong>Ticket:</strong> {data.ticket_key}
+        <div style={{
+          background: 'rgba(48, 209, 88, 0.1)',
+          border: '1px solid rgba(48, 209, 88, 0.2)',
+          borderRadius: 16,
+          padding: 20
+        }}>
+          <h3 style={{
+            fontSize: '1.25rem',
+            fontWeight: 700,
+            color: '#fff',
+            marginBottom: 16,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8
+          }}>
+            <CheckCircle className="w-6 h-6" style={{ color: '#30D158' }} />
+            Posted to JIRA Successfully
+          </h3>
+          {data.ticket_key && (
+            <div style={{
+              background: 'rgba(255,255,255,0.05)',
+              padding: '12px 16px',
+              borderRadius: 12,
+              border: '1px solid rgba(255,255,255,0.1)'
+            }}>
+              <strong style={{ color: 'rgba(255,255,255,0.7)' }}>Ticket:</strong>{' '}
+              <span style={{ color: '#fff' }}>{data.ticket_key}</span>
             </div>
-            <div className="bg-white px-3 py-2 rounded">
-              <strong>CPI ID:</strong> {data.cpi_id}
-            </div>
-          </div>
+          )}
         </div>
 
-        <div className="flex gap-2">
-          <a
-            href={data.ticket_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex-1 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-center"
-          >
-            View Ticket
-          </a>
-          <a
-            href={data.comment_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex-1 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-center"
-          >
-            View Comment
-          </a>
-        </div>
+        <a
+          href={data.ticket_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            width: '100%',
+            background: 'linear-gradient(135deg, #0A84FF, #5E5CE6)',
+            color: '#fff',
+            padding: '12px 24px',
+            borderRadius: 12,
+            fontWeight: 600,
+            textDecoration: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-2px)';
+            e.currentTarget.style.boxShadow = '0 8px 24px rgba(10, 132, 255, 0.4)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = 'none';
+          }}
+        >
+          <ExternalLink className="w-5 h-5" />
+          View Ticket
+        </a>
       </div>
     );
   };
@@ -499,75 +922,18 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
           </div>
         </div>
 
-        {/* Risk Areas Summary */}
-        {data.risk_areas && (
-          <div>
-            <h4 className="font-semibold text-gray-700 mb-2">Risk Areas</h4>
-            <div className="space-y-2">
-              {data.risk_areas.high_risk && data.risk_areas.high_risk.length > 0 && (
-                <div className="bg-red-50 p-3 rounded border-l-4 border-red-500">
-                  <div className="font-medium text-red-800 mb-1">High Risk</div>
-                  <ul className="text-sm text-gray-700 space-y-1">
-                    {data.risk_areas.high_risk.map((risk, idx) => (
-                      <li key={idx} className="flex items-start gap-2">
-                        <span className="text-red-500 mt-1">•</span>
-                        <span>{risk}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              {data.risk_areas.medium_risk && data.risk_areas.medium_risk.length > 0 && (
-                <div className="bg-yellow-50 p-3 rounded border-l-4 border-yellow-500">
-                  <div className="font-medium text-yellow-800 mb-1">Medium Risk</div>
-                  <ul className="text-sm text-gray-700 space-y-1">
-                    {data.risk_areas.medium_risk.map((risk, idx) => (
-                      <li key={idx} className="flex items-start gap-2">
-                        <span className="text-yellow-500 mt-1">•</span>
-                        <span>{risk}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              {data.risk_areas.low_risk && data.risk_areas.low_risk.length > 0 && (
-                <div className="bg-green-50 p-3 rounded border-l-4 border-green-500">
-                  <div className="font-medium text-green-800 mb-1">Low Risk</div>
-                  <ul className="text-sm text-gray-700 space-y-1">
-                    {data.risk_areas.low_risk.map((risk, idx) => (
-                      <li key={idx} className="flex items-start gap-2">
-                        <span className="text-green-500 mt-1">•</span>
-                        <span>{risk}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Regression Scope Summary */}
-        {data.regression_scope && (
-          <div>
-            <h4 className="font-semibold text-gray-700 mb-2">Regression Scope</h4>
-            <div className="space-y-2">
-              {Object.entries(data.regression_scope).map(([category, items]) => (
-                <div key={category} className="bg-gray-50 p-3 rounded">
-                  <div className="font-medium text-gray-800 mb-1">
-                    {category.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                  </div>
-                  <ul className="text-sm text-gray-700 space-y-1">
-                    {items.map((item, idx) => (
-                      <li key={idx} className="flex items-start gap-2">
-                        <span className="text-gray-400 mt-1">•</span>
-                        <span>{item}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+        {/* QA Validation Scope */}
+        {data.qa_validation_scope && data.qa_validation_scope.length > 0 && (
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-200">
+            <h4 className="text-lg font-semibold text-gray-800 mb-3">QA Validation Scope</h4>
+            <ul className="space-y-2">
+              {data.qa_validation_scope.map((item, idx) => (
+                <li key={idx} className="flex items-start gap-2 text-gray-700">
+                  <span className="text-blue-500 mt-1">•</span>
+                  <span>{item}</span>
+                </li>
               ))}
-            </div>
+            </ul>
           </div>
         )}
 
@@ -606,13 +972,23 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
         </div>
 
         <div className="flex gap-2">
-          <a
-            href={data.excel_url}
-            download
-            className="flex-1 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-center"
+          <button
+            onClick={() => {
+              if (data.excel_url) {
+                const link = document.createElement('a');
+                link.href = data.excel_url;
+                link.download = data.excel_filename || 'test_cases.xlsx';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                toast.success('Excel file downloaded!');
+              }
+            }}
+            className="flex-1 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-center font-semibold flex items-center justify-center gap-2"
           >
-            Download Excel (3 Sheets)
-          </a>
+            <FileSpreadsheet className="w-5 h-5" />
+            Download Excel File
+          </button>
           {data.jira_url && (
             <a
               href={data.jira_url}
@@ -635,46 +1011,92 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+    <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="modal-box" style={{ maxWidth: '56rem', width: '100%', maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         {/* Header */}
-        <div className="bg-gradient-to-r from-purple-600 to-blue-600 p-6 text-white flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Sparkles className="w-8 h-8" />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <Sparkles className="w-8 h-8" style={{ color: '#667eea' }} />
             <div>
-              <h2 className="text-2xl font-bold">ProofiePlus</h2>
-              <p className="text-purple-100">Intelligent Document Analysis</p>
+              <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#fff', marginBottom: 4 }}>ProofiePlus</h2>
+              <p style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.6)' }}>Intelligent Document Analysis</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-white hover:bg-white/20 rounded-full p-2 transition"
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: 10,
+              background: 'rgba(255,255,255,0.08)',
+              border: '1px solid rgba(255,255,255,0.1)',
+              color: 'rgba(255,255,255,0.5)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(255,255,255,0.12)';
+              e.currentTarget.style.color = 'rgba(255,255,255,0.8)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
+              e.currentTarget.style.color = 'rgba(255,255,255,0.5)';
+            }}
           >
-            <X className="w-6 h-6" />
+            <X size={16} />
           </button>
         </div>
 
         {/* Features Grid */}
         {!activeFeature && (
-          <div className="p-6 grid grid-cols-2 gap-4 overflow-y-auto">
-            {features.map((feature) => {
+          <div style={{ padding: '0 24px 24px', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16, overflowY: 'auto' }}>
+            {features.filter(f => !f.disabled).map((feature) => {
               const Icon = feature.icon;
+              const colorMap = {
+                blue: '#0A84FF',
+                purple: '#667eea',
+                green: '#30D158',
+                orange: '#FF9F0A',
+                pink: '#FF375F'
+              };
               return (
                 <button
                   key={feature.id}
                   onClick={() => handleFeatureClick(feature)}
                   disabled={feature.disabled}
-                  className={`p-4 rounded-lg border-2 transition-all text-left ${
-                    feature.disabled
-                      ? 'border-gray-200 bg-gray-50 opacity-50 cursor-not-allowed'
-                      : 'border-gray-200 hover:border-purple-500 hover:shadow-lg'
-                  }`}
+                  style={{
+                    padding: 20,
+                    borderRadius: 16,
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    background: feature.disabled ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.05)',
+                    cursor: feature.disabled ? 'not-allowed' : 'pointer',
+                    textAlign: 'left',
+                    transition: 'all 0.2s ease',
+                    opacity: feature.disabled ? 0.5 : 1
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!feature.disabled) {
+                      e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
+                      e.currentTarget.style.borderColor = colorMap[feature.color] || '#667eea';
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!feature.disabled) {
+                      e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+                      e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
+                      e.currentTarget.style.transform = 'translateY(0)';
+                    }
+                  }}
                 >
-                  <Icon className={`w-8 h-8 text-${feature.color}-500 mb-2`} />
-                  <h3 className="font-semibold text-lg">{feature.title}</h3>
-                  <p className="text-sm text-gray-600">{feature.description}</p>
+                  <Icon style={{ width: 32, height: 32, color: colorMap[feature.color] || '#667eea', marginBottom: 12 }} />
+                  <h3 style={{ fontWeight: 600, fontSize: '1rem', color: '#fff', marginBottom: 4 }}>{feature.title}</h3>
+                  <p style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.6)' }}>{feature.description}</p>
                   {feature.disabled && (
-                    <span className="text-xs text-gray-500 mt-2 block">Coming Soon</span>
+                    <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', marginTop: 8, display: 'block' }}>Coming Soon</span>
                   )}
                 </button>
               );
@@ -682,40 +1104,79 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
           </div>
         )}
 
-        {/* Version Selection for Compare and Test Cases */}
+        {/* Version Selection for Compare */}
         {activeFeature === 'compare' && !loading && (
-          <div className="p-6 space-y-6 overflow-y-auto max-h-[70vh]">
-            <h3 className="text-xl font-semibold text-gray-800">Version Comparison</h3>
+          <div style={{ padding: 24, overflowY: 'auto', flex: 1 }}>
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#fff', marginBottom: 24 }}>Version Comparison</h3>
             
             {/* Version Selection */}
-            <div className="bg-gradient-to-r from-purple-50 to-blue-50 p-4 rounded-lg border border-purple-200">
-              <h4 className="text-lg font-semibold text-gray-800 mb-4">Select Versions to Compare</h4>
-              <div className="grid grid-cols-2 gap-4">
+            <div style={{
+              background: 'linear-gradient(135deg, #0A84FF, #5E5CE6)',
+              padding: 20,
+              borderRadius: 16,
+              border: '1px solid rgba(10, 132, 255, 0.3)',
+              marginBottom: 24
+            }}>
+              <h4 style={{
+                fontSize: '1.125rem',
+                fontWeight: 600,
+                color: '#fff',
+                marginBottom: 16
+              }}>Select Versions</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">AS-IS Version</label>
+                  <label style={{
+                    display: 'block',
+                    fontSize: '0.875rem',
+                    fontWeight: 500,
+                    color: 'rgba(255,255,255,0.8)',
+                    marginBottom: 8
+                  }}>Version 1</label>
                   <select
                     value={asIsVersion}
                     onChange={(e) => setAsIsVersion(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: 8,
+                      border: '1px solid rgba(255,255,255,0.2)',
+                      background: 'rgba(255,255,255,0.1)',
+                      color: '#fff',
+                      fontSize: '0.875rem'
+                    }}
                   >
-                    <option value="">Select AS-IS version...</option>
+                    <option value="" style={{ color: '#666' }}>Select version...</option>
                     {versions.map((v) => (
-                      <option key={v.id} value={v.id}>
+                      <option key={v.id} value={v.id} style={{ color: '#333' }}>
                         v{v.version_number} - {new Date(v.created_at).toLocaleDateString()}
                       </option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">TO-BE Version</label>
+                  <label style={{
+                    display: 'block',
+                    fontSize: '0.875rem',
+                    fontWeight: 500,
+                    color: 'rgba(255,255,255,0.8)',
+                    marginBottom: 8
+                  }}>Version 2</label>
                   <select
                     value={toBeVersion}
                     onChange={(e) => setToBeVersion(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: 8,
+                      border: '1px solid rgba(255,255,255,0.2)',
+                      background: 'rgba(255,255,255,0.1)',
+                      color: '#fff',
+                      fontSize: '0.875rem'
+                    }}
                   >
-                    <option value="">Select TO-BE version...</option>
+                    <option value="" style={{ color: '#666' }}>Select version...</option>
                     {versions.map((v) => (
-                      <option key={v.id} value={v.id}>
+                      <option key={v.id} value={v.id} style={{ color: '#333' }}>
                         v{v.version_number} - {new Date(v.created_at).toLocaleDateString()}
                       </option>
                     ))}
@@ -725,96 +1186,175 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
               <button
                 onClick={handleCompareVersions}
                 disabled={!asIsVersion || !toBeVersion}
-                className="w-full bg-purple-600 text-white px-4 py-3 rounded-lg hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed font-semibold mt-4"
+                style={{
+                  width: '100%',
+                  background: !asIsVersion || !toBeVersion 
+                    ? 'rgba(255,255,255,0.1)' 
+                    : 'linear-gradient(135deg, #30D158, #0A84FF)',
+                  color: '#fff',
+                  padding: '12px 24px',
+                  borderRadius: 12,
+                  fontWeight: 600,
+                  border: 'none',
+                  cursor: !asIsVersion || !toBeVersion ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  transition: 'all 0.2s ease',
+                  marginTop: 16
+                }}
+                onMouseEnter={(e) => {
+                  if (asIsVersion && toBeVersion) {
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                    e.currentTarget.style.boxShadow = '0 8px 24px rgba(48, 209, 88, 0.4)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
               >
+                <GitCompare className="w-5 h-5" />
                 Compare Versions
               </button>
             </div>
 
             {/* Comparison Results */}
             {result && result.diff_summary && (
-              <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-lg border border-blue-200">
-                <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                  <span className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-semibold">
-                    {result.diff_summary.version_comparison || 'v1 → v2'}
+              <div style={{
+                background: 'linear-gradient(135deg, #5E5CE6, #667eea)',
+                padding: 20,
+                borderRadius: 16,
+                border: '1px solid rgba(94, 92, 230, 0.3)'
+              }}>
+                <h4 style={{
+                  fontSize: '1.125rem',
+                  fontWeight: 600,
+                  color: '#fff',
+                  marginBottom: 16,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8
+                }}>
+                  <span style={{
+                    background: 'rgba(255,255,255,0.2)',
+                    color: '#fff',
+                    padding: '4px 12px',
+                    borderRadius: 20,
+                    fontSize: '0.75rem',
+                    fontWeight: 600
+                  }}>
+                    {result.diff_summary.version_comparison || 'v1 -> v2'}
                   </span>
                   Version Differences
                 </h4>
                 
                 {/* Summary Stats */}
-                <div className="flex gap-4 mb-4">
-                  <span className="bg-white px-3 py-1 rounded-full text-sm">
+                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 16 }}>
+                  <span style={{
+                    background: 'rgba(255,255,255,0.2)',
+                    padding: '6px 12px',
+                    borderRadius: 20,
+                    color: '#fff',
+                    fontSize: '0.875rem'
+                  }}>
                     <strong>Total Changes:</strong> {result.diff_summary.total_changes || 0}
                   </span>
-                  <span className="bg-white px-3 py-1 rounded-full text-sm">
+                  <span style={{
+                    background: 'rgba(255,255,255,0.2)',
+                    padding: '6px 12px',
+                    borderRadius: 20,
+                    color: '#fff',
+                    fontSize: '0.875rem'
+                  }}>
                     <strong>Severity:</strong> {result.diff_summary.severity_score || 0}/10
                   </span>
                   {result.pages_affected && result.pages_affected.length > 0 && (
-                    <span className="bg-white px-3 py-1 rounded-full text-sm">
+                    <span style={{
+                      background: 'rgba(255,255,255,0.2)',
+                      padding: '6px 12px',
+                      borderRadius: 20,
+                      color: '#fff',
+                      fontSize: '0.875rem'
+                    }}>
                       <strong>Pages:</strong> {result.pages_affected.join(', ')}
                     </span>
                   )}
                 </div>
 
                 {result.diff_summary.summary && (
-                  <div className="bg-blue-50 p-3 rounded mb-4">
-                    <strong>Summary:</strong> {result.diff_summary.summary}
+                  <div style={{
+                    background: 'rgba(255,255,255,0.1)',
+                    padding: 12,
+                    borderRadius: 12,
+                    marginBottom: 16
+                  }}>
+                    <strong style={{ color: 'rgba(255,255,255,0.8)' }}>Summary:</strong>{' '}
+                    <span style={{ color: 'rgba(255,255,255,0.9)' }}>{result.diff_summary.summary}</span>
                   </div>
                 )}
 
                 {/* Changes List */}
                 {result.diff_summary.changes && result.diff_summary.changes.length > 0 && (
                   <div>
-                    <h5 className="font-semibold text-gray-700 mb-3">Detailed Changes:</h5>
-                    <div className="space-y-3 max-h-64 overflow-y-auto">
+                    <h5 style={{ fontWeight: 600, color: '#fff', marginBottom: 12, fontSize: '0.875rem' }}>Detailed Changes:</h5>
+                    <div style={{ maxHeight: 256, overflowY: 'auto', gap: 12, display: 'flex', flexDirection: 'column' }}>
                       {result.diff_summary.changes.map((change, idx) => (
-                        <div key={idx} className={`p-3 rounded border-l-4 ${
-                          change.severity === 'high' ? 'border-red-500 bg-red-50' :
-                          change.severity === 'medium' ? 'border-yellow-500 bg-yellow-50' :
-                          'border-blue-500 bg-blue-50'
-                        }`}>
-                          <div className="flex items-start justify-between mb-2">
-                            <div className="font-medium text-gray-800">
-                              {change.type === 'text_added' && '➕ '}
-                              {change.type === 'text_deleted' && '➖ '}
-                              {change.type === 'text_modified' && '✏️ '}
-                              {change.type === 'section_added' && '📄 '}
-                              {change.type === 'section_removed' && '🗑️ '}
+                        <div key={idx} style={{
+                          padding: 12,
+                          borderRadius: 12,
+                          borderLeft: '4px solid',
+                          background: 'rgba(255,255,255,0.05)',
+                          ...(change.severity === 'high' ? { borderLeftColor: '#FF375F', background: 'rgba(255, 55, 95, 0.1)' } :
+                            change.severity === 'medium' ? { borderLeftColor: '#FF9F0A', background: 'rgba(255, 159, 10, 0.1)' } :
+                            { borderLeftColor: '#0A84FF', background: 'rgba(10, 132, 255, 0.1)' })
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 8 }}>
+                            <div style={{ fontWeight: 500, color: '#fff', fontSize: '0.875rem' }}>
+                              {change.type === 'text_added' && 'â¢ '}
+                              {change.type === 'text_deleted' && 'â¢ '}
+                              {change.type === 'text_modified' && 'â¢ '}
+                              {change.type === 'section_added' && 'â¢ '}
+                              {change.type === 'section_removed' && 'â¢ '}
                               {change.section || 'Change'}
                             </div>
                             {change.classification && (
-                              <span className={`text-xs px-2 py-1 rounded ${
-                                change.classification.includes('UI') ? 'bg-blue-100 text-blue-800' :
-                                change.classification.includes('Copy') ? 'bg-purple-100 text-purple-800' :
-                                change.classification.includes('CTA') ? 'bg-orange-100 text-orange-800' :
-                                change.classification.includes('Legal') || change.classification.includes('Compliance') ? 'bg-red-100 text-red-800' :
-                                'bg-gray-100 text-gray-800'
-                              }`}>
+                              <span style={{
+                                fontSize: '0.75rem',
+                                padding: '2px 8px',
+                                borderRadius: 12,
+                                ...(change.classification.includes('UI') ? { background: 'rgba(10, 132, 255, 0.2)', color: '#0A84FF' } :
+                                  change.classification.includes('Copy') ? { background: 'rgba(102, 126, 234, 0.2)', color: '#667eea' } :
+                                  change.classification.includes('CTA') ? { background: 'rgba(255, 159, 10, 0.2)', color: '#FF9F0A' } :
+                                  change.classification.includes('Legal') || change.classification.includes('Compliance') ? { background: 'rgba(255, 55, 95, 0.2)', color: '#FF375F' } :
+                                  { background: 'rgba(255,255,255,0.2)', color: 'rgba(255,255,255,0.8)' })
+                              }}>
                                 {change.classification}
                               </span>
                             )}
                           </div>
                           
-                          <div className="text-sm space-y-1">
+                          <div style={{ fontSize: '0.875rem', gap: 4, display: 'flex', flexDirection: 'column' }}>
                             {change.location && (
-                              <div className="text-gray-600"><strong>Location:</strong> {change.location}</div>
+                              <div style={{ color: 'rgba(255,255,255,0.6)' }}><strong>Location:</strong> {change.location}</div>
                             )}
                             {change.description && (
-                              <div className="text-gray-700">{change.description}</div>
+                              <div style={{ color: 'rgba(255,255,255,0.8)' }}>{change.description}</div>
                             )}
                             {change.impact && (
-                              <div className="text-gray-600"><strong>Impact:</strong> {change.impact}</div>
+                              <div style={{ color: 'rgba(255,255,255,0.6)' }}><strong>Impact:</strong> {change.impact}</div>
                             )}
                             {change.v1_text && change.v2_text && (
-                              <div className="mt-2 p-2 bg-gray-50 rounded">
-                                <div><strong>v1:</strong> {change.v1_text}</div>
-                                <div><strong>v2:</strong> {change.v2_text}</div>
+                              <div style={{ marginTop: 8, padding: 8, borderRadius: 8, background: 'rgba(0,0,0,0.2)' }}>
+                                <div style={{ color: 'rgba(255,255,255,0.7)', marginBottom: 4 }}><strong>v1:</strong> {change.v1_text}</div>
+                                <div style={{ color: 'rgba(255,255,255,0.7)' }}><strong>v2:</strong> {change.v2_text}</div>
                               </div>
                             )}
                             {change.old_text && change.new_text && (
-                              <div className="mt-2 p-2 bg-gray-50 rounded">
-                                <div><strong>Old:</strong> {change.old_text}</div>
-                                <div><strong>New:</strong> {change.new_text}</div>
+                              <div style={{ marginTop: 8, padding: 8, borderRadius: 8, background: 'rgba(0,0,0,0.2)' }}>
+                                <div style={{ color: 'rgba(255,255,255,0.7)', marginBottom: 4 }}><strong>Old:</strong> {change.old_text}</div>
+                                <div style={{ color: 'rgba(255,255,255,0.7)' }}><strong>New:</strong> {change.new_text}</div>
                               </div>
                             )}
                             {change.risk && (
@@ -846,133 +1386,181 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
         )}
 
         {activeFeature === 'testcases' && !loading && !result && (
-          <div className="p-6 space-y-6 overflow-y-auto max-h-[70vh]">
-            <h3 className="text-xl font-semibold text-gray-800">Test Case Generation</h3>
-            
-            {/* Section 1: Test Scenarios Download */}
-            <div className="bg-gradient-to-r from-pink-50 to-purple-50 p-4 rounded-lg border border-pink-200">
-              <h4 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                <span className="bg-pink-100 text-pink-800 px-3 py-1 rounded-full text-sm font-semibold">1</span>
-                Test Scenarios Download
-              </h4>
-              <p className="text-gray-600 mb-4">Download comprehensive test scenarios with detailed steps and expected results.</p>
+          <div style={{ padding: 24, overflowY: 'auto', flex: 1 }}>
+            <div style={{
+              background: 'rgba(255, 55, 95, 0.1)',
+              border: '1px solid rgba(255, 55, 95, 0.2)',
+              borderRadius: 16,
+              padding: 20,
+              marginBottom: 16
+            }}>
+              <h3 style={{
+                fontSize: '1.25rem',
+                fontWeight: 700,
+                color: '#fff',
+                marginBottom: 12,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8
+              }}>
+                <FileSpreadsheet className="w-6 h-6" style={{ color: '#FF375F' }} />
+                Test Case Generation
+              </h3>
+              <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.875rem' }}>
+                Generate exhaustive test cases from the current PDF document
+              </p>
+            </div>
+
+            <div style={{
+              background: 'rgba(255,255,255,0.05)',
+              padding: 20,
+              borderRadius: 16,
+              border: '1px solid rgba(255,255,255,0.1)',
+              marginBottom: 16,
+              textAlign: 'center'
+            }}>
+              <p style={{ color: 'rgba(255,255,255,0.7)', marginBottom: 20, fontSize: '0.875rem' }}>
+                Click the button below to generate comprehensive test cases based on the PDF content
+              </p>
+              
               <button
-                onClick={() => {
-                  // Generate test cases with mock data for download
-                  const mockTestCases = [
-                    { test_case_id: 'TC001', title: 'Landing Page Display Test', description: 'Verify landing page loads correctly', priority: 'high', type: 'functional' },
-                    { test_case_id: 'TC002', title: 'Form Validation Test', description: 'Test form field validations', priority: 'medium', type: 'functional' },
-                    { test_case_id: 'TC003', title: 'API Integration Test', description: 'Verify API endpoints work correctly', priority: 'high', type: 'integration' }
-                  ];
-                  
-                  // Create download link
-                  const dataStr = JSON.stringify(mockTestCases, null, 2);
-                  const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-                  
-                  const exportFileDefaultName = 'test_scenarios.json';
-                  
-                  const linkElement = document.createElement('a');
-                  linkElement.setAttribute('href', dataUri);
-                  linkElement.setAttribute('download', exportFileDefaultName);
-                  linkElement.click();
-                  
-                  toast.success('Test scenarios downloaded successfully!');
+                onClick={handleGenerateTestCases}
+                style={{
+                  width: '100%',
+                  background: 'linear-gradient(135deg, #FF375F, #FF9F0A)',
+                  color: '#fff',
+                  padding: '14px 28px',
+                  borderRadius: 12,
+                  fontWeight: 600,
+                  border: 'none',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  fontSize: '1rem',
+                  transition: 'all 0.2s ease'
                 }}
-                className="w-full bg-pink-600 text-white px-4 py-3 rounded-lg hover:bg-pink-700 font-semibold flex items-center justify-center gap-2"
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = '0 8px 24px rgba(255, 55, 95, 0.4)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
               >
-                <FileSpreadsheet className="w-5 h-5" />
-                Download Test Scenarios
+                <FileSpreadsheet style={{ width: 20, height: 20 }} />
+                Generate Test Cases
               </button>
-            </div>
-
-            {/* Section 2: Risk Areas */}
-            <div className="bg-gradient-to-r from-red-50 to-orange-50 p-4 rounded-lg border border-red-200">
-              <h4 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                <span className="bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm font-semibold">2</span>
-                Risk Areas
-              </h4>
-              <p className="text-gray-600 mb-4">Identified risk areas for testing focus:</p>
-              <div className="space-y-3">
-                <div className="bg-red-100 p-3 rounded border-l-4 border-red-500">
-                  <div className="font-medium text-red-800 mb-1">🔴 High Risk Areas</div>
-                  <ul className="text-sm text-gray-700 space-y-1">
-                    <li>• Payment gateway integration</li>
-                    <li>• User authentication flows</li>
-                    <li>• Data validation and security</li>
-                  </ul>
-                </div>
-                <div className="bg-yellow-100 p-3 rounded border-l-4 border-yellow-500">
-                  <div className="font-medium text-yellow-800 mb-1">🟡 Medium Risk Areas</div>
-                  <ul className="text-sm text-gray-700 space-y-1">
-                    <li>• Email template rendering</li>
-                    <li>• Mobile responsiveness</li>
-                    <li>• Cross-browser compatibility</li>
-                  </ul>
-                </div>
-                <div className="bg-green-100 p-3 rounded border-l-4 border-green-500">
-                  <div className="font-medium text-green-800 mb-1">🟢 Low Risk Areas</div>
-                  <ul className="text-sm text-gray-700 space-y-1">
-                    <li>• Static content display</li>
-                    <li>• Basic navigation</li>
-                    <li>• Footer links</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-
-            {/* Section 3: Regression Scope */}
-            <div className="bg-gradient-to-r from-blue-50 to-cyan-50 p-4 rounded-lg border border-blue-200">
-              <h4 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-semibold">3</span>
-                Regression Scope
-              </h4>
-              <p className="text-gray-600 mb-4">Areas requiring regression testing:</p>
-              <div className="space-y-3">
-                <div className="bg-white p-3 rounded border">
-                  <div className="font-medium text-gray-800 mb-2">🔧 Core Functionality</div>
-                  <ul className="text-sm text-gray-700 space-y-1">
-                    <li>• User registration and login</li>
-                    <li>• Main dashboard functionality</li>
-                    <li>• Core business logic</li>
-                  </ul>
-                </div>
-                <div className="bg-white p-3 rounded border">
-                  <div className="font-medium text-gray-800 mb-2">🔗 Integration Points</div>
-                  <ul className="text-sm text-gray-700 space-y-1">
-                    <li>• Third-party API connections</li>
-                    <li>• Database interactions</li>
-                    <li>• External service integrations</li>
-                  </ul>
-                </div>
-                <div className="bg-white p-3 rounded border">
-                  <div className="font-medium text-gray-800 mb-2">⚖️ Compliance</div>
-                  <ul className="text-sm text-gray-700 space-y-1">
-                    <li>• GDPR compliance features</li>
-                    <li>• Accessibility standards</li>
-                    <li>• Security protocols</li>
-                  </ul>
-                </div>
-              </div>
             </div>
           </div>
         )}
 
         {/* Loading State */}
         {loading && (
-          <div className="p-6 text-center flex-1 flex items-center justify-center">
+          <div style={{ padding: 24, textAlign: 'center', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div>
-              <Loader2 className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto" />
-              <p className="mt-4 text-gray-600">Processing with AI...</p>
-              <p className="text-sm text-gray-500">This may take a few seconds</p>
+              <Loader2 className="animate-spin" style={{ width: 48, height: 48, color: '#667eea', margin: '0 auto' }} />
+              <p style={{ marginTop: 16, color: 'rgba(255,255,255,0.8)', fontSize: '1rem', fontWeight: 500 }}>Processing with AI...</p>
+              <p style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.5)', marginTop: 4 }}>This may take a few seconds</p>
             </div>
+          </div>
+        )}
+
+        {/* JIRA Content Preview */}
+        {activeFeature === 'jira' && jiraContent && !jiraPosted && !loading && (
+          <div style={{ padding: 24, overflowY: 'auto', flex: 1 }}>
+            <div style={{
+              background: 'rgba(255, 159, 10, 0.1)',
+              border: '1px solid rgba(255, 159, 10, 0.2)',
+              borderRadius: 16,
+              padding: 20,
+              marginBottom: 16
+            }}>
+              <h3 style={{
+                fontSize: '1.25rem',
+                fontWeight: 700,
+                color: '#fff',
+                marginBottom: 12,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8
+              }}>
+                <ExternalLink className="w-6 h-6" style={{ color: '#FF9F0A' }} />
+                JIRA Integration Preview
+              </h3>
+              <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.875rem' }}>
+                Review the content below that will be posted to your JIRA ticket.
+              </p>
+            </div>
+
+            <div style={{
+              background: 'rgba(255,255,255,0.05)',
+              padding: 20,
+              borderRadius: 16,
+              border: '1px solid rgba(255,255,255,0.1)',
+              marginBottom: 16
+            }}>
+              <h4 style={{ fontWeight: 600, color: 'rgba(255,255,255,0.8)', marginBottom: 12, fontSize: '0.875rem' }}>Content to be Posted:</h4>
+              <div style={{
+                background: 'rgba(0,0,0,0.2)',
+                padding: 16,
+                borderRadius: 12,
+                border: '1px solid rgba(255,255,255,0.1)',
+                fontSize: '0.875rem',
+                whiteSpace: 'pre-wrap',
+                fontFamily: 'inherit',
+                color: 'rgba(255,255,255,0.9)',
+                lineHeight: 1.6
+              }}>
+                {jiraContent.formattedContent || 'Loading content...'}
+              </div>
+            </div>
+
+            <button
+              onClick={handlePostToJira}
+              style={{
+                width: '100%',
+                background: 'linear-gradient(135deg, #FF9F0A, #FF6B35)',
+                color: '#fff',
+                padding: '12px 24px',
+                borderRadius: 12,
+                fontWeight: 600,
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 8px 24px rgba(255, 159, 10, 0.4)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
+            >
+              <ExternalLink className="w-5 h-5" />
+              Post to JIRA
+            </button>
           </div>
         )}
 
         {/* Results Area */}
         {result && !loading && !['compare', 'testcases'].includes(activeFeature) && (
-          <div className="p-6 bg-gray-50 overflow-y-auto flex-1">
+          <div style={{ padding: 24, overflowY: 'auto', flex: 1 }}>
             {result.error ? (
-              <div className="bg-red-50 border border-red-200 rounded p-4 text-red-700">
+              <div style={{
+                background: 'rgba(255, 55, 95, 0.1)',
+                border: '1px solid rgba(255, 55, 95, 0.2)',
+                borderRadius: 12,
+                padding: 16,
+                color: '#FF375F'
+              }}>
                 <strong>Error:</strong> {result.error}
               </div>
             ) : (
@@ -980,20 +1568,49 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
                 {activeFeature === 'summarize' && renderSummaryResult(result)}
                 {activeFeature === 'analyze' && renderAnalysisResult(result)}
                 {activeFeature === 'jira' && renderJiraResult(result)}
+                {activeFeature === 'testcases' && renderTestCasesResult(result)}
               </>
             )}
           </div>
         )}
 
         {/* Footer */}
-        <div className="p-4 border-t flex justify-between items-center bg-white">
+        <div style={{
+          padding: 16,
+          borderTop: '1px solid rgba(255,255,255,0.1)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
           {activeFeature && (
             <button
               onClick={() => {
                 setActiveFeature(null);
                 setResult(null);
+                setJiraContent(null);
+                setJiraPosted(false);
               }}
-              className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded flex items-center gap-2"
+              style={{
+                padding: '8px 16px',
+                color: 'rgba(255,255,255,0.6)',
+                background: 'transparent',
+                border: 'none',
+                borderRadius: 8,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                fontSize: '0.875rem',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+                e.currentTarget.style.color = 'rgba(255,255,255,0.9)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.color = 'rgba(255,255,255,0.6)';
+              }}
             >
               ← Back to Features
             </button>
@@ -1001,7 +1618,24 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
           {!activeFeature && <div></div>}
           <button
             onClick={onClose}
-            className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded"
+            style={{
+              padding: '8px 16px',
+              color: 'rgba(255,255,255,0.6)',
+              background: 'transparent',
+              border: 'none',
+              borderRadius: 8,
+              cursor: 'pointer',
+              fontSize: '0.875rem',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+              e.currentTarget.style.color = 'rgba(255,255,255,0.9)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'transparent';
+              e.currentTarget.style.color = 'rgba(255,255,255,0.6)';
+            }}
           >
             Close
           </button>

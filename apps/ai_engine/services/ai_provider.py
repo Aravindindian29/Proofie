@@ -3,6 +3,7 @@ import time
 from abc import ABC, abstractmethod
 from django.conf import settings
 import random
+from .product_context import get_product_context
 
 logger = logging.getLogger(__name__)
 
@@ -193,9 +194,10 @@ Provide a JSON response with:
             logger.error(f"Error in Claude content analysis: {e}")
             raise
     
-    def generate_test_cases(self, diff_data):
-        """Generate test cases using Claude"""
+    def generate_test_cases(self, diff_data, as_is_text="", to_be_text=""):
+        """Generate test cases using Claude with full PDF content analysis"""
         start_time = time.time()
+        product_context = get_product_context()
         
         try:
             changes_text = "\n".join([
@@ -203,32 +205,103 @@ Provide a JSON response with:
                 for change in diff_data.get('changes', [])
             ])
             
-            prompt = f"""Based on the following document changes, generate comprehensive test cases:
+            # Include full PDF text for detailed analysis
+            pdf_context = ""
+            if as_is_text and to_be_text:
+                pdf_context = f"""
+AS-IS DOCUMENT CONTENT (Current State):
+{as_is_text[:3000]}...
 
-Changes:
+TO-BE DOCUMENT CONTENT (Future State):
+{to_be_text[:3000]}...
+"""
+            
+            prompt = f"""You are a QA expert for the Personify lending platform. Analyze the ACTUAL PDF CONTENT thoroughly to generate EXHAUSTIVE and SPECIFIC test cases.
+
+{product_context}
+
+{pdf_context}
+
+CRITICAL INSTRUCTIONS:
+1. READ THE ACTUAL PDF CONTENT ABOVE - Look for specific page names, field names, button labels, messaging, URLs, and visual elements
+2. Identify AS-IS (current state) and TO-BE (future state) screens from the actual content
+3. Pay special attention to areas marked with RED ARROWS, highlights, or annotations in TO-BE screens
+4. Look for specific details like:
+   - Exact page names (e.g., "RF-1", "RF-2", "RF-3", "RF-4")
+   - Specific messaging changes (e.g., "Extra Cash" vs old messaging)
+   - URL redirects and routing changes
+   - Form field changes (SSN, email, phone number formats)
+   - A/B test variants and traffic splits (e.g., 50/50, 60/40)
+   - Email template names and content
+   - Disclosure text changes
+   - Button label changes (e.g., "Apply Now" vs "Get Started")
+
+Changes Summary:
 {changes_text}
 
-Generate test cases in JSON format:
+For EACH specific change found in the PDF, create detailed test scenarios covering:
+   - Happy path flows for each affected channel
+   - Regression testing for existing functionality
+   - Edge cases and negative scenarios
+   - Channel-specific variations (ORG, RF, RA, PS, affiliates)
+   - Originator-specific differences (ADF vs FEB)
+   - Application page-specific flows
+
+Generate test cases in JSON format with Excel-ready structure (ID | Scenario | Steps | Expected | Priority | Type):
 {{
     "test_cases": [
         {{
-            "test_case_id": "TC001",
-            "title": "Test case title",
-            "description": "What this test validates",
-            "preconditions": "Prerequisites",
-            "steps": ["Step 1", "Step 2", "Step 3"],
-            "expected_result": "Expected outcome",
+            "id": "TC001",
+            "scenario": "Detailed test scenario description",
+            "steps": "Step 1\\nStep 2\\nStep 3\\nStep 4",
+            "expected": "Expected outcome with specific validation points",
             "priority": "high/medium/low",
             "type": "functional/regression/smoke"
         }}
+    ],
+    "qa_validation_scope": [
+        "Happy path flow for ORG channel - Landing Page to E-Sign",
+        "Regression testing for RF channel - Offer page validation",
+        "Focus on Disclosures page - ADF vs FEB originator differences",
+        "A/B test validation - 50/50 traffic split on Landing Page variant A vs B",
+        "Email template rendering - New template for RF channel",
+        "Bank Data page - ACH payment flow validation",
+        "Repayment page - Send check by mail option for PS channel",
+        "Plaid integration - Third-party loan data fetch for RA channel"
     ]
 }}
 
-Generate at least 3-5 test cases covering the major changes."""
+EXAMPLE TEST CASES (use as reference for specificity):
+{{
+    "id": "TC001",
+    "scenario": "Validate 'Extra Cash' messaging consistency across LP, Email, and BP",
+    "steps": "1. Navigate to Landing Page\\n2. Check header and CTA messaging\\n3. Open Email template\\n4. Verify messaging matches LP\\n5. Login to Borrower Portal\\n6. Verify popup messaging",
+    "expected": "All three touchpoints display consistent 'Extra Cash' messaging with same tone and value proposition",
+    "priority": "high",
+    "type": "functional"
+}}
+
+{{
+    "id": "TC002",
+    "scenario": "Validate RF-1 and RF-2 redirection to RF-3/RF-4",
+    "steps": "1. Clear browser cache\\n2. Navigate to old RF-1 URL\\n3. Observe redirect behavior\\n4. Verify landing on RF-3 or RF-4\\n5. Repeat for RF-2 URL",
+    "expected": "RF-1 and RF-2 URLs automatically redirect to RF-3 or RF-4 with 301 redirect status",
+    "priority": "high",
+    "type": "regression"
+}}
+
+CRITICAL REQUIREMENTS: 
+- Generate at least 15-20 EXHAUSTIVE test cases based on ACTUAL PDF CONTENT
+- Each test case must reference SPECIFIC elements from the PDF (page names, field names, messaging, URLs)
+- Include test cases for: redirects, A/B tests, messaging changes, form validations, email templates, disclosure updates
+- QA Validation Scope should focus ONLY on: which channels need happy path, which need regression, which application pages to focus on
+- DO NOT include generic items like GDPR, accessibility standards, protocols, cross-browser compatibility
+- Be specific about channel names (ORG, RF, RA, PS, CMPQ, etc.) and page names (Landing, Mini App, Disclosures, Offer, Bank Data, Repayment, Plaid, E-Sign)
+- Use the EXACT terminology and names found in the PDF content"""
             
             response = self.client.messages.create(
                 model=self.model,
-                max_tokens=2000,
+                max_tokens=4000,
                 messages=[{"role": "user", "content": prompt}]
             )
             
@@ -240,6 +313,7 @@ Generate at least 3-5 test cases covering the major changes."""
             
             return {
                 'test_cases': test_data.get('test_cases', []),
+                'qa_validation_scope': test_data.get('qa_validation_scope', []),
                 'tokens_used': tokens_used,
                 'processing_time': processing_time
             }
@@ -249,38 +323,79 @@ Generate at least 3-5 test cases covering the major changes."""
     
     def _build_summary_prompt(self, text, detail_level):
         """Build prompt for document summarization"""
+        product_context = get_product_context()
+        
         if detail_level == 'detailed':
-            return f"""Analyze the following document and provide a detailed summary in JSON format:
+            return f"""You are an expert document analyst specializing in lending platform documentation and technical specifications.
+
+{product_context}
 
 Document Content:
 {text}
 
+Analyze this document in the context of the Personify lending platform. Focus on extracting the following specific information:
+1. High-level summary of the document (what is the initiative/change about?)
+2. Changes included and which channels they affect (ORG, RF, RA, PS, or affiliate channels: CMPQ, CKPQ, QS, LT, CMACT, ML, MO)
+3. Which application pages have changes (Landing Page, Mini Application, Disclosures, Offer, Bank Data, Repayment, Plaid, E-Sign, Reject, IDology, Pend pages)
+4. Whether A/B testing is included (describe the test details, traffic split, variants)
+5. New email templates to be designed (note if there are originator-specific differences for ADF/FEB)
+6. Disclosures added or modified (especially origination fee disclosures, APR rules, legal disclaimers)
+
 Provide a JSON response with the following structure:
 {{
-    "title": "Document title or main subject",
-    "type": "Document type (Contract, Agreement, Specification, etc.)",
-    "pages": "Estimated number of pages",
-    "key_highlights": ["List of 4-6 key points"],
-    "sections": [
-        {{"name": "Section name", "summary": "Brief summary"}}
+    "high_level_summary": "Brief overview of the document's purpose and main content",
+    "changes_included": [
+        {{
+            "description": "Description of the change",
+            "affected_channels": ["List of channels affected (e.g., web, mobile, email, etc.)"],
+            "impact_level": "low/medium/high"
+        }}
     ],
+    "application_pages_with_changes": [
+        {{
+            "page_name": "Name of the application page",
+            "change_type": "UI/UX, functionality, content, etc.",
+            "description": "Brief description of changes on this page"
+        }}
+    ],
+    "ab_testing_included": {{
+        "has_ab_testing": true/false,
+        "test_details": "Description of A/B test if present, otherwise null"
+    }},
+    "new_email_templates": [
+        {{
+            "template_name": "Name or purpose of the email template",
+            "purpose": "What this template is used for",
+            "key_content": "Main content or purpose of the template"
+        }}
+    ],
+    "disclosures": [
+        {{
+            "type": "new/modified",
+            "disclosure_text": "The disclosure content",
+            "location": "Where this disclosure appears",
+            "importance": "low/medium/high"
+        }}
+    ],
+    "additional_highlights": ["Other important points not captured above"],
     "complexity": "low/medium/high",
-    "estimated_review_time": "Estimated time to review",
-    "main_parties": ["List of parties involved if applicable"],
-    "important_dates": ["Any critical dates mentioned"],
-    "action_items": ["Any action items or requirements"]
+    "estimated_review_time": "Estimated time for thorough review"
 }}"""
         else:
-            return f"""Analyze the following document and provide a brief summary in JSON format:
+            return f"""You are an expert document analyst. Analyze the following document and provide a brief summary focusing on key business and technical changes in JSON format:
 
 Document Content:
 {text}
 
 Provide a JSON response with the following structure:
 {{
-    "title": "Document title",
-    "type": "Document type",
-    "key_highlights": ["3-4 main points"],
+    "high_level_summary": "Brief overview of the document's purpose",
+    "key_changes": ["Main changes described in the document"],
+    "affected_channels": ["Channels impacted by changes"],
+    "pages_affected": ["Application pages with changes"],
+    "has_ab_testing": true/false,
+    "new_email_templates": ["Brief description of new email templates"],
+    "disclosures_updated": true/false,
     "complexity": "low/medium/high",
     "estimated_review_time": "Estimated time"
 }}"""
@@ -364,38 +479,79 @@ class OpenAIProvider(AIProvider):
     
     def _build_summary_prompt(self, text, detail_level):
         """Build prompt for document summarization"""
+        product_context = get_product_context()
+        
         if detail_level == 'detailed':
-            return f"""Analyze the following document and provide a detailed summary in JSON format:
+            return f"""You are an expert document analyst specializing in lending platform documentation and technical specifications.
+
+{product_context}
 
 Document Content:
 {text}
 
+Analyze this document in the context of the Personify lending platform. Focus on extracting the following specific information:
+1. High-level summary of the document (what is the initiative/change about?)
+2. Changes included and which channels they affect (ORG, RF, RA, PS, or affiliate channels: CMPQ, CKPQ, QS, LT, CMACT, ML, MO)
+3. Which application pages have changes (Landing Page, Mini Application, Disclosures, Offer, Bank Data, Repayment, Plaid, E-Sign, Reject, IDology, Pend pages)
+4. Whether A/B testing is included (describe the test details, traffic split, variants)
+5. New email templates to be designed (note if there are originator-specific differences for ADF/FEB)
+6. Disclosures added or modified (especially origination fee disclosures, APR rules, legal disclaimers)
+
 Provide a JSON response with the following structure:
 {{
-    "title": "Document title or main subject",
-    "type": "Document type (Contract, Agreement, Specification, etc.)",
-    "pages": "Estimated number of pages",
-    "key_highlights": ["List of 4-6 key points"],
-    "sections": [
-        {{"name": "Section name", "summary": "Brief summary"}}
+    "high_level_summary": "Brief overview of the document's purpose and main content",
+    "changes_included": [
+        {{
+            "description": "Description of the change",
+            "affected_channels": ["List of channels affected (e.g., web, mobile, email, etc.)"],
+            "impact_level": "low/medium/high"
+        }}
     ],
+    "application_pages_with_changes": [
+        {{
+            "page_name": "Name of the application page",
+            "change_type": "UI/UX, functionality, content, etc.",
+            "description": "Brief description of changes on this page"
+        }}
+    ],
+    "ab_testing_included": {{
+        "has_ab_testing": true/false,
+        "test_details": "Description of A/B test if present, otherwise null"
+    }},
+    "new_email_templates": [
+        {{
+            "template_name": "Name or purpose of the email template",
+            "purpose": "What this template is used for",
+            "key_content": "Main content or purpose of the template"
+        }}
+    ],
+    "disclosures": [
+        {{
+            "type": "new/modified",
+            "disclosure_text": "The disclosure content",
+            "location": "Where this disclosure appears",
+            "importance": "low/medium/high"
+        }}
+    ],
+    "additional_highlights": ["Other important points not captured above"],
     "complexity": "low/medium/high",
-    "estimated_review_time": "Estimated time to review",
-    "main_parties": ["List of parties involved if applicable"],
-    "important_dates": ["Any critical dates mentioned"],
-    "action_items": ["Any action items or requirements"]
+    "estimated_review_time": "Estimated time for thorough review"
 }}"""
         else:
-            return f"""Analyze the following document and provide a brief summary in JSON format:
+            return f"""You are an expert document analyst. Analyze the following document and provide a brief summary focusing on key business and technical changes in JSON format:
 
 Document Content:
 {text}
 
 Provide a JSON response with the following structure:
 {{
-    "title": "Document title",
-    "type": "Document type",
-    "key_highlights": ["3-4 main points"],
+    "high_level_summary": "Brief overview of the document's purpose",
+    "key_changes": ["Main changes described in the document"],
+    "affected_channels": ["Channels impacted by changes"],
+    "pages_affected": ["Application pages with changes"],
+    "has_ab_testing": true/false,
+    "new_email_templates": ["Brief description of new email templates"],
+    "disclosures_updated": true/false,
     "complexity": "low/medium/high",
     "estimated_review_time": "Estimated time"
 }}"""
@@ -576,9 +732,10 @@ Rules:
             logger.error(f"Error in content analysis: {e}")
             raise
     
-    def generate_test_cases(self, diff_data):
-        """Generate test cases based on diff analysis"""
+    def generate_test_cases(self, diff_data, as_is_text="", to_be_text=""):
+        """Generate test cases based on diff analysis with optional full PDF text"""
         start_time = time.time()
+        product_context = get_product_context()
         
         try:
             changes_text = "\n".join([
@@ -586,37 +743,60 @@ Rules:
                 for change in diff_data.get('changes', [])
             ])
             
-            prompt = f"""Based on the following document changes, generate comprehensive test cases:
+            # Include full PDF text for detailed analysis
+            pdf_context = ""
+            if as_is_text and to_be_text:
+                pdf_context = f"""
+AS-IS DOCUMENT CONTENT (Current State):
+{as_is_text[:3000]}...
 
-Changes:
+TO-BE DOCUMENT CONTENT (Future State):
+{to_be_text[:3000]}...
+"""
+            elif to_be_text:
+                pdf_context = f"""
+DOCUMENT CONTENT:
+{to_be_text[:3000]}...
+"""
+            
+            prompt = f"""You are a QA expert for the Personify lending platform. Analyze the ACTUAL PDF CONTENT to generate EXHAUSTIVE and SPECIFIC test cases.
+
+{product_context}
+
+{pdf_context}
+
+Changes Summary:
 {changes_text}
 
-Generate test cases in JSON format:
+Generate test cases in JSON format with Excel-ready structure (ID | Scenario | Steps | Expected | Priority | Type):
 {{
     "test_cases": [
         {{
-            "test_case_id": "TC001",
-            "title": "Test case title",
-            "description": "What this test validates",
-            "preconditions": "Prerequisites",
-            "steps": ["Step 1", "Step 2", "Step 3"],
-            "expected_result": "Expected outcome",
+            "id": "TC001",
+            "scenario": "Detailed test scenario description",
+            "steps": "Step 1\\nStep 2\\nStep 3\\nStep 4",
+            "expected": "Expected outcome with specific validation points",
             "priority": "high/medium/low",
             "type": "functional/regression/smoke"
         }}
+    ],
+    "qa_validation_scope": [
+        "Happy path flow for ORG channel - Landing Page to E-Sign",
+        "Regression testing for RF channel - Offer page validation",
+        "Focus on Disclosures page - ADF vs FEB originator differences"
     ]
 }}
 
-Generate at least 3-5 test cases covering the major changes."""
+CRITICAL: Generate at least 15-20 EXHAUSTIVE test cases based on ACTUAL PDF CONTENT. Be specific about channel names (ORG, RF, RA, PS, CMPQ, etc.) and page names."""
             
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
-                    {"role": "system", "content": "You are an expert QA engineer specializing in test case design."},
+                    {"role": "system", "content": "You are an expert QA engineer specializing in test case design for the Personify lending platform."},
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.4,
-                max_tokens=2000
+                max_tokens=4000
             )
             
             result = response.choices[0].message.content
@@ -627,6 +807,7 @@ Generate at least 3-5 test cases covering the major changes."""
             
             return {
                 'test_cases': test_data.get('test_cases', []),
+                'qa_validation_scope': test_data.get('qa_validation_scope', []),
                 'tokens_used': tokens_used,
                 'processing_time': processing_time
             }

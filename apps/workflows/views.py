@@ -5,12 +5,12 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from .models import (
     WorkflowTemplate, WorkflowStage, ReviewCycle, StageApproval, 
-    WorkflowTransition, ApprovalGroup, GroupMember
+    WorkflowTransition, ApprovalGroup, GroupMember, Activity
 )
 from .serializers import (
     WorkflowTemplateSerializer, WorkflowStageSerializer, ReviewCycleSerializer,
     ReviewCycleCreateSerializer, StageApprovalSerializer, ReviewCycleDetailSerializer,
-    ApprovalGroupSerializer, GroupMemberSerializer
+    ApprovalGroupSerializer, GroupMemberSerializer, ActivitySerializer
 )
 from .services import WorkflowService
 from apps.notifications.services import NotificationService
@@ -255,6 +255,41 @@ class ReviewCycleViewSet(viewsets.ModelViewSet):
         serializer = ReviewCycleDetailSerializer(review_cycle)
         return Response(serializer.data)
     
+    @action(detail=True, methods=['get'])
+    def activities(self, request, pk=None):
+        """Get activity feed for this review cycle"""
+        review_cycle = self.get_object()
+        
+        # Get activities ordered by timestamp (newest first)
+        activities = Activity.objects.filter(review_cycle=review_cycle).order_by('-timestamp')
+        
+        # Pagination
+        page_size = request.GET.get('page_size', 20)
+        page = request.GET.get('page', 1)
+        
+        try:
+            page_size = int(page_size)
+            page = int(page)
+        except ValueError:
+            page_size = 20
+            page = 1
+        
+        start = (page - 1) * page_size
+        end = start + page_size
+        
+        paginated_activities = activities[start:end]
+        
+        serializer = ActivitySerializer(paginated_activities, many=True)
+        
+        return Response({
+            'results': serializer.data,
+            'count': activities.count(),
+            'next': end < activities.count(),
+            'previous': page > 1,
+            'page': page,
+            'page_size': page_size
+        })
+
     @action(detail=True, methods=['post'])
     def skip_group(self, request, pk=None):
         """Manager can skip a group's approval process"""

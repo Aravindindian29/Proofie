@@ -3,7 +3,7 @@ import { MessageSquare, Reply, Check, X, Send, Trash2 } from 'lucide-react'
 import api from '../services/api'
 import { getUserDisplayName, getUserInitials } from '../utils/userDisplay'
 
-const CommentSidebar = ({ versionId, currentPage, onCommentClick, activeCommentId }) => {
+const CommentSidebar = ({ versionId, currentPage, onCommentClick, activeCommentId, onAnnotationsChange }) => {
   const [comments, setComments] = useState([])
   const [loading, setLoading] = useState(true)
   const [replyingTo, setReplyingTo] = useState(null)
@@ -63,6 +63,7 @@ const CommentSidebar = ({ versionId, currentPage, onCommentClick, activeCommentI
       setReplyText('')
       setReplyingTo(null)
       fetchComments()
+      if (onAnnotationsChange) onAnnotationsChange()
     } catch (error) {
       console.error('Failed to add reply:', error)
     }
@@ -76,6 +77,7 @@ const CommentSidebar = ({ versionId, currentPage, onCommentClick, activeCommentI
         await api.post(`/annotations/${annotationId}/resolve/`)
       }
       fetchComments()
+      if (onAnnotationsChange) onAnnotationsChange()
     } catch (error) {
       console.error('Failed to resolve comment:', error)
     }
@@ -89,6 +91,7 @@ const CommentSidebar = ({ versionId, currentPage, onCommentClick, activeCommentI
     try {
       await api.delete(`/annotations/${annotationId}/`)
       fetchComments()
+      if (onAnnotationsChange) onAnnotationsChange()
     } catch (error) {
       console.error('Failed to delete comment:', error)
       alert('Failed to delete comment. Please try again.')
