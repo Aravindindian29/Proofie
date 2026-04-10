@@ -76,7 +76,8 @@ class JIRAIntegration(models.Model):
 
 class TestCaseGeneration(models.Model):
     """Stores generated test cases"""
-    diff_analysis = models.ForeignKey(DiffAnalysis, on_delete=models.CASCADE, related_name='test_cases')
+    diff_analysis = models.ForeignKey(DiffAnalysis, on_delete=models.CASCADE, related_name='test_cases', null=True, blank=True)
+    version = models.ForeignKey('versioning.FileVersion', on_delete=models.CASCADE, related_name='test_cases', null=True, blank=True)
     test_cases = models.JSONField()
     excel_file = models.FileField(upload_to='test_cases/%Y/%m/%d/', blank=True, null=True)
     jira_attachment_id = models.CharField(max_length=100, blank=True)
@@ -87,4 +88,8 @@ class TestCaseGeneration(models.Model):
         ordering = ['-created_at']
     
     def __str__(self):
-        return f"Test Cases for {self.diff_analysis}"
+        if self.diff_analysis:
+            return f"Test Cases for {self.diff_analysis}"
+        elif self.version:
+            return f"Test Cases for v{self.version.version_number}"
+        return f"Test Cases #{self.id}"

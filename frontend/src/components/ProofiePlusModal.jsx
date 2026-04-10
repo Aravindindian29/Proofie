@@ -32,21 +32,21 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
       description: 'Version Comparison',
       color: 'purple',
       endpoint: '/ai-engine/compare/',
-      disabled: false
+      disabled: true
     },
     {
       id: 'analyze',
-      title: 'Content Analysis + Compliance Checks. ',
+      title: 'Content Analysis + Smart UX Change Detection',
       icon: CheckCircle,
-      description: 'Content Analysis + Compliance Checks. ',
+      description: 'Content Analysis + Smart UX Change Detection',
       color: 'green',
       endpoint: '/ai-engine/analyze-content/'
     },
     {
       id: 'jira',
-      title: 'Post Summary to jira ticket',
+      title: 'Jira Integration',
       icon: ExternalLink,
-      description: 'Post Summary to jira ticket',
+      description: 'Jira Integration',
       color: 'orange',
       disabled: false
     },
@@ -180,28 +180,32 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
   };
 
   const handleGenerateTestCases = async () => {
-    if (!asIsVersion || !toBeVersion) {
-      toast.error('Please select both AS-IS and TO-BE versions');
-      return;
-    }
-
-    if (asIsVersion === toBeVersion) {
-      toast.error('Please select different versions');
-      return;
-    }
-
     setLoading(true);
     setResult(null);
 
     try {
-      const response = await api.post('/ai-engine/generate-tests/', {
-        as_is_version_id: asIsVersion,
-        to_be_version_id: toBeVersion,
-        attach_to_jira: attachToJira
+      const response = await api.post('/ai-engine/generate-tests-single/', {
+        version_id: versionId
       });
       
       setResult(response.data);
-      toast.success('Test cases generated!');
+      
+      // Automatically trigger Excel download
+      if (response.data.excel_url) {
+        const link = document.createElement('a');
+        link.href = response.data.excel_url;
+        link.download = response.data.excel_filename || 'test_cases.xlsx';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        toast.success('Test cases downloaded successfully!');
+        
+        // Return to ProofiePlus features after download
+        setTimeout(() => {
+          setActiveFeature(null);
+          setResult(null);
+        }, 1500); // Wait 1.5 seconds for user to see the success message
+      }
     } catch (error) {
       console.error('Error:', error);
       const errorMessage = error.response?.data?.error || error.message || 'Failed to generate test cases';
@@ -219,6 +223,7 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
 
     return (
       <div className="space-y-4">
+        {/* Header with high-level summary */}
         <div style={{
           background: 'linear-gradient(135deg, #0A84FF, #5E5CE6)',
           padding: 20,
@@ -230,17 +235,8 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
             fontWeight: 700,
             color: '#fff',
             marginBottom: 12
-          }}>{summary.title || 'Document Summary'}</h3>
+          }}>Document Summary</h3>
           <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: '0.875rem' }}>
-            <span style={{
-              background: 'rgba(255,255,255,0.2)',
-              padding: '6px 12px',
-              borderRadius: 20,
-              color: '#fff',
-              border: '1px solid rgba(255,255,255,0.3)'
-            }}>
-              <strong>Type:</strong> {summary.type || 'N/A'}
-            </span>
             <span style={{
               background: 'rgba(255,255,255,0.2)',
               padding: '6px 12px',
@@ -271,12 +267,214 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
                 fontWeight: 600,
                 border: '1px solid rgba(64, 224, 208, 0.4)'
               }}>
-                CPI ID: {summary.cpi_id}
+                {summary.cpi_id}
               </span>
             </div>
           )}
         </div>
 
+        {/* High-level summary */}
+        {summary.high_level_summary && (
+          <div>
+            <h4 style={{ fontWeight: 600, color: '#fff', marginBottom: 12, fontSize: '1rem' }}>High-Level Summary:</h4>
+            <div style={{
+              background: 'rgba(255,255,255,0.1)',
+              padding: 16,
+              borderRadius: 12,
+              border: '1px solid rgba(255,255,255,0.2)',
+              color: 'rgba(255,255,255,0.9)',
+              lineHeight: 1.6
+            }}>
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0, gap: 8, display: 'flex', flexDirection: 'column' }}>
+                {(() => {
+                  const text = summary.high_level_summary;
+                  // Split by common separators and create meaningful bullet points
+                  const points = text.split(/,?\s*(?:by|and|to|for|with|in)\s+/).filter(point => point.trim().length > 0);
+                  
+                  // If the split doesn't work well, fallback to sentence splitting
+                  const finalPoints = points.length > 1 ? points : text.split(/[.!?]+/).filter(sentence => sentence.trim().length > 0);
+                  
+                  return finalPoints.map((point, idx) => {
+                    const cleanPoint = point.trim().replace(/^[,\s]+|[,\s]+$/g, '');
+                    const formattedPoint = cleanPoint.charAt(0).toUpperCase() + cleanPoint.slice(1) + (cleanPoint.endsWith('.') ? '' : '.');
+                    return (
+                      <li key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 8 }}>
+                        <span style={{ color: '#0A84FF', marginTop: 2, fontSize: '1.2rem' }}>â¢</span>
+                        <span style={{ color: 'rgba(255,255,255,0.8)', lineHeight: 1.5 }}>
+                          {formattedPoint}
+                        </span>
+                      </li>
+                    );
+                  });
+                })()}
+              </ul>
+            </div>
+          </div>
+        )}
+
+        {/* Changes included */}
+        {summary.changes_included && summary.changes_included.length > 0 && (
+          <div>
+            <h4 style={{ fontWeight: 600, color: '#fff', marginBottom: 12, fontSize: '1rem' }}>Changes Included:</h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {summary.changes_included.map((change, idx) => (
+                <div key={idx} style={{
+                  background: 'rgba(255,255,255,0.05)',
+                  padding: 16,
+                  borderRadius: 12,
+                  border: '1px solid rgba(255,255,255,0.1)'
+                }}>
+                  <div style={{ color: '#fff', fontWeight: 600, marginBottom: 8 }}>{change.description}</div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {change.affected_channels && change.affected_channels.map((channel, channelIdx) => (
+                      <span key={channelIdx} style={{
+                        background: 'rgba(10, 132, 255, 0.2)',
+                        color: '#0A84FF',
+                        padding: '4px 8px',
+                        borderRadius: 12,
+                        fontSize: '0.75rem',
+                        fontWeight: 500
+                      }}>
+                        {channel}
+                      </span>
+                    ))}
+                    <span style={{
+                      background: change.impact_level === 'high' ? 'rgba(255, 59, 48, 0.2)' : 
+                                 change.impact_level === 'medium' ? 'rgba(255, 149, 0, 0.2)' : 
+                                 'rgba(52, 199, 89, 0.2)',
+                      color: change.impact_level === 'high' ? '#FF3B30' : 
+                             change.impact_level === 'medium' ? '#FF9500' : 
+                             '#34C759',
+                      padding: '4px 8px',
+                      borderRadius: 12,
+                      fontSize: '0.75rem',
+                      fontWeight: 500
+                    }}>
+                      {change.impact_level} impact
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Application pages with changes */}
+        {summary.application_pages_with_changes && summary.application_pages_with_changes.length > 0 && (
+          <div>
+            <h4 style={{ fontWeight: 600, color: '#fff', marginBottom: 12, fontSize: '1rem' }}>Application Pages with Changes:</h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {summary.application_pages_with_changes.map((page, idx) => (
+                <div key={idx} style={{
+                  background: 'rgba(255,255,255,0.05)',
+                  padding: 16,
+                  borderRadius: 12,
+                  border: '1px solid rgba(255,255,255,0.1)'
+                }}>
+                  <div style={{ color: '#fff', fontWeight: 600, marginBottom: 4 }}>{page.page_name}</div>
+                  <div style={{ 
+                    color: 'rgba(255,255,255,0.6)', 
+                    fontSize: '0.875rem', 
+                    marginBottom: 8 
+                  }}>
+                    Type: {page.change_type}
+                  </div>
+                  <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.875rem' }}>
+                    {page.description}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* A/B Testing */}
+        {summary.ab_testing_included && (
+          <div>
+            <h4 style={{ fontWeight: 600, color: '#fff', marginBottom: 12, fontSize: '1rem' }}>A/B Testing:</h4>
+            <div style={{
+              background: summary.ab_testing_included.has_ab_testing ? 'rgba(52, 199, 89, 0.1)' : 'rgba(255,255,255,0.05)',
+              padding: 16,
+              borderRadius: 12,
+              border: summary.ab_testing_included.has_ab_testing ? '1px solid rgba(52, 199, 89, 0.3)' : '1px solid rgba(255,255,255,0.1)'
+            }}>
+              <div style={{
+                color: summary.ab_testing_included.has_ab_testing ? '#34C759' : 'rgba(255,255,255,0.6)',
+                fontWeight: 600,
+                marginBottom: 8
+              }}>
+                {summary.ab_testing_included.has_ab_testing ? 'â A/B Testing Included' : 'â No A/B Testing'}
+              </div>
+              {summary.ab_testing_included.test_details && (
+                <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.875rem' }}>
+                  {summary.ab_testing_included.test_details}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        
+        {/* Disclosures */}
+        {summary.disclosures && summary.disclosures.length > 0 && (
+          <div>
+            <h4 style={{ fontWeight: 600, color: '#fff', marginBottom: 12, fontSize: '1rem' }}>Disclosures:</h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {summary.disclosures.map((disclosure, idx) => (
+                <div key={idx} style={{
+                  background: disclosure.importance === 'high' ? 'rgba(255, 59, 48, 0.1)' : 
+                             disclosure.importance === 'medium' ? 'rgba(255, 149, 0, 0.1)' : 
+                             'rgba(255,255,255,0.05)',
+                  padding: 16,
+                  borderRadius: 12,
+                  border: disclosure.importance === 'high' ? '1px solid rgba(255, 59, 48, 0.3)' : 
+                           disclosure.importance === 'medium' ? '1px solid rgba(255, 149, 0, 0.3)' : 
+                           '1px solid rgba(255,255,255,0.1)'
+                }}>
+                  <div style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'flex-start',
+                    marginBottom: 8 
+                  }}>
+                    <span style={{
+                      background: disclosure.type === 'new' ? 'rgba(52, 199, 89, 0.2)' : 'rgba(255, 149, 0, 0.2)',
+                      color: disclosure.type === 'new' ? '#34C759' : '#FF9500',
+                      padding: '4px 8px',
+                      borderRadius: 12,
+                      fontSize: '0.75rem',
+                      fontWeight: 500
+                    }}>
+                      {disclosure.type.toUpperCase()}
+                    </span>
+                    <span style={{
+                      background: disclosure.importance === 'high' ? 'rgba(255, 59, 48, 0.2)' : 
+                                 disclosure.importance === 'medium' ? 'rgba(255, 149, 0, 0.2)' : 
+                                 'rgba(52, 199, 89, 0.2)',
+                      color: disclosure.importance === 'high' ? '#FF3B30' : 
+                             disclosure.importance === 'medium' ? '#FF9500' : 
+                             '#34C759',
+                      padding: '4px 8px',
+                      borderRadius: 12,
+                      fontSize: '0.75rem',
+                      fontWeight: 500
+                    }}>
+                      {disclosure.importance} importance
+                    </span>
+                  </div>
+                  <div style={{ color: '#fff', fontWeight: 600, marginBottom: 4 }}>
+                    {disclosure.location}
+                  </div>
+                  <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.875rem' }}>
+                    {disclosure.disclosure_text}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Additional highlights (fallback for old structure) */}
         {summary.key_highlights && summary.key_highlights.length > 0 && (
           <div>
             <h4 style={{ fontWeight: 600, color: '#fff', marginBottom: 12, fontSize: '1rem' }}>Key Highlights:</h4>
@@ -291,6 +489,8 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
           </div>
         )}
 
+        
+        {/* Sections (fallback for old structure) */}
         {summary.sections && summary.sections.length > 0 && (
           <div>
             <h4 className="font-semibold text-gray-700 mb-2">Sections:</h4>
@@ -512,11 +712,91 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
       content += `*CPI ID:* ${cpiId}\n`;
     }
     
-    content += `*Document:* ${summary.title || 'Document Summary'}\n`;
-    content += `*Type:* ${summary.type || 'N/A'}\n`;
-    content += `*Complexity:* ${summary.complexity || 'N/A'}\n`;
-    content += `*Estimated Review Time:* ${summary.estimated_review_time || 'N/A'}\n\n`;
+    // Determine document type based on content analysis
+    let docType = 'Technical Specification';
+    if (summary.new_email_templates && summary.new_email_templates.length > 0) {
+      docType = 'Email Templates Specification';
+    } else if (summary.ab_testing_included && summary.ab_testing_included.has_ab_testing) {
+      docType = 'A/B Testing Specification';
+    } else if (summary.application_pages_with_changes && summary.application_pages_with_changes.length > 0) {
+      docType = 'Application Flow Changes';
+    } else if (summary.high_level_summary && (summary.high_level_summary.toLowerCase().includes('ux') || summary.high_level_summary.toLowerCase().includes('ui'))) {
+      docType = 'UX Specification';
+    }
     
+    content += `*Type:* ${docType}\n`;
+    content += `*Complexity:* ${summary.complexity || 'N/A'}\n\n`;
+    
+    // Add high-level summary as bullet points
+    if (summary.high_level_summary) {
+      content += '*Summary:*\n';
+      // Split summary by common separators to create meaningful bullet points
+      let points = [];
+      const text = summary.high_level_summary;
+      
+      // Try splitting by "through", "by", "via", "including", commas followed by "and"
+      const splitPatterns = [
+        /\s+through\s+/i,
+        /\s+by\s+/i,
+        /\s+via\s+/i,
+        /,\s*and\s+/i,
+        /\s+including\s+/i
+      ];
+      
+      // Split the text into parts
+      let parts = [text];
+      splitPatterns.forEach(pattern => {
+        let newParts = [];
+        parts.forEach(part => {
+          const split = part.split(pattern);
+          newParts.push(...split);
+        });
+        parts = newParts;
+      });
+      
+      // Clean and format each part as a bullet point
+      parts.forEach(part => {
+        const trimmed = part.trim();
+        if (trimmed && trimmed.length > 10) { // Only add meaningful points
+          // Capitalize first letter and ensure proper formatting
+          let formatted = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+          // Remove trailing periods or commas
+          formatted = formatted.replace(/[,.]$/, '');
+          content += `* ${formatted}\n`;
+        }
+      });
+      content += '\n';
+    }
+    
+    // Add changes included
+    if (summary.changes_included && summary.changes_included.length > 0) {
+      content += '*Changes Included:*\n';
+      summary.changes_included.forEach(change => {
+        content += `* ${change.description}`;
+        if (change.affected_channels && change.affected_channels.length > 0) {
+          content += ` (Channels: ${change.affected_channels.join(', ')})`;
+        }
+        content += '\n';
+      });
+      content += '\n';
+    }
+    
+    // Add application pages with changes
+    if (summary.application_pages_with_changes && summary.application_pages_with_changes.length > 0) {
+      content += '*Application Pages with Changes:*\n';
+      summary.application_pages_with_changes.forEach(page => {
+        content += `* ${page.page_name}: ${page.description}\n`;
+      });
+      content += '\n';
+    }
+    
+    // Add A/B testing info
+    if (summary.ab_testing_included && summary.ab_testing_included.has_ab_testing) {
+      content += '*A/B Testing:*\n';
+      content += `* ${summary.ab_testing_included.test_details || 'A/B testing is included'}\n\n`;
+    }
+    
+    // Fallback to key_highlights if present (for backward compatibility)
     if (summary.key_highlights && summary.key_highlights.length > 0) {
       content += '*Key Requirements:*\n';
       summary.key_highlights.forEach(highlight => {
@@ -550,6 +830,7 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
     }
   };
 
+  
   const renderJiraResult = (data) => {
     if (!data.success) return null;
 
@@ -641,75 +922,18 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
           </div>
         </div>
 
-        {/* Risk Areas Summary */}
-        {data.risk_areas && (
-          <div>
-            <h4 className="font-semibold text-gray-700 mb-2">Risk Areas</h4>
-            <div className="space-y-2">
-              {data.risk_areas.high_risk && data.risk_areas.high_risk.length > 0 && (
-                <div className="bg-red-50 p-3 rounded border-l-4 border-red-500">
-                  <div className="font-medium text-red-800 mb-1">High Risk</div>
-                  <ul className="text-sm text-gray-700 space-y-1">
-                    {data.risk_areas.high_risk.map((risk, idx) => (
-                      <li key={idx} className="flex items-start gap-2">
-                        <span className="text-red-500 mt-1">•</span>
-                        <span>{risk}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              {data.risk_areas.medium_risk && data.risk_areas.medium_risk.length > 0 && (
-                <div className="bg-yellow-50 p-3 rounded border-l-4 border-yellow-500">
-                  <div className="font-medium text-yellow-800 mb-1">Medium Risk</div>
-                  <ul className="text-sm text-gray-700 space-y-1">
-                    {data.risk_areas.medium_risk.map((risk, idx) => (
-                      <li key={idx} className="flex items-start gap-2">
-                        <span className="text-yellow-500 mt-1">•</span>
-                        <span>{risk}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              {data.risk_areas.low_risk && data.risk_areas.low_risk.length > 0 && (
-                <div className="bg-green-50 p-3 rounded border-l-4 border-green-500">
-                  <div className="font-medium text-green-800 mb-1">Low Risk</div>
-                  <ul className="text-sm text-gray-700 space-y-1">
-                    {data.risk_areas.low_risk.map((risk, idx) => (
-                      <li key={idx} className="flex items-start gap-2">
-                        <span className="text-green-500 mt-1">•</span>
-                        <span>{risk}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Regression Scope Summary */}
-        {data.regression_scope && (
-          <div>
-            <h4 className="font-semibold text-gray-700 mb-2">Regression Scope</h4>
-            <div className="space-y-2">
-              {Object.entries(data.regression_scope).map(([category, items]) => (
-                <div key={category} className="bg-gray-50 p-3 rounded">
-                  <div className="font-medium text-gray-800 mb-1">
-                    {category.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                  </div>
-                  <ul className="text-sm text-gray-700 space-y-1">
-                    {items.map((item, idx) => (
-                      <li key={idx} className="flex items-start gap-2">
-                        <span className="text-gray-400 mt-1">•</span>
-                        <span>{item}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+        {/* QA Validation Scope */}
+        {data.qa_validation_scope && data.qa_validation_scope.length > 0 && (
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-200">
+            <h4 className="text-lg font-semibold text-gray-800 mb-3">QA Validation Scope</h4>
+            <ul className="space-y-2">
+              {data.qa_validation_scope.map((item, idx) => (
+                <li key={idx} className="flex items-start gap-2 text-gray-700">
+                  <span className="text-blue-500 mt-1">•</span>
+                  <span>{item}</span>
+                </li>
               ))}
-            </div>
+            </ul>
           </div>
         )}
 
@@ -748,13 +972,23 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
         </div>
 
         <div className="flex gap-2">
-          <a
-            href={data.excel_url}
-            download
-            className="flex-1 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-center"
+          <button
+            onClick={() => {
+              if (data.excel_url) {
+                const link = document.createElement('a');
+                link.href = data.excel_url;
+                link.download = data.excel_filename || 'test_cases.xlsx';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                toast.success('Excel file downloaded!');
+              }
+            }}
+            className="flex-1 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-center font-semibold flex items-center justify-center gap-2"
           >
-            Download Excel (3 Sheets)
-          </a>
+            <FileSpreadsheet className="w-5 h-5" />
+            Download Excel File
+          </button>
           {data.jira_url && (
             <a
               href={data.jira_url}
@@ -819,7 +1053,7 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
         {/* Features Grid */}
         {!activeFeature && (
           <div style={{ padding: '0 24px 24px', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16, overflowY: 'auto' }}>
-            {features.map((feature) => {
+            {features.filter(f => !f.disabled).map((feature) => {
               const Icon = feature.icon;
               const colorMap = {
                 blue: '#0A84FF',
@@ -1152,131 +1386,73 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
         )}
 
         {activeFeature === 'testcases' && !loading && !result && (
-          <div className="p-6 space-y-6 overflow-y-auto max-h-[70vh]">
-            <h3 className="text-xl font-semibold text-gray-800">Test Case Generation</h3>
-            
-            {/* Section 1: Test Scenarios Download */}
-            <div className="bg-gradient-to-r from-pink-50 to-purple-50 p-4 rounded-lg border border-pink-200">
-              <h4 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                <span className="bg-pink-100 text-pink-800 px-3 py-1 rounded-full text-sm font-semibold">1</span>
-                Test Scenarios Download
-              </h4>
-              <p className="text-gray-600 mb-4">Download comprehensive test scenarios with detailed steps and expected results.</p>
+          <div style={{ padding: 24, overflowY: 'auto', flex: 1 }}>
+            <div style={{
+              background: 'rgba(255, 55, 95, 0.1)',
+              border: '1px solid rgba(255, 55, 95, 0.2)',
+              borderRadius: 16,
+              padding: 20,
+              marginBottom: 16
+            }}>
+              <h3 style={{
+                fontSize: '1.25rem',
+                fontWeight: 700,
+                color: '#fff',
+                marginBottom: 12,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8
+              }}>
+                <FileSpreadsheet className="w-6 h-6" style={{ color: '#FF375F' }} />
+                Test Case Generation
+              </h3>
+              <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.875rem' }}>
+                Generate exhaustive test cases from the current PDF document
+              </p>
+            </div>
+
+            <div style={{
+              background: 'rgba(255,255,255,0.05)',
+              padding: 20,
+              borderRadius: 16,
+              border: '1px solid rgba(255,255,255,0.1)',
+              marginBottom: 16,
+              textAlign: 'center'
+            }}>
+              <p style={{ color: 'rgba(255,255,255,0.7)', marginBottom: 20, fontSize: '0.875rem' }}>
+                Click the button below to generate comprehensive test cases based on the PDF content
+              </p>
+              
               <button
-                onClick={() => {
-                  // Generate test cases with mock data for Excel download
-                  const mockTestCases = [
-                    { test_case_id: 'TC001', title: 'Landing Page Display Test', description: 'Verify landing page loads correctly', priority: 'high', type: 'functional' },
-                    { test_case_id: 'TC002', title: 'Form Validation Test', description: 'Test form field validations', priority: 'medium', type: 'functional' },
-                    { test_case_id: 'TC003', title: 'API Integration Test', description: 'Verify API endpoints work correctly', priority: 'high', type: 'integration' }
-                  ];
-                  
-                  // Create Excel workbook
-                  const wb = XLSX.utils.book_new();
-                  const ws = XLSX.utils.json_to_sheet(mockTestCases);
-                  
-                  // Set column widths
-                  ws['!cols'] = [
-                    { wch: 12 }, // test_case_id
-                    { wch: 30 }, // title
-                    { wch: 40 }, // description
-                    { wch: 10 }, // priority
-                    { wch: 15 }  // type
-                  ];
-                  
-                  // Add worksheet to workbook
-                  XLSX.utils.book_append_sheet(wb, ws, "Test Scenarios");
-                  
-                  // Generate Excel file and download
-                  const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-                  const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-                  const url = URL.createObjectURL(blob);
-                  
-                  const linkElement = document.createElement('a');
-                  linkElement.href = url;
-                  linkElement.download = 'test_scenarios.xlsx';
-                  linkElement.click();
-                  
-                  // Clean up
-                  URL.revokeObjectURL(url);
-                  
-                  toast.success('Test scenarios downloaded successfully!');
+                onClick={handleGenerateTestCases}
+                style={{
+                  width: '100%',
+                  background: 'linear-gradient(135deg, #FF375F, #FF9F0A)',
+                  color: '#fff',
+                  padding: '14px 28px',
+                  borderRadius: 12,
+                  fontWeight: 600,
+                  border: 'none',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  fontSize: '1rem',
+                  transition: 'all 0.2s ease'
                 }}
-                className="w-full bg-pink-600 text-white px-4 py-3 rounded-lg hover:bg-pink-700 font-semibold flex items-center justify-center gap-2"
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = '0 8px 24px rgba(255, 55, 95, 0.4)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
               >
-                <FileSpreadsheet className="w-5 h-5" />
-                Download Test Scenarios
+                <FileSpreadsheet style={{ width: 20, height: 20 }} />
+                Generate Test Cases
               </button>
-            </div>
-
-            {/* Section 2: Risk Areas */}
-            <div className="bg-gradient-to-r from-red-50 to-orange-50 p-4 rounded-lg border border-red-200">
-              <h4 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                <span className="bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm font-semibold">2</span>
-                Risk Areas
-              </h4>
-              <p className="text-gray-600 mb-4">Identified risk areas for testing focus:</p>
-              <div className="space-y-3">
-                <div className="bg-red-100 p-3 rounded border-l-4 border-red-500">
-                  <div className="font-medium text-red-800 mb-1">🔴 High Risk Areas</div>
-                  <ul className="text-sm text-gray-700 space-y-1">
-                    <li>• Payment gateway integration</li>
-                    <li>• User authentication flows</li>
-                    <li>• Data validation and security</li>
-                  </ul>
-                </div>
-                <div className="bg-yellow-100 p-3 rounded border-l-4 border-yellow-500">
-                  <div className="font-medium text-yellow-800 mb-1">🟡 Medium Risk Areas</div>
-                  <ul className="text-sm text-gray-700 space-y-1">
-                    <li>• Email template rendering</li>
-                    <li>• Mobile responsiveness</li>
-                    <li>• Cross-browser compatibility</li>
-                  </ul>
-                </div>
-                <div className="bg-green-100 p-3 rounded border-l-4 border-green-500">
-                  <div className="font-medium text-green-800 mb-1">🟢 Low Risk Areas</div>
-                  <ul className="text-sm text-gray-700 space-y-1">
-                    <li>• Static content display</li>
-                    <li>• Basic navigation</li>
-                    <li>• Footer links</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-
-            {/* Section 3: Regression Scope */}
-            <div className="bg-gradient-to-r from-blue-50 to-cyan-50 p-4 rounded-lg border border-blue-200">
-              <h4 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-semibold">3</span>
-                Regression Scope
-              </h4>
-              <p className="text-gray-600 mb-4">Areas requiring regression testing:</p>
-              <div className="space-y-3">
-                <div className="bg-white p-3 rounded border">
-                  <div className="font-medium text-gray-800 mb-2">🔧 Core Functionality</div>
-                  <ul className="text-sm text-gray-700 space-y-1">
-                    <li>• User registration and login</li>
-                    <li>• Main dashboard functionality</li>
-                    <li>• Core business logic</li>
-                  </ul>
-                </div>
-                <div className="bg-white p-3 rounded border">
-                  <div className="font-medium text-gray-800 mb-2">🔗 Integration Points</div>
-                  <ul className="text-sm text-gray-700 space-y-1">
-                    <li>• Third-party API connections</li>
-                    <li>• Database interactions</li>
-                    <li>• External service integrations</li>
-                  </ul>
-                </div>
-                <div className="bg-white p-3 rounded border">
-                  <div className="font-medium text-gray-800 mb-2">⚖️ Compliance</div>
-                  <ul className="text-sm text-gray-700 space-y-1">
-                    <li>• GDPR compliance features</li>
-                    <li>• Accessibility standards</li>
-                    <li>• Security protocols</li>
-                  </ul>
-                </div>
-              </div>
             </div>
           </div>
         )}
@@ -1334,7 +1510,7 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
                 border: '1px solid rgba(255,255,255,0.1)',
                 fontSize: '0.875rem',
                 whiteSpace: 'pre-wrap',
-                fontFamily: 'monospace',
+                fontFamily: 'inherit',
                 color: 'rgba(255,255,255,0.9)',
                 lineHeight: 1.6
               }}>
@@ -1392,6 +1568,7 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
                 {activeFeature === 'summarize' && renderSummaryResult(result)}
                 {activeFeature === 'analyze' && renderAnalysisResult(result)}
                 {activeFeature === 'jira' && renderJiraResult(result)}
+                {activeFeature === 'testcases' && renderTestCasesResult(result)}
               </>
             )}
           </div>
