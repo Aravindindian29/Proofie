@@ -8,6 +8,8 @@ import '@react-pdf-viewer/core/lib/styles/index.css'
 import '@react-pdf-viewer/default-layout/lib/styles/index.css'
 
 const PDFViewer = forwardRef(({ fileUrl, fileName, onPageChange, initialPage }, ref) => {
+  console.log('[PDFViewer] Rendering with fileUrl:', fileUrl)
+  
   const pageNavigationPluginInstance = pageNavigationPlugin()
   const { jumpToPage } = pageNavigationPluginInstance
 
@@ -23,6 +25,13 @@ const PDFViewer = forwardRef(({ fileUrl, fileName, onPageChange, initialPage }, 
       },
     },
   })
+  
+  useEffect(() => {
+    console.log('[PDFViewer] fileUrl changed to:', fileUrl)
+    return () => {
+      console.log('[PDFViewer] Cleaning up for fileUrl:', fileUrl)
+    }
+  }, [fileUrl])
 
   // Expose jumpToPage method to parent
   useImperativeHandle(ref, () => ({
@@ -62,6 +71,7 @@ const PDFViewer = forwardRef(({ fileUrl, fileName, onPageChange, initialPage }, 
     >
       <Worker workerUrl="/pdf.worker.min.js">
         <Viewer
+          key={fileUrl}
           fileUrl={fileUrl}
           plugins={[defaultLayoutPluginInstance, pageNavigationPluginInstance]}
           defaultScale={1.0}

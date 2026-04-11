@@ -96,7 +96,18 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
         from .permissions import get_user_accessible_projects
 
-        return get_user_accessible_projects(self.request.user).prefetch_related('members', 'assets', 'assets__versions')
+        queryset = get_user_accessible_projects(self.request.user).prefetch_related('members', 'assets', 'assets__versions')
+        
+        # Filter by share_token if provided in query params
+        share_token = self.request.query_params.get('share_token')
+        if share_token:
+            print(f"[ProjectViewSet] Filtering by share_token: {share_token}")
+            queryset = queryset.filter(share_token=share_token)
+            print(f"[ProjectViewSet] Filtered queryset count: {queryset.count()}")
+            if queryset.exists():
+                print(f"[ProjectViewSet] Found project: {queryset.first().id} - {queryset.first().name}")
+        
+        return queryset
 
 
 
@@ -689,7 +700,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                         project.workflow_template_id = template_id
                         project.workflow_stage_reviewers = stage_reviewers
                         project.save(update_fields=['workflow_template_id', 'workflow_stage_reviewers'])
-                        print(f"✅ Saved workflow config to project {project.id}: template={template_id}, reviewers={stage_reviewers}")
+                        print(f"[SUCCESS] Saved workflow config to project {project.id}: template={template_id}, reviewers={stage_reviewers}")
                         
                         # Add all reviewers as project members
                         all_reviewer_ids = set()
@@ -959,7 +970,7 @@ class CreativeAssetViewSet(viewsets.ModelViewSet):
 
                 
 
-                print(f"✅ FileVersion {version.id} created")
+                print(f"[SUCCESS] FileVersion {version.id} created")
 
                 
 
@@ -999,15 +1010,15 @@ class CreativeAssetViewSet(viewsets.ModelViewSet):
 
                                 version.thumbnail.save(thumb_filename, thumbnail_content, save=True)
 
-                                print(f"✅ Thumbnail saved explicitly: {version.thumbnail.name}")
+                                print(f"[SUCCESS] Thumbnail saved explicitly: {version.thumbnail.name}")
 
                             else:
 
-                                print(f"⚠️ Thumbnail generation returned None")
+                                print(f"[WARNING] Thumbnail generation returned None")
 
                     except Exception as e:
 
-                        print(f"⚠️ Explicit thumbnail generation failed: {e}")
+                        print(f"[WARNING] Explicit thumbnail generation failed: {e}")
 
                         import traceback
 
@@ -1057,16 +1068,16 @@ class CreativeAssetViewSet(viewsets.ModelViewSet):
 
                         print(f"Updated Project {proj.id} - thumbnail_url will be computed in serializer")
                           # Create workflow ReviewCycle if project has workflow configuration
-                        print(f"🔍 Checking workflow config - template_id: {proj.workflow_template_id}, stage_reviewers: {proj.workflow_stage_reviewers}")
+                        print(f"[DEBUG] Checking workflow config - template_id: {proj.workflow_template_id}, stage_reviewers: {proj.workflow_stage_reviewers}")
                         if proj.workflow_template_id and proj.workflow_stage_reviewers:
-                            print(f"✅ Project has workflow configuration, creating ReviewCycle...")
+                            print(f"[INFO] Project has workflow configuration, creating ReviewCycle...")
                             try:
                                 from apps.workflows.models import WorkflowTemplate, ReviewCycle, ApprovalGroup, GroupMember
                                 from apps.notifications.services import NotificationService
                                 
                                 # Check if ReviewCycle already exists for this asset
                                 existing_cycle = ReviewCycle.objects.filter(asset=asset).first()
-                                print(f"🔍 Existing cycle check: {existing_cycle}")
+                                print(f"[DEBUG] Existing cycle check: {existing_cycle}")
                                 if not existing_cycle:
                                     template = WorkflowTemplate.objects.get(id=proj.workflow_template_id)
                                     
@@ -1118,17 +1129,17 @@ class CreativeAssetViewSet(viewsets.ModelViewSet):
                                     try:
                                         NotificationService.notify_reviewers_new_proof(review_cycle)
                                     except Exception as notif_error:
-                                        print(f"⚠️ Failed to send notifications: {notif_error}")
+                                        print(f"[WARNING] Failed to send notifications: {notif_error}")
                                     
-                                    print(f"✅ Created ReviewCycle {review_cycle.id} with {stages.count()} stages")
+                                    print(f"[SUCCESS] Created ReviewCycle {review_cycle.id} with {stages.count()} stages")
                             except Exception as workflow_error:
-                                print(f"⚠️ Failed to create workflow: {workflow_error}")
+                                print(f"[ERROR] Failed to create workflow: {workflow_error}")
                                 import traceback
                                 traceback.print_exc()
                         
                 except Exception as proj_error:
 
-                    print(f"⚠️ Could not update project info: {proj_error}")
+                    print(f"[WARNING] Could not update project info: {proj_error}")
 
             
 

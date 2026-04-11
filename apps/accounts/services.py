@@ -254,9 +254,9 @@ The Proofie Team
 This is a test email from Proofie to verify that the email configuration is working correctly.
 
 If you receive this email, it means:
-✅ Email backend is configured correctly
-✅ SMTP connection is working
-✅ Authentication is successful
+[OK] Email backend is configured correctly
+[OK] SMTP connection is working
+[OK] Authentication is successful
 
 Email Configuration Details:
 - Backend: {backend}

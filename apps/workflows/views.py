@@ -180,14 +180,14 @@ class ReviewCycleViewSet(viewsets.ModelViewSet):
             if member.reviewer_progress == 'not_started':
                 logger.info(f"Updating reviewer progress from 'not_started' to 'reviewing' for user {request.user.username}")
                 WorkflowService.update_reviewer_progress(member, 'reviewing')
-                logger.info(f"✅ Updated reviewer progress to 'reviewing' for user {request.user.username} in review cycle {review_cycle.id}, Group: {member.group.name}")
+                logger.info(f"[SUCCESS] Updated reviewer progress to 'reviewing' for user {request.user.username} in review cycle {review_cycle.id}, Group: {member.group.name}")
             else:
-                logger.info(f"⚠️ Reviewer progress NOT updated - current status is '{member.reviewer_progress}' (not 'not_started')")
+                logger.info(f"[WARNING] Reviewer progress NOT updated - current status is '{member.reviewer_progress}' (not 'not_started')")
             
             member_updated = True
             logger.info(f"Updated SOCD status for user {request.user.username} in review cycle {review_cycle.id}")
         else:
-            logger.warning(f"⚠️ No member found for user {request.user.username} in review cycle {review_cycle.id}")
+            logger.warning(f"[WARNING] No member found for user {request.user.username} in review cycle {review_cycle.id}")
         
         # Update review cycle status from 'not_started' to 'in_progress'
         # Any authenticated user can trigger this transition

@@ -22,7 +22,16 @@ function ProofReviewer() {
   const [error, setError] = useState(null)
 
   useEffect(() => {
+    console.log('[ProofReviewer] proof_id changed to:', proof_id)
+    console.log('[ProofReviewer] Resetting assetId to null')
+    // Reset assetId when proof_id changes to prevent showing wrong content
+    setAssetId(null)
+    setError(null)
     fetchProjectAndAsset()
+    
+    return () => {
+      console.log('[ProofReviewer] Cleaning up for proof_id:', proof_id)
+    }
   }, [proof_id])
 
   const fetchProjectAndAsset = async () => {
@@ -30,7 +39,7 @@ function ProofReviewer() {
       setLoading(true)
       setError(null)
 
-      console.log('Fetching project with share_token:', proof_id)
+      console.log('[ProofReviewer] Fetching project with share_token:', proof_id)
       
       // Fetch project using share_token
       const response = await api.get(`/versioning/projects/?share_token=${proof_id}`)
@@ -43,16 +52,17 @@ function ProofReviewer() {
       }
 
       const project = projects[0]
-      console.log('Found project:', project)
+      console.log('[ProofReviewer] Found project:', project.id, project.name, 'share_token:', project.share_token)
 
       // Fetch project assets
       try {
         const assetsResponse = await api.get(`/versioning/projects/${project.id}/assets/`)
         const assets = assetsResponse.data
+        console.log('[ProofReviewer] Fetched assets:', assets)
         
         if (assets && assets.length > 0) {
           const firstAsset = assets[0]
-          console.log('Found first asset:', firstAsset)
+          console.log('[ProofReviewer] Setting assetId to:', firstAsset.id, 'for asset:', firstAsset.name)
           setAssetId(firstAsset.id)
         } else {
           throw new Error('No assets found for this project')
@@ -160,7 +170,7 @@ function ProofReviewer() {
     )
   }
 
-  return <FileViewerWithAsset assetId={assetId} />
+  return <FileViewerWithAsset key={assetId} assetId={assetId} />
 }
 
 export default ProofReviewer

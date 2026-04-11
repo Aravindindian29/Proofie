@@ -12,38 +12,38 @@ def generate_pdf_thumbnail(file_path, thumbnail_size=(400, 565)):
     Generate a thumbnail from the first page of a PDF file.
     Returns a ContentFile that can be saved to a model's ImageField.
     """
-    logger.info(f"📄 PDF THUMBNAIL: Starting for {file_path}")
+    logger.info(f"[PDF THUMBNAIL] Starting for {file_path}")
     
     try:
         # Try using PyMuPDF (fitz) first - it's more reliable
         import fitz  # PyMuPDF
-        logger.info(f"📄 PDF THUMBNAIL: PyMuPDF imported successfully")
+        logger.info(f"[PDF THUMBNAIL] PyMuPDF imported successfully")
         
         # Open the PDF
         pdf_document = fitz.open(file_path)
-        logger.info(f"📄 PDF THUMBNAIL: PDF opened, {len(pdf_document)} pages")
+        logger.info(f"[PDF THUMBNAIL] PDF opened, {len(pdf_document)} pages")
         
         if len(pdf_document) == 0:
-            logger.warning("📄 PDF THUMBNAIL: PDF has no pages")
+            logger.warning("[PDF THUMBNAIL] PDF has no pages")
             return None
         
         # Get first page
         first_page = pdf_document[0]
-        logger.info(f"📄 PDF THUMBNAIL: Got first page")
+        logger.info(f"[PDF THUMBNAIL] Got first page")
         
         # Render page to image at higher resolution for quality
         mat = fitz.Matrix(2, 2)  # 2x zoom for better quality
         pix = first_page.get_pixmap(matrix=mat)
-        logger.info(f"📄 PDF THUMBNAIL: Rendered pixmap {pix.width}x{pix.height}")
+        logger.info(f"[PDF THUMBNAIL] Rendered pixmap {pix.width}x{pix.height}")
         
         # Convert to PIL Image
         img_data = pix.tobytes("png")
         img = Image.open(io.BytesIO(img_data))
-        logger.info(f"📄 PDF THUMBNAIL: Created PIL image {img.size}")
+        logger.info(f"[PDF THUMBNAIL] Created PIL image {img.size}")
         
         # Resize to thumbnail size while maintaining aspect ratio
         img.thumbnail(thumbnail_size, Image.LANCZOS)
-        logger.info(f"📄 PDF THUMBNAIL: Resized to {img.size}")
+        logger.info(f"[PDF THUMBNAIL] Resized to {img.size}")
         
         # Convert to RGB if necessary
         if img.mode != 'RGB':
@@ -53,7 +53,7 @@ def generate_pdf_thumbnail(file_path, thumbnail_size=(400, 565)):
         thumb_io = io.BytesIO()
         img.save(thumb_io, format='JPEG', quality=85, optimize=True)
         thumb_io.seek(0)
-        logger.info(f"📄 PDF THUMBNAIL: Saved JPEG, size={len(thumb_io.getvalue())} bytes")
+        logger.info(f"[PDF THUMBNAIL] Saved JPEG, size={len(thumb_io.getvalue())} bytes")
         
         # Clean up
         pdf_document.close()
@@ -62,17 +62,17 @@ def generate_pdf_thumbnail(file_path, thumbnail_size=(400, 565)):
         filename = os.path.basename(file_path)
         name, _ = os.path.splitext(filename)
         result = ContentFile(thumb_io.getvalue(), name=f"{name}_thumb.jpg")
-        logger.info(f"📄 PDF THUMBNAIL: Created ContentFile successfully")
+        logger.info(f"[PDF THUMBNAIL] Created ContentFile successfully")
         return result
         
     except ImportError as e:
-        logger.warning(f"📄 PDF THUMBNAIL: PyMuPDF not available: {e}")
+        logger.warning(f"[PDF THUMBNAIL] PyMuPDF not available: {e}")
     except Exception as e:
-        logger.error(f"📄 PDF THUMBNAIL ERROR: {e}")
+        logger.error(f"[PDF THUMBNAIL ERROR] {e}")
         import traceback
         traceback.print_exc()
     
-    logger.warning("📄 PDF THUMBNAIL: Returning None")
+    logger.warning("[PDF THUMBNAIL] Returning None")
     return None
     
     # Fallback to pdf2image

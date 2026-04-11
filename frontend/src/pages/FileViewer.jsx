@@ -13,33 +13,39 @@ import ProofiePlusModal from '../components/ProofiePlusModal'
 import { useAuthStore } from '../stores/authStore'
 import { AssetIdContext } from './ProofReviewer'
 
-const getMediaUrl = (fileUrl) => {
-  console.log('🔗 getMediaUrl input:', fileUrl)
+const getMediaUrl = (fileUrl, bustCache = false) => {
+  console.log('[getMediaUrl] input:', fileUrl)
   if (!fileUrl) return null
   
-  // If it's already a full URL, return as-is
+  let url;
+  // If it's already a full URL, use as-is
   if (fileUrl.startsWith('http://localhost:8000/')) {
-    console.log('🔗 Using full URL:', fileUrl)
-    return fileUrl
+    console.log('[getMediaUrl] Using full URL:', fileUrl)
+    url = fileUrl
   }
-  
   // If it's already the correct API path, add the domain
-  if (fileUrl.startsWith('/api/versioning/media/')) {
-    const url = `http://localhost:8000${fileUrl}`
-    console.log('🔗 Converting API path to full URL:', url)
-    return url
+  else if (fileUrl.startsWith('/api/versioning/media/')) {
+    url = `http://localhost:8000${fileUrl}`
+    console.log('[getMediaUrl] Converting API path to full URL:', url)
   }
-  
   // Convert old /media/ paths to new API paths
-  if (fileUrl.startsWith('/media/')) {
-    const url = `http://localhost:8000/api/versioning/media${fileUrl.replace('/media', '')}`
-    console.log('🔗 Converting /media/ to API URL:', url)
-    return url
+  else if (fileUrl.startsWith('/media/')) {
+    url = `http://localhost:8000/api/versioning/media${fileUrl.replace('/media', '')}`
+    console.log('[getMediaUrl] Converting /media/ to API URL:', url)
+  }
+  // Default case - assume it's a relative path
+  else {
+    url = `http://localhost:8000/api/versioning/media${fileUrl.startsWith('/') ? '' : '/'}${fileUrl}`
+    console.log('[getMediaUrl] Using default pattern:', url)
   }
   
-  // Default case - assume it's a relative path
-  const url = `http://localhost:8000/api/versioning/media${fileUrl.startsWith('/') ? '' : '/'}${fileUrl}`
-  console.log(' Using default pattern:', url)
+  // Add cache-busting parameter if requested
+  if (bustCache) {
+    const separator = url.includes('?') ? '&' : '?'
+    url = `${url}${separator}_t=${Date.now()}`
+    console.log('[getMediaUrl] Added cache-busting:', url)
+  }
+  
   return url
 }
 
@@ -71,15 +77,36 @@ function FileViewer() {
   const pdfViewerRef = React.useRef(null)
 
   useEffect(() => {
-    console.log('FileViewer loaded with ID:', id)
-    console.log('ID type:', typeof id)
-    console.log('ID length:', id?.length)
-    console.log('ID contains special chars:', id ? /[^a-zA-Z0-9_-]/.test(id) : 'no id')
-    console.log('Context asset ID:', contextAssetId)
-    console.log('URL asset ID:', urlId)
-    if (id) fetchAssetData()
+    console.log('[FileViewer] Component mounted/updated with ID:', id)
+    console.log('[FileViewer] ID type:', typeof id)
+    console.log('[FileViewer] ID length:', id?.length)
+    console.log('[FileViewer] ID contains special chars:', id ? /[^a-zA-Z0-9_-]/.test(id) : 'no id')
+    console.log('[FileViewer] Context asset ID:', contextAssetId)
+    console.log('[FileViewer] URL asset ID:', urlId)
+    
+    if (id) {
+      console.log('[FileViewer] Resetting all state for new asset ID:', id)
+      // Reset ALL state when ID changes to prevent showing wrong content
+      setAsset(null)
+      setAnnotations([])
+      setReviewCycleId(null)
+      setMyMember(null)
+      setViewTracked(false)
+      setCurrentPage(1)
+      setCommentMode(false)
+      setActiveCommentId(null)
+      setShowNavigationLine(false)
+      
+      // Fetch fresh data
+      fetchAssetData()
+    }
     fetchCurrentUser()
-  }, [id, contextAssetId, urlId])
+    
+    // Cleanup function
+    return () => {
+      console.log('[FileViewer] Component unmounting for ID:', id)
+    }
+  }, [id])
 
   // Auto-track view when review cycle is available (only once per session)
   useEffect(() => {
@@ -663,12 +690,12 @@ function FileViewer() {
         {(() => {
           // Check multiple possible locations for file_url
           const fileUrl = asset.current_version?.file_url || asset.file_url || asset.current_version?.file
-          console.log('🔍 Checking file URL - current_version.file_url:', asset.current_version?.file_url)
-          console.log('🔍 Checking file URL - asset.file_url:', asset.file_url)
-          console.log('🔍 Final file URL to use:', fileUrl)
+          console.log('[FileViewer] Checking file URL - current_version.file_url:', asset.current_version?.file_url)
+          console.log('[FileViewer] Checking file URL - asset.file_url:', asset.file_url)
+          console.log('[FileViewer] Final file URL to use:', fileUrl)
           
           if (!fileUrl) {
-            console.error('❌ No file URL found in asset data')
+            console.error('[FileViewer] No file URL found in asset data')
             return (
               <div style={{ 
                 flex: 1,
@@ -707,9 +734,10 @@ function FileViewer() {
                   }}>
                     <PDFViewer 
                       ref={pdfViewerRef}
-                      fileUrl={getMediaUrl(fileUrl)} 
+                      fileUrl={getMediaUrl(fileUrl, true)} 
                       fileName={asset.name}
                       onPageChange={setCurrentPage}
+                      key={id}
                     />
                   </div>
                   <PDFAnnotationLayer
