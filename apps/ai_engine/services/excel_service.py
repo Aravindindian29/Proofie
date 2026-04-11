@@ -20,8 +20,6 @@ class ExcelService:
             headers = [
                 'Test Case ID',
                 'Scenario',
-                'Description',
-                'Preconditions',
                 'Steps',
                 'Expected Result',
                 'Priority',
@@ -53,42 +51,56 @@ class ExcelService:
                 cell.border = border
             
             for row_num, test_case in enumerate(test_cases, 2):
+                # Column 1: Test Case ID
                 ws.cell(row=row_num, column=1).value = test_case.get('test_case_id', f'TC{row_num-1:03d}')
-                ws.cell(row=row_num, column=2).value = test_case.get('scenario', test_case.get('title', ''))
-                ws.cell(row=row_num, column=3).value = test_case.get('description', '')
-                ws.cell(row=row_num, column=4).value = test_case.get('preconditions', '')
                 
+                # Column 2: Scenario
+                ws.cell(row=row_num, column=2).value = test_case.get('scenario', test_case.get('title', ''))
+                
+                # Column 3: Steps
                 steps = test_case.get('steps', [])
                 if isinstance(steps, list):
                     steps_text = '\n'.join([f"{i+1}. {step}" for i, step in enumerate(steps)])
                 else:
                     steps_text = str(steps)
-                ws.cell(row=row_num, column=5).value = steps_text
+                ws.cell(row=row_num, column=3).value = steps_text
                 
-                ws.cell(row=row_num, column=6).value = test_case.get('expected_result', '')
+                # Column 4: Expected Result - ensure it has meaningful content
+                expected_result = test_case.get('expected_result', test_case.get('expected', ''))
+                if not expected_result or expected_result.strip() == '':
+                    # Generate a default expected result based on scenario if missing
+                    scenario = test_case.get('scenario', '')
+                    if 'error' in scenario.lower() or 'invalid' in scenario.lower():
+                        expected_result = 'System displays appropriate error message and prevents invalid action'
+                    elif 'success' in scenario.lower() or 'valid' in scenario.lower():
+                        expected_result = 'Operation completes successfully with confirmation message'
+                    else:
+                        expected_result = 'System behaves as expected per requirements'
+                ws.cell(row=row_num, column=4).value = expected_result
                 
+                # Column 5: Priority
                 priority = test_case.get('priority', 'medium').lower()
-                priority_cell = ws.cell(row=row_num, column=7)
+                priority_cell = ws.cell(row=row_num, column=5)
                 priority_cell.value = priority.capitalize()
                 if priority in priority_fills:
                     priority_cell.fill = priority_fills[priority]
                 
-                ws.cell(row=row_num, column=8).value = test_case.get('type', 'functional')
+                # Column 6: Type
+                ws.cell(row=row_num, column=6).value = test_case.get('type', 'functional')
                 
-                for col_num in range(1, 9):
+                # Apply formatting to all cells
+                for col_num in range(1, 7):
                     cell = ws.cell(row=row_num, column=col_num)
                     cell.border = border
                     cell.alignment = Alignment(vertical='top', wrap_text=True)
             
             column_widths = {
-                'A': 15,
-                'B': 35,
-                'C': 40,
-                'D': 25,
-                'E': 50,
-                'F': 35,
-                'G': 12,
-                'H': 15
+                'A': 15,   # Test Case ID
+                'B': 40,   # Scenario
+                'C': 60,   # Steps
+                'D': 45,   # Expected Result
+                'E': 12,   # Priority
+                'F': 15    # Type
             }
             
             for col, width in column_widths.items():
