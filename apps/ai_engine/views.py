@@ -1054,16 +1054,17 @@ def post_to_jira(request):
         
 
         # Format and post acceptance criteria comment
-
-        comment_text = jira_service.format_acceptance_criteria(
-
-            summary_data=analysis.result,
-
-            analysis_data=content_analysis,
-
-            cpi_id=cpi_id
-
-        )
+        # Use formatted content from frontend if provided, otherwise use default format
+        formatted_content = request.data.get('formatted_content')
+        
+        if formatted_content:
+            comment_text = formatted_content
+        else:
+            comment_text = jira_service.format_acceptance_criteria(
+                summary_data=analysis.result,
+                analysis_data=content_analysis,
+                cpi_id=cpi_id
+            )
 
         comment = jira_service.post_comment(ticket['key'], comment_text)
 

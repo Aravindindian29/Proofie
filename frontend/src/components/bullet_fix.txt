@@ -1,0 +1,16 @@
+BULLET POINT FIXES NEEDED:
+
+In ProofiePlusModal.jsx, replace these two lines:
+
+Line ~302 (High-Level Summary):
+<span style={{ color: '#0A84FF', marginTop: 2, fontSize: '1.2rem' }}>â¢</span>
+Change to:
+<span style={{ color: '#0A84FF', marginTop: 2, fontSize: '1.2rem' }}>â¢</span>
+
+Line ~488 (Key Highlights):
+<span style={{ color: '#0A84FF', marginTop: 2, fontSize: '1.2rem' }}>â¢</span>
+Change to:
+<span style={{ color: '#0A84FF', marginTop: 2, fontSize: '1.2rem' }}>â¢</span>
+
+The current character is a right-pointing triangle (â¢)
+The new character should be a standard bullet point (â¢)

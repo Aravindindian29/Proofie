@@ -21,7 +21,7 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
       id: 'summarize',
       title: 'Document Summarization',
       icon: FileText,
-      description: 'Document Summarization',
+      description: 'High level summary of the proof',
       color: 'blue',
       endpoint: '/ai-engine/summarize/'
     },
@@ -29,7 +29,7 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
       id: 'compare',
       title: 'Version Comparison',
       icon: GitCompare,
-      description: 'Version Comparison',
+      description: 'Compares 2 different versions of the same proof',
       color: 'purple',
       endpoint: '/ai-engine/compare/',
       disabled: true
@@ -38,7 +38,7 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
       id: 'analyze',
       title: 'Content Analysis + Smart UX Change Detection',
       icon: CheckCircle,
-      description: 'Content Analysis + Smart UX Change Detection',
+      description: 'Helps with suggestions in content improvements',
       color: 'green',
       endpoint: '/ai-engine/analyze-content/'
     },
@@ -46,7 +46,7 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
       id: 'jira',
       title: 'Jira Integration',
       icon: ExternalLink,
-      description: 'Jira Integration',
+      description: 'Post Acceptance Criteria to Jira',
       color: 'orange',
       disabled: false
     },
@@ -54,7 +54,7 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
       id: 'testcases',
       title: 'Test Case Generation',
       icon: FileSpreadsheet,
-      description: 'Test Case Generation',
+      description: 'Helps in QA validation with basic test coverage',
       color: 'pink',
       disabled: false
     }
@@ -225,7 +225,7 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
       <div className="space-y-4">
         {/* Header with high-level summary */}
         <div style={{
-          background: 'linear-gradient(135deg, #0A84FF, #5E5CE6)',
+          background: 'transparent',
           padding: 20,
           borderRadius: 16,
           border: '1px solid rgba(10, 132, 255, 0.3)'
@@ -238,7 +238,7 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
           }}>Document Summary</h3>
           <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: '0.875rem' }}>
             <span style={{
-              background: 'rgba(255,255,255,0.2)',
+              background: 'transparent',
               padding: '6px 12px',
               borderRadius: 20,
               color: '#fff',
@@ -247,7 +247,7 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
               <strong>Pages:</strong> {summary.pages || 'N/A'}
             </span>
             <span style={{
-              background: 'rgba(255,255,255,0.2)',
+              background: 'transparent',
               padding: '6px 12px',
               borderRadius: 20,
               color: '#fff',
@@ -259,7 +259,7 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
           {summary.cpi_id && (
             <div style={{ marginTop: 12 }}>
               <span style={{
-                background: 'rgba(64, 224, 208, 0.3)',
+                background: 'transparent',
                 color: '#40E0D0',
                 padding: '6px 12px',
                 borderRadius: 20,
@@ -278,7 +278,7 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
           <div>
             <h4 style={{ fontWeight: 600, color: '#fff', marginBottom: 12, fontSize: '1rem' }}>High-Level Summary:</h4>
             <div style={{
-              background: 'rgba(255,255,255,0.1)',
+              background: 'transparent',
               padding: 16,
               borderRadius: 12,
               border: '1px solid rgba(255,255,255,0.2)',
@@ -299,7 +299,7 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
                     const formattedPoint = cleanPoint.charAt(0).toUpperCase() + cleanPoint.slice(1) + (cleanPoint.endsWith('.') ? '' : '.');
                     return (
                       <li key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 8 }}>
-                        <span style={{ color: '#0A84FF', marginTop: 2, fontSize: '1.2rem' }}>â¢</span>
+                        <span style={{ color: '#0A84FF', marginTop: 2, fontSize: '1.2rem' }}>&bull;</span>
                         <span style={{ color: 'rgba(255,255,255,0.8)', lineHeight: 1.5 }}>
                           {formattedPoint}
                         </span>
@@ -319,7 +319,7 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {summary.changes_included.map((change, idx) => (
                 <div key={idx} style={{
-                  background: 'rgba(255,255,255,0.05)',
+                  background: 'transparent',
                   padding: 16,
                   borderRadius: 12,
                   border: '1px solid rgba(255,255,255,0.1)'
@@ -328,7 +328,7 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     {change.affected_channels && change.affected_channels.map((channel, channelIdx) => (
                       <span key={channelIdx} style={{
-                        background: 'rgba(10, 132, 255, 0.2)',
+                        background: 'transparent',
                         color: '#0A84FF',
                         padding: '4px 8px',
                         borderRadius: 12,
@@ -360,28 +360,34 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
         )}
 
         {/* Application pages with changes */}
-        {summary.application_pages_with_changes && summary.application_pages_with_changes.length > 0 && (
+        {summary.application_pages_with_changes && summary.application_pages_with_changes.filter(page => page && (page.page_name || page.description || page.change_type)).length > 0 && (
           <div>
             <h4 style={{ fontWeight: 600, color: '#fff', marginBottom: 12, fontSize: '1rem' }}>Application Pages with Changes:</h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {summary.application_pages_with_changes.map((page, idx) => (
+              {summary.application_pages_with_changes.filter(page => page && (page.page_name || page.description || page.change_type)).map((page, idx) => (
                 <div key={idx} style={{
-                  background: 'rgba(255,255,255,0.05)',
+                  background: 'transparent',
                   padding: 16,
                   borderRadius: 12,
                   border: '1px solid rgba(255,255,255,0.1)'
                 }}>
-                  <div style={{ color: '#fff', fontWeight: 600, marginBottom: 4 }}>{page.page_name}</div>
-                  <div style={{ 
-                    color: 'rgba(255,255,255,0.6)', 
-                    fontSize: '0.875rem', 
-                    marginBottom: 8 
-                  }}>
-                    Type: {page.change_type}
-                  </div>
-                  <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.875rem' }}>
-                    {page.description}
-                  </div>
+                  {page.page_name && (
+                    <div style={{ color: '#fff', fontWeight: 600, marginBottom: 4 }}>{page.page_name}</div>
+                  )}
+                  {page.change_type && (
+                    <div style={{ 
+                      color: 'rgba(255,255,255,0.6)', 
+                      fontSize: '0.875rem', 
+                      marginBottom: 8 
+                    }}>
+                      Type: {page.change_type}
+                    </div>
+                  )}
+                  {page.description && (
+                    <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.875rem' }}>
+                      {page.description}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -393,7 +399,7 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
           <div>
             <h4 style={{ fontWeight: 600, color: '#fff', marginBottom: 12, fontSize: '1rem' }}>A/B Testing:</h4>
             <div style={{
-              background: summary.ab_testing_included.has_ab_testing ? 'rgba(52, 199, 89, 0.1)' : 'rgba(255,255,255,0.05)',
+              background: 'transparent',
               padding: 16,
               borderRadius: 12,
               border: summary.ab_testing_included.has_ab_testing ? '1px solid rgba(52, 199, 89, 0.3)' : '1px solid rgba(255,255,255,0.1)'
@@ -422,9 +428,7 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {summary.disclosures.map((disclosure, idx) => (
                 <div key={idx} style={{
-                  background: disclosure.importance === 'high' ? 'rgba(255, 59, 48, 0.1)' : 
-                             disclosure.importance === 'medium' ? 'rgba(255, 149, 0, 0.1)' : 
-                             'rgba(255,255,255,0.05)',
+                  background: 'transparent',
                   padding: 16,
                   borderRadius: 12,
                   border: disclosure.importance === 'high' ? '1px solid rgba(255, 59, 48, 0.3)' : 
@@ -481,7 +485,7 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, gap: 8, display: 'flex', flexDirection: 'column' }}>
               {summary.key_highlights.map((highlight, idx) => (
                 <li key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 8 }}>
-                  <span style={{ color: '#0A84FF', marginTop: 2, fontSize: '1.2rem' }}>â¢</span>
+                  <span style={{ color: '#0A84FF', marginTop: 2, fontSize: '1.2rem' }}>&bull;</span>
                   <span style={{ color: 'rgba(255,255,255,0.8)', lineHeight: 1.5 }}>{highlight}</span>
                 </li>
               ))}
@@ -510,27 +514,10 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
           </div>
         )}
 
-        {summary.estimated_review_time && (
-          <div style={{
-            background: 'linear-gradient(135deg, #0A84FF, #5E5CE6)',
-            padding: 16,
-            borderRadius: 16,
-            border: '1px solid rgba(10, 132, 255, 0.3)'
-          }}>
-            <strong style={{ color: '#fff', fontSize: '0.875rem' }}>Estimated Review Time:</strong>{' '}
-            <span style={{ color: 'rgba(255,255,255,0.9)', fontSize: '0.875rem' }}>{summary.estimated_review_time}</span>
-          </div>
-        )}
 
         {data.cached && (
           <div className="text-xs text-gray-500 italic">
-            ⚡ Cached result (instant response)
-          </div>
-        )}
-
-        {data.tokens_used && (
-          <div className="text-xs text-gray-500">
-            Tokens used: {data.tokens_used} | Processing time: {data.processing_time?.toFixed(2)}s
+            â¡ Cached result (instant response)
           </div>
         )}
       </div>
@@ -547,20 +534,39 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
         {/* UI Changes */}
         {analysis.ui_changes && analysis.ui_changes.length > 0 && (
           <div>
-            <h4 className="font-semibold text-gray-700 mb-2 flex items-center gap-2">
-              <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-semibold">UI</span>
+            <h4 style={{ fontWeight: 600, color: '#fff', marginBottom: 12, fontSize: '1rem' }} className="flex items-center gap-2">
+              <span style={{
+                background: 'transparent',
+                color: '#0A84FF',
+                padding: '4px 8px',
+                borderRadius: 12,
+                fontSize: '0.75rem',
+                fontWeight: 500,
+                border: '1px solid rgba(10, 132, 255, 0.3)'
+              }}>UI</span>
               UI Changes
             </h4>
-            <div className="space-y-2">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {analysis.ui_changes.map((change, idx) => (
-                <div key={idx} className="bg-blue-50 p-3 rounded border-l-4 border-blue-500">
-                  <div className="text-gray-700">{change.change}</div>
+                <div key={idx} style={{
+                  background: 'transparent',
+                  padding: 16,
+                  borderRadius: 12,
+                  border: '1px solid rgba(10, 132, 255, 0.3)'
+                }}>
+                  <div style={{ color: '#fff' }}>{change.change}</div>
+                  {change.details && (
+                    <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.875rem', marginTop: 4 }}>
+                      {change.details}
+                    </div>
+                  )}
                   {change.impact && (
-                    <div className="text-sm text-gray-500 mt-1">
-                      Impact: <span className={`font-medium ${
-                        change.impact === 'high' ? 'text-red-600' : 
-                        change.impact === 'medium' ? 'text-yellow-600' : 'text-green-600'
-                      }`}>{change.impact}</span>
+                    <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.875rem', marginTop: 8 }}>
+                      Impact: <span style={{
+                        fontWeight: 500,
+                        color: change.impact === 'high' ? '#FF3B30' : 
+                               change.impact === 'medium' ? '#FF9500' : '#34C759'
+                      }}>{change.impact}</span>
                     </div>
                   )}
                 </div>
@@ -572,17 +578,43 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
         {/* Copy Changes */}
         {analysis.copy_changes && analysis.copy_changes.length > 0 && (
           <div>
-            <h4 className="font-semibold text-gray-700 mb-2 flex items-center gap-2">
-              <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs font-semibold">Copy</span>
+            <h4 style={{ fontWeight: 600, color: '#fff', marginBottom: 12, fontSize: '1rem' }} className="flex items-center gap-2">
+              <span style={{
+                background: 'transparent',
+                color: '#667eea',
+                padding: '4px 8px',
+                borderRadius: 12,
+                fontSize: '0.75rem',
+                fontWeight: 500,
+                border: '1px solid rgba(102, 126, 234, 0.3)'
+              }}>Copy</span>
               Copy Changes
             </h4>
-            <div className="space-y-2">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {analysis.copy_changes.map((change, idx) => (
-                <div key={idx} className="bg-purple-50 p-3 rounded border-l-4 border-purple-500">
-                  <div className="text-sm text-gray-600 mb-1">Original: {change.original}</div>
-                  <div className="text-gray-700 font-medium">Improved: {change.improved}</div>
+                <div key={idx} style={{
+                  background: 'transparent',
+                  padding: 16,
+                  borderRadius: 12,
+                  border: '1px solid rgba(102, 126, 234, 0.3)'
+                }}>
+                  {change.area && (
+                    <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.875rem', marginBottom: 4 }}>
+                      Area: {change.area}
+                    </div>
+                  )}
+                  {change.original && (
+                    <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.875rem', marginBottom: 4 }}>
+                      Original: {change.original}
+                    </div>
+                  )}
+                  <div style={{ color: '#fff', fontWeight: 600, marginBottom: 4 }}>
+                    Improved: {change.improved}
+                  </div>
                   {change.reason && (
-                    <div className="text-sm text-gray-500 mt-1">Reason: {change.reason}</div>
+                    <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.875rem', marginTop: 4 }}>
+                      Reason: {change.reason}
+                    </div>
                   )}
                 </div>
               ))}
@@ -593,17 +625,45 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
         {/* CTA Changes */}
         {analysis.cta_changes && analysis.cta_changes.length > 0 && (
           <div>
-            <h4 className="font-semibold text-gray-700 mb-2 flex items-center gap-2">
-              <span className="bg-orange-100 text-orange-800 px-2 py-1 rounded text-xs font-semibold">CTA</span>
+            <h4 style={{ fontWeight: 600, color: '#fff', marginBottom: 12, fontSize: '1rem' }} className="flex items-center gap-2">
+              <span style={{
+                background: 'transparent',
+                color: '#FF9F0A',
+                padding: '4px 8px',
+                borderRadius: 12,
+                fontSize: '0.75rem',
+                fontWeight: 500,
+                border: '1px solid rgba(255, 159, 10, 0.3)'
+              }}>CTA</span>
               CTA Changes
             </h4>
-            <div className="space-y-3">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {analysis.cta_changes.map((cta, idx) => (
-                <div key={idx} className="bg-orange-50 p-3 rounded border-l-4 border-orange-500">
-                  <div className="text-sm space-y-1">
-                    {cta.before && <div><strong>Before:</strong> "{cta.before}"</div>}
-                    {cta.after && <div><strong>After:</strong> "{cta.after}"</div>}
-                    {cta.impact && <div><strong>Impact:</strong> {cta.impact}</div>}
+                <div key={idx} style={{
+                  background: 'transparent',
+                  padding: 16,
+                  borderRadius: 12,
+                  border: '1px solid rgba(255, 159, 10, 0.3)'
+                }}>
+                  <div style={{ color: '#fff', fontWeight: 600, marginBottom: 8 }}>
+                    {cta.cta_name}
+                  </div>
+                  <div style={{ fontSize: '0.875rem', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {cta.before && (
+                      <div style={{ color: 'rgba(255,255,255,0.8)' }}>
+                        <strong>Before:</strong> "{cta.before}"
+                      </div>
+                    )}
+                    {cta.after && (
+                      <div style={{ color: 'rgba(255,255,255,0.8)' }}>
+                        <strong>After:</strong> "{cta.after}"
+                      </div>
+                    )}
+                    {cta.impact && (
+                      <div style={{ color: 'rgba(255,255,255,0.6)' }}>
+                        <strong>Impact:</strong> {cta.impact}
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -614,24 +674,36 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
         {/* Compliance Issues */}
         {analysis.compliance_issues && analysis.compliance_issues.length > 0 && (
           <div>
-            <h4 className="font-semibold text-gray-700 mb-2 flex items-center gap-2">
-              <span className="bg-red-100 text-red-800 px-2 py-1 rounded text-xs font-semibold">⚠️</span>
+            <h4 style={{ fontWeight: 600, color: '#fff', marginBottom: 12, fontSize: '1rem' }} className="flex items-center gap-2">
+              <span style={{
+                background: 'transparent',
+                color: '#FF375F',
+                padding: '4px 8px',
+                borderRadius: 12,
+                fontSize: '0.75rem',
+                fontWeight: 500,
+                border: '1px solid rgba(255, 55, 95, 0.3)'
+              }}>⚠️</span>
               Compliance Issues
             </h4>
-            <div className="space-y-2">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {analysis.compliance_issues.map((issue, idx) => (
-                <div key={idx} className={`p-3 rounded border-l-4 ${
-                  issue.severity === 'high' ? 'bg-red-50 border-red-500' :
-                  issue.severity === 'medium' ? 'bg-yellow-50 border-yellow-500' :
-                  'bg-gray-50 border-gray-500'
-                }`}>
-                  <div className="text-gray-700 font-medium">{issue.issue}</div>
-                  <div className="text-sm text-gray-600 mt-1">Fix: {issue.fix}</div>
-                  <div className="text-xs text-gray-500 mt-1">
-                    Severity: <span className={`font-medium ${
-                      issue.severity === 'high' ? 'text-red-600' : 
-                      issue.severity === 'medium' ? 'text-yellow-600' : 'text-gray-600'
-                    }`}>{issue.severity}</span>
+                <div key={idx} style={{
+                  background: 'transparent',
+                  padding: 16,
+                  borderRadius: 12,
+                  border: issue.severity === 'high' ? '1px solid rgba(255, 55, 95, 0.3)' :
+                         issue.severity === 'medium' ? '1px solid rgba(255, 149, 0, 0.3)' :
+                         '1px solid rgba(255,255,255,0.1)'
+                }}>
+                  <div style={{ color: '#fff', fontWeight: 600, marginBottom: 8 }}>{issue.issue}</div>
+                  <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.875rem', marginBottom: 8 }}>Fix: {issue.fix}</div>
+                  <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.875rem' }}>
+                    Severity: <span style={{
+                      fontWeight: 500,
+                      color: issue.severity === 'high' ? '#FF375F' : 
+                             issue.severity === 'medium' ? '#FF9500' : '#fff'
+                    }}>{issue.severity}</span>
                   </div>
                 </div>
               ))}
@@ -642,23 +714,40 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
         {/* Risk Flags */}
         {analysis.risk_flags && analysis.risk_flags.length > 0 && (
           <div>
-            <h4 className="font-semibold text-gray-700 mb-2 flex items-center gap-2">
-              <span className="bg-red-100 text-red-800 px-2 py-1 rounded text-xs font-semibold">🚨</span>
+            <h4 style={{ fontWeight: 600, color: '#fff', marginBottom: 12, fontSize: '1rem' }} className="flex items-center gap-2">
+              <span style={{
+                background: 'transparent',
+                color: '#FF375F',
+                padding: '4px 8px',
+                borderRadius: 12,
+                fontSize: '0.75rem',
+                fontWeight: 500,
+                border: '1px solid rgba(255, 55, 95, 0.3)'
+              }}>🚨</span>
               Risk Flags
             </h4>
-            <div className="space-y-2">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {analysis.risk_flags.map((flag, idx) => (
-                <div key={idx} className={`p-3 rounded border-l-4 ${
-                  flag.severity === 'high' ? 'bg-red-50 border-red-500' :
-                  flag.severity === 'medium' ? 'bg-orange-50 border-orange-500' :
-                  'bg-yellow-50 border-yellow-500'
-                }`}>
-                  <div className="text-gray-700">⚠️ {flag.risk}</div>
-                  <div className="text-xs text-gray-500 mt-1">
-                    Severity: <span className={`font-medium ${
-                      flag.severity === 'high' ? 'text-red-600' : 
-                      flag.severity === 'medium' ? 'text-orange-600' : 'text-yellow-600'
-                    }`}>{flag.severity}</span>
+                <div key={idx} style={{
+                  background: 'transparent',
+                  padding: 16,
+                  borderRadius: 12,
+                  border: flag.severity === 'high' ? '1px solid rgba(255, 55, 95, 0.3)' :
+                         flag.severity === 'medium' ? '1px solid rgba(255, 159, 10, 0.3)' :
+                         '1px solid rgba(255, 149, 0, 0.3)'
+                }}>
+                  <div style={{ color: '#fff', marginBottom: 8 }}>⚠️ {flag.risk}</div>
+                  {flag.mitigation && (
+                    <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.875rem', marginBottom: 8 }}>
+                      Mitigation: {flag.mitigation}
+                    </div>
+                  )}
+                  <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.875rem' }}>
+                    Severity: <span style={{
+                      fontWeight: 500,
+                      color: flag.severity === 'high' ? '#FF375F' : 
+                             flag.severity === 'medium' ? '#FF9500' : '#FF9F0A'
+                    }}>{flag.severity}</span>
                   </div>
                 </div>
               ))}
@@ -668,9 +757,14 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
 
         {/* Summary */}
         {analysis.summary && (
-          <div className="bg-gray-100 p-4 rounded-lg">
-            <h4 className="font-semibold text-gray-700 mb-2">Summary</h4>
-            <div className="text-gray-700">{analysis.summary}</div>
+          <div style={{
+            background: 'transparent',
+            padding: 16,
+            borderRadius: 12,
+            border: '1px solid rgba(255,255,255,0.1)'
+          }}>
+            <h4 style={{ fontWeight: 600, color: '#fff', marginBottom: 12, fontSize: '1rem' }}>Summary</h4>
+            <div style={{ color: 'rgba(255,255,255,0.8)', lineHeight: 1.5 }}>{analysis.summary}</div>
           </div>
         )}
       </div>
@@ -781,11 +875,16 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
       content += '\n';
     }
     
-    // Add application pages with changes
-    if (summary.application_pages_with_changes && summary.application_pages_with_changes.length > 0) {
+    // Add application pages with changes (filter out empty entries)
+    const validPages = summary.application_pages_with_changes?.filter(page => page && (page.page_name || page.description || page.change_type)) || [];
+    if (validPages.length > 0) {
       content += '*Application Pages with Changes:*\n';
-      summary.application_pages_with_changes.forEach(page => {
-        content += `* ${page.page_name}: ${page.description}\n`;
+      validPages.forEach(page => {
+        if (page.page_name && page.description) {
+          content += `* ${page.page_name}: ${page.description}\n`;
+        } else if (page.page_name) {
+          content += `* ${page.page_name}\n`;
+        }
       });
       content += '\n';
     }
@@ -814,7 +913,8 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
     setLoading(true);
     try {
       const response = await api.post('/ai-engine/jira-post/', {
-        version_id: versionId
+        version_id: versionId,
+        formatted_content: jiraContent?.formattedContent || ''
       });
       
       setResult(response.data);
@@ -837,8 +937,8 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
     return (
       <div className="space-y-4">
         <div style={{
-          background: 'rgba(48, 209, 88, 0.1)',
-          border: '1px solid rgba(48, 209, 88, 0.2)',
+          background: 'transparent',
+          border: '1px solid rgba(48, 209, 88, 0.3)',
           borderRadius: 16,
           padding: 20
         }}>
@@ -856,7 +956,7 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
           </h3>
           {data.ticket_key && (
             <div style={{
-              background: 'rgba(255,255,255,0.05)',
+              background: 'transparent',
               padding: '12px 16px',
               borderRadius: 12,
               border: '1px solid rgba(255,255,255,0.1)'
@@ -908,14 +1008,42 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
 
     return (
       <div className="space-y-4">
-        <div className="bg-gradient-to-r from-pink-50 to-purple-50 p-4 rounded-lg">
-          <h3 className="text-xl font-bold text-gray-800 mb-2">✅ Test Cases Generated</h3>
-          <div className="flex gap-4 text-sm">
-            <span className="bg-white px-3 py-1 rounded-full">
+        <div style={{
+          background: 'transparent',
+          border: '1px solid rgba(255, 55, 95, 0.3)',
+          borderRadius: 16,
+          padding: 20
+        }}>
+          <h3 style={{
+            fontSize: '1.25rem',
+            fontWeight: 700,
+            color: '#fff',
+            marginBottom: 16,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8
+          }}>
+            <FileSpreadsheet className="w-6 h-6" style={{ color: '#FF375F' }} />
+            Test Cases Generated
+          </h3>
+          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: '0.875rem' }}>
+            <span style={{
+              background: 'transparent',
+              padding: '6px 12px',
+              borderRadius: 20,
+              color: '#fff',
+              border: '1px solid rgba(255,255,255,0.3)'
+            }}>
               <strong>Total:</strong> {data.test_cases.length}
             </span>
             {data.jira_ticket && (
-              <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full">
+              <span style={{
+                background: 'transparent',
+                padding: '6px 12px',
+                borderRadius: 20,
+                color: '#34C759',
+                border: '1px solid rgba(52, 199, 89, 0.3)'
+              }}>
                 ✓ Attached to {data.jira_ticket}
               </span>
             )}
@@ -924,43 +1052,60 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
 
         {/* QA Validation Scope */}
         {data.qa_validation_scope && data.qa_validation_scope.length > 0 && (
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-200">
-            <h4 className="text-lg font-semibold text-gray-800 mb-3">QA Validation Scope</h4>
-            <ul className="space-y-2">
+          <div>
+            <h4 style={{ fontWeight: 600, color: '#fff', marginBottom: 12, fontSize: '1rem' }}>QA Validation Scope</h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {data.qa_validation_scope.map((item, idx) => (
-                <li key={idx} className="flex items-start gap-2 text-gray-700">
-                  <span className="text-blue-500 mt-1">•</span>
-                  <span>{item}</span>
-                </li>
+                <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 8 }}>
+                  <span style={{ color: '#0A84FF', marginTop: 2, fontSize: '1.2rem' }}>&bull;</span>
+                  <span style={{ color: 'rgba(255,255,255,0.8)', lineHeight: 1.5 }}>{item}</span>
+                </div>
               ))}
-            </ul>
+            </div>
           </div>
         )}
 
         {/* Test Cases */}
         <div>
-          <h4 className="font-semibold text-gray-700 mb-2">Test Cases</h4>
-          <div className="max-h-96 overflow-y-auto space-y-3">
+          <h4 style={{ fontWeight: 600, color: '#fff', marginBottom: 12, fontSize: '1rem' }}>Test Cases</h4>
+          <div style={{ maxHeight: '24rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
             {data.test_cases.map((tc, idx) => (
-              <div key={idx} className="bg-white p-3 rounded border">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="font-semibold text-gray-800">
+              <div key={idx} style={{
+                background: 'transparent',
+                padding: 16,
+                borderRadius: 12,
+                border: '1px solid rgba(255,255,255,0.1)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ color: '#fff', fontWeight: 600, marginBottom: 4 }}>
                       {tc.test_case_id}: {tc.title}
                     </div>
                     {tc.scenario && (
-                      <div className="text-sm text-purple-600 mt-1">{tc.scenario}</div>
+                      <div style={{ color: '#667eea', fontSize: '0.875rem', marginBottom: 4 }}>{tc.scenario}</div>
                     )}
-                    <div className="text-sm text-gray-600 mt-1">{tc.description}</div>
-                    <div className="flex gap-2 mt-2">
-                      <span className={`text-xs px-2 py-1 rounded ${
-                        tc.priority === 'high' ? 'bg-red-100 text-red-800' :
-                        tc.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-blue-100 text-blue-800'
-                      }`}>
+                    <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.875rem', marginBottom: 8 }}>{tc.description}</div>
+                    <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                      <span style={{
+                        fontSize: '0.75rem',
+                        padding: '4px 8px',
+                        borderRadius: 12,
+                        fontWeight: 500,
+                        ...(tc.priority === 'high' ? { background: 'transparent', color: '#FF375F', border: '1px solid rgba(255, 55, 95, 0.3)' } :
+                         tc.priority === 'medium' ? { background: 'transparent', color: '#FF9500', border: '1px solid rgba(255, 149, 0, 0.3)' } :
+                         { background: 'transparent', color: '#0A84FF', border: '1px solid rgba(10, 132, 255, 0.3)' })
+                      }}>
                         {tc.priority}
                       </span>
-                      <span className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-800">
+                      <span style={{
+                        fontSize: '0.75rem',
+                        padding: '4px 8px',
+                        borderRadius: 12,
+                        fontWeight: 500,
+                        background: 'transparent',
+                        color: 'rgba(255,255,255,0.8)',
+                        border: '1px solid rgba(255,255,255,0.2)'
+                      }}>
                         {tc.type}
                       </span>
                     </div>
@@ -1406,13 +1551,10 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
                 <FileSpreadsheet className="w-6 h-6" style={{ color: '#FF375F' }} />
                 Test Case Generation
               </h3>
-              <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.875rem' }}>
-                Generate exhaustive test cases from the current PDF document
-              </p>
             </div>
 
             <div style={{
-              background: 'rgba(255,255,255,0.05)',
+              background: 'transparent',
               padding: 20,
               borderRadius: 16,
               border: '1px solid rgba(255,255,255,0.1)',
@@ -1472,8 +1614,8 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
         {activeFeature === 'jira' && jiraContent && !jiraPosted && !loading && (
           <div style={{ padding: 24, overflowY: 'auto', flex: 1 }}>
             <div style={{
-              background: 'rgba(255, 159, 10, 0.1)',
-              border: '1px solid rgba(255, 159, 10, 0.2)',
+              background: 'transparent',
+              border: '1px solid rgba(255, 159, 10, 0.3)',
               borderRadius: 16,
               padding: 20,
               marginBottom: 16
@@ -1496,7 +1638,7 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
             </div>
 
             <div style={{
-              background: 'rgba(255,255,255,0.05)',
+              background: 'transparent',
               padding: 20,
               borderRadius: 16,
               border: '1px solid rgba(255,255,255,0.1)',
@@ -1504,7 +1646,7 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
             }}>
               <h4 style={{ fontWeight: 600, color: 'rgba(255,255,255,0.8)', marginBottom: 12, fontSize: '0.875rem' }}>Content to be Posted:</h4>
               <div style={{
-                background: 'rgba(0,0,0,0.2)',
+                background: 'transparent',
                 padding: 16,
                 borderRadius: 12,
                 border: '1px solid rgba(255,255,255,0.1)',
@@ -1513,9 +1655,10 @@ const ProofiePlusModal = ({ versionId, assetId, onClose }) => {
                 fontFamily: 'inherit',
                 color: 'rgba(255,255,255,0.9)',
                 lineHeight: 1.6
-              }}>
-                {jiraContent.formattedContent || 'Loading content...'}
-              </div>
+              }}
+              dangerouslySetInnerHTML={{ 
+                __html: jiraContent.formattedContent?.replace(/\n/g, '<br>') || 'Loading content...' 
+              }} />
             </div>
 
             <button

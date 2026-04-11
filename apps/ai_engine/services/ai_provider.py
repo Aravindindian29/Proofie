@@ -454,7 +454,7 @@ class OpenAIProvider(AIProvider):
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
-                    {"role": "system", "content": "You are an expert document analyst specializing in contract and specification review."},
+                    {"role": "system", "content": "You are an expert product analyst specializing in UX/UI documentation and technical specifications."},
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.3,
@@ -478,7 +478,7 @@ class OpenAIProvider(AIProvider):
             raise
     
     def _build_summary_prompt(self, text, detail_level):
-        """Build prompt for document summarization"""
+        """Build prompt for document summarization - OpenAI version"""
         product_context = get_product_context()
         
         if detail_level == 'detailed':
@@ -538,23 +538,39 @@ Provide a JSON response with the following structure:
     "estimated_review_time": "Estimated time for thorough review"
 }}"""
         else:
-            return f"""You are an expert document analyst. Analyze the following document and provide a brief summary focusing on key business and technical changes in JSON format:
+            return f"""You are an expert product analyst specializing in UX/UI documentation and technical specifications.
 
 Document Content:
 {text}
 
+Analyze this document thoroughly and provide a comprehensive, well-structured summary.
+
 Provide a JSON response with the following structure:
 {{
-    "high_level_summary": "Brief overview of the document's purpose",
-    "key_changes": ["Main changes described in the document"],
-    "affected_channels": ["Channels impacted by changes"],
-    "pages_affected": ["Application pages with changes"],
+    "high_level_summary": "Clear, concise 2-3 sentence overview explaining what this document is about, what problem is being solved, and what enhancements are being made.",
+    "goal_of_project": "What is the primary objective? What specific problem is this solving? What improvements or changes are being introduced?",
+    "key_highlights": [
+        "Introduction/refinement of specific feature or behavior (be concrete)",
+        "Improved error handling & validation messaging details",
+        "UX updates for better clarity (mention specific areas)",
+        "Backend/technical changes and their purpose"
+    ],
+    "changes_included": [
+        {{
+            "description": "Detailed description of the specific change with context",
+            "affected_areas": ["Specific pages, flows, components, or features affected"],
+            "impact_level": "low/medium/high"
+        }}
+    ],
+    "application_pages_with_changes": ["List specific page/screen names mentioned in the document"],
     "has_ab_testing": true/false,
-    "new_email_templates": ["Brief description of new email templates"],
+    "new_email_templates": ["Email template names or purposes if mentioned"],
     "disclosures_updated": true/false,
     "complexity": "low/medium/high",
-    "estimated_review_time": "Estimated time"
-}}"""
+    "estimated_review_time": "Realistic time estimate based on document length and complexity"
+}}
+
+IMPORTANT: Be specific and detailed - extract real information from the document, not generic placeholders."""
     
     def _parse_summary_response(self, response_text):
         """Parse AI response into structured data"""
@@ -643,38 +659,84 @@ Provide a JSON response with:
         start_time = time.time()
         
         try:
-            prompt = f"""You are an expert UX reviewer + compliance analyst.
-
-Analyze the document and classify ALL changes and risks.
+            prompt = f"""You are an expert UX reviewer and compliance analyst specializing in product documentation analysis.
 
 Document:
 {text[:8000]}
 
-Return STRICT JSON ONLY:
+Perform a COMPREHENSIVE content analysis and classify ALL changes, risks, and recommendations.
+
+Provide a detailed JSON response with this EXACT structure:
 
 {{
   "ui_changes": [
-    {{"change": "", "impact": "low|medium|high"}}
+    {{
+      "change": "Specific UI change (e.g., 'OTP input field layout enhancements', 'Error message placement improved', 'Resend OTP UI logic added')",
+      "details": "What exactly changed - be specific about visual elements, positioning, behavior, and user interaction improvements",
+      "impact": "low|medium|high"
+    }}
   ],
   "copy_changes": [
-    {{"original": "", "improved": "", "reason": ""}}
+    {{
+      "area": "Where the copy changed (e.g., 'OTP error messages', 'Instructional text', 'Success/failure messaging')",
+      "original": "Original text if mentioned or 'Not specified'",
+      "improved": "New/improved text with actual examples from the document",
+      "reason": "Why this change improves clarity/UX - be specific about tone, guidance, or user understanding"
+    }}
   ],
   "cta_changes": [
-    {{"before": "", "after": "", "impact": ""}}
+    {{
+      "cta_name": "Specific button/link name (e.g., 'Verify OTP', 'Resend OTP', 'Try Again')",
+      "before": "Previous text/behavior if mentioned",
+      "after": "New text/behavior with details about enable/disable logic or visual feedback",
+      "impact": "Expected impact on user behavior - be specific about conversion, clarity, or friction reduction"
+    }}
+  ],
+  "legal_compliance_changes": [
+    {{
+      "type": "Type of legal/compliance change (e.g., 'OTP-related disclaimers', 'Security messaging alignment', 'Privacy notices')",
+      "description": "What changed or was added with specific examples",
+      "importance": "low|medium|high"
+    }}
   ],
   "compliance_issues": [
-    {{"issue": "", "severity": "high|medium|low", "fix": ""}}
+    {{
+      "issue": "Specific compliance issue or missing element (e.g., 'No explicit OTP expiry disclaimer visible', 'Missing rate-limit messaging')",
+      "severity": "high|medium|low",
+      "recommendation": "Actionable fix with examples (e.g., 'Add OTP valid for X minutes message', 'Add attempt restriction notice')"
+    }}
   ],
   "risk_flags": [
-    {{"risk": "", "severity": "high|medium|low"}}
+    {{
+      "risk": "Specific risk identified (e.g., 'Ambiguous error messages', 'No fraud/security advisory text', 'Generic retry messaging')",
+      "severity": "high|medium|low",
+      "mitigation": "How to address this risk with specific actions and examples"
+    }}
   ],
-  "summary": "Overall assessment"
+  "missing_risky_areas": [
+    {{
+      "missing_element": "What's missing (e.g., 'OTP expiry info', 'Retry limit messaging', 'Fraud advisory text', 'Accessibility hints')",
+      "severity": "high|medium|low",
+      "recommendation": "What should be added with specific examples (e.g., 'Add: OTP expires in 5 minutes', 'Add: Maximum 3 attempts allowed')"
+    }}
+  ],
+  "ai_suggestions": [
+    "Add: 'OTP expires in 5 minutes' message for clarity",
+    "Add: 'Maximum 3 attempts allowed' notice for security",
+    "Improve: Error specificity - make errors actionable (e.g., 'Invalid OTP' → 'OTP incorrect. X attempts remaining')",
+    "Standardize: Messaging across all authentication flows",
+    "Enhance: Accessibility with focus states and screen reader hints"
+  ],
+  "summary": "Overall assessment of the document quality, key risks identified, compliance gaps, and priority recommendations for improvement"
 }}
 
-Rules:
-- Always return valid JSON
-- Do not include explanations outside JSON
-- If nothing found, return empty arrays"""
+CRITICAL REQUIREMENTS:
+- Be thorough and specific - identify REAL issues from the actual document content
+- Don't use generic observations - extract actual problems, risks, and missing elements
+- Provide actionable recommendations with concrete examples
+- Focus on user experience, security, compliance, and accessibility
+- Mention specific UI elements, messages, buttons, and behaviors from the document
+- Identify what's missing that should be present for a complete user experience"""
             
             response = self.client.chat.completions.create(
                 model=self.model,
@@ -759,35 +821,72 @@ DOCUMENT CONTENT:
 {to_be_text[:3000]}...
 """
             
-            prompt = f"""You are a QA expert for the Personify lending platform. Analyze the ACTUAL PDF CONTENT to generate EXHAUSTIVE and SPECIFIC test cases.
-
-{product_context}
+            prompt = f"""You are a QA expert specializing in test case design. Analyze the document and generate comprehensive, specific test cases.
 
 {pdf_context}
 
 Changes Summary:
 {changes_text}
 
-Generate test cases in JSON format with Excel-ready structure (ID | Scenario | Steps | Expected | Priority | Type):
+Generate detailed test cases in JSON format with Excel-ready structure:
+
 {{
     "test_cases": [
         {{
-            "id": "TC001",
-            "scenario": "Detailed test scenario description",
-            "steps": "Step 1\\nStep 2\\nStep 3\\nStep 4",
-            "expected": "Expected outcome with specific validation points",
-            "priority": "high/medium/low",
-            "type": "functional/regression/smoke"
+            "id": "TC_001",
+            "scenario": "Specific, detailed test scenario (e.g., 'Valid OTP verification', 'Invalid OTP entry', 'Expired OTP handling')",
+            "steps": "1. Specific action with details\\n2. Next action\\n3. Verification step\\n4. Expected behavior check",
+            "expected": "Clear expected result with specific validation points and success criteria",
+            "priority": "high|medium|low",
+            "type": "functional|regression|security|ui"
         }}
     ],
     "qa_validation_scope": [
-        "Happy path flow for ORG channel - Landing Page to E-Sign",
-        "Regression testing for RF channel - Offer page validation",
-        "Focus on Disclosures page - ADF vs FEB originator differences"
+        "Specific flow to test (e.g., 'Login flow with OTP authentication')",
+        "API/backend validation (e.g., 'Authentication APIs', 'OTP generation service')",
+        "Integration points (e.g., 'Email delivery system', 'SMS gateway')",
+        "Security aspects (e.g., 'Session handling', 'Rate limiting', 'Attempt tracking')"
     ]
 }}
 
-CRITICAL: Generate at least 15-20 EXHAUSTIVE test cases based on ACTUAL PDF CONTENT. Be specific about channel names (ORG, RF, RA, PS, CMPQ, etc.) and page names."""
+REQUIREMENTS:
+- Generate at least 6-10 comprehensive test cases covering different scenarios
+- Include: happy path (valid inputs), error scenarios (invalid/expired), edge cases, security tests, UI validation
+- Be specific about steps - mention actual UI elements, fields, buttons, and expected behaviors
+- Each test case should have clear, actionable steps and measurable expected results
+- Priority should reflect business impact (high for critical flows, medium for important features, low for nice-to-have)
+- Type should accurately categorize the test (functional for features, regression for existing functionality, security for auth/access, ui for visual/interaction)
+- QA validation scope should list actual systems, APIs, flows, and integration points to test
+
+EXAMPLES OF GOOD TEST CASES:
+{{
+    "id": "TC_001",
+    "scenario": "Valid OTP verification",
+    "steps": "1. Enter valid OTP received via email\\n2. Click 'Verify' button\\n3. Observe system response",
+    "expected": "User successfully logged in and redirected to dashboard. Session created with proper authentication token.",
+    "priority": "high",
+    "type": "functional"
+}}
+
+{{
+    "id": "TC_002",
+    "scenario": "Invalid OTP entry",
+    "steps": "1. Enter incorrect OTP (e.g., 123456 when actual is 789012)\\n2. Click 'Verify' button\\n3. Check error message display",
+    "expected": "Error message displayed: 'Invalid OTP. Please try again.' Focus returns to OTP input field. Attempt counter incremented.",
+    "priority": "high",
+    "type": "functional"
+}}
+
+{{
+    "id": "TC_005",
+    "scenario": "Max attempts exceeded",
+    "steps": "1. Enter wrong OTP 3 times consecutively\\n2. Observe system behavior after 3rd failed attempt",
+    "expected": "Account temporarily locked. Warning message shown: 'Maximum attempts exceeded. Please try again after X minutes.' Resend OTP button disabled.",
+    "priority": "high",
+    "type": "security"
+}}
+
+Generate similar detailed, specific test cases based on the actual document content."""
             
             response = self.client.chat.completions.create(
                 model=self.model,
