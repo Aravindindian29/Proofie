@@ -541,6 +541,76 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
 
 
+    @action(detail=False, methods=['get'])
+
+    def dashboard_stats(self, request):
+
+        """Return dashboard statistics including counts by review cycle status"""
+
+        from apps.workflows.models import ReviewCycle
+
+        
+
+        # Get all accessible projects for the user
+
+        projects = self.get_queryset()
+
+        
+
+        total_proofs = projects.count()
+
+        rejected_proofs = 0
+
+        approved_proofs = 0
+
+        pending_approvals = 0
+
+        
+
+        # Count projects by their review cycle status
+
+        for project in projects:
+
+            # Get first non-archived asset
+
+            asset = project.assets.filter(is_archived=False).first()
+
+            if asset:
+
+                # Get the most recent review cycle
+
+                review_cycle = asset.review_cycles.order_by('-initiated_at').first()
+
+                if review_cycle:
+
+                    if review_cycle.status == 'rejected':
+
+                        rejected_proofs += 1
+
+                    elif review_cycle.status == 'approved':
+
+                        approved_proofs += 1
+
+                    elif review_cycle.status in ['in_progress', 'not_started', 'approved_with_changes']:
+
+                        pending_approvals += 1
+
+        
+
+        return Response({
+
+            'total_proofs': total_proofs,
+
+            'rejected_proofs': rejected_proofs,
+
+            'approved_proofs': approved_proofs,
+
+            'pending_approvals': pending_approvals
+
+        })
+
+
+
     @action(detail=True, methods=['delete'])
 
     def remove_member(self, request, pk=None):

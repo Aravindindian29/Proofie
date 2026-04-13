@@ -1,7 +1,8 @@
 import React, { useRef, useImperativeHandle, forwardRef, useEffect } from 'react'
-import { Worker, Viewer } from '@react-pdf-viewer/core'
+import { Worker, Viewer, ScrollMode } from '@react-pdf-viewer/core'
 import { defaultLayoutPlugin } from '@react-pdf-viewer/default-layout'
 import { pageNavigationPlugin } from '@react-pdf-viewer/page-navigation'
+import { zoomPlugin } from '@react-pdf-viewer/zoom'
 
 // Import PDF.js styles
 import '@react-pdf-viewer/core/lib/styles/index.css'
@@ -12,6 +13,11 @@ const PDFViewer = forwardRef(({ fileUrl, fileName, onPageChange, initialPage }, 
   
   const pageNavigationPluginInstance = pageNavigationPlugin()
   const { jumpToPage } = pageNavigationPluginInstance
+  
+  // Create zoom plugin instance with 70% default zoom
+  const zoomPluginInstance = zoomPlugin({
+    enableShortcuts: true,
+  })
 
   // Create default layout plugin instance with full toolbar
   const defaultLayoutPluginInstance = defaultLayoutPlugin({
@@ -71,16 +77,26 @@ const PDFViewer = forwardRef(({ fileUrl, fileName, onPageChange, initialPage }, 
     >
       <Worker workerUrl="/pdf.worker.min.js">
         <Viewer
-          key={fileUrl}
           fileUrl={fileUrl}
-          plugins={[defaultLayoutPluginInstance, pageNavigationPluginInstance]}
-          defaultScale={1.0}
+          plugins={[defaultLayoutPluginInstance, pageNavigationPluginInstance, zoomPluginInstance]}
+          defaultScale={0.7}
+          scrollMode={ScrollMode.Vertical}
           theme={{
             theme: 'dark',
           }}
           onPageChange={handlePageChange}
           onDocumentLoad={handleDocumentLoad}
           initialPage={initialPage ? initialPage - 1 : 0}
+          enableSmoothScroll={true}
+          renderPage={(props) => (
+            <>
+              {props.canvasLayer.children}
+              <div style={{ userSelect: 'none' }}>
+                {props.textLayer.children}
+              </div>
+              {props.annotationLayer.children}
+            </>
+          )}
         />
       </Worker>
     </div>

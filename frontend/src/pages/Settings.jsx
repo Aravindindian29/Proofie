@@ -44,7 +44,14 @@ function Settings() {
 
   if (loading) {
     return (
-      <CrushLoader text="Loading settings..." />
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        minHeight: '100vh'
+      }}>
+        <CrushLoader text="Loading settings..." />
+      </div>
     )
   }
 

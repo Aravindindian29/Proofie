@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import toast from 'react-hot-toast'
 import api from '../services/api'
 
 export const useAuthStore = create(
@@ -179,6 +180,8 @@ export const useAuthStore = create(
       logout: () => {
         // Stop polling before logout
         get().stopPermissionPolling()
+        // Clear all toasts to reset the activeToasts Set
+        toast.dismiss()
         set({ token: null, user: null, permissionsUpdatedAt: null })
         delete api.defaults.headers.common['Authorization']
         localStorage.removeItem('auth-storage')

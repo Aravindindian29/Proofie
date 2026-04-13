@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react'
+import React, { useState, useEffect, useContext, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, X, CheckCircle, Sparkles } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -75,6 +75,15 @@ function FileViewer() {
   const [showProofiePlus, setShowProofiePlus] = useState(false)
   const [viewTracked, setViewTracked] = useState(false)
   const pdfViewerRef = React.useRef(null)
+  
+  // Memoize PDF URL to prevent unnecessary re-renders
+  // Only recalculate when asset.current_version changes
+  const pdfUrl = useMemo(() => {
+    if (!asset?.current_version?.file_url) return null
+    const fileUrl = asset.current_version.file_url
+    // Don't use cache-busting for PDFs - it causes unnecessary reloads
+    return getMediaUrl(fileUrl, false)
+  }, [asset?.current_version?.file_url])
 
   useEffect(() => {
     console.log('[FileViewer] Component mounted/updated with ID:', id)
@@ -85,21 +94,28 @@ function FileViewer() {
     console.log('[FileViewer] URL asset ID:', urlId)
     
     if (id) {
-      console.log('[FileViewer] Resetting all state for new asset ID:', id)
-      // Reset ALL state when ID changes to prevent showing wrong content
-      setAsset(null)
-      setAnnotations([])
-      setReviewCycleId(null)
-      setMyMember(null)
-      setViewTracked(false)
-      setCurrentPage(1)
-      setCommentMode(false)
-      setActiveCommentId(null)
-      setShowNavigationLine(false)
-      
-      // Fetch fresh data
-      fetchAssetData()
+      // Only reset and fetch if ID actually changed
+      if (id !== asset?.id) {
+        console.log('[FileViewer] ID changed from', asset?.id, 'to', id, '- resetting state')
+        // Reset ALL state when ID changes to prevent showing wrong content
+        setAsset(null)
+        setAnnotations([])
+        setReviewCycleId(null)
+        setMyMember(null)
+        setViewTracked(false)
+        setCurrentPage(1)
+        setCommentMode(false)
+        setActiveCommentId(null)
+        setShowNavigationLine(false)
+        
+        // Fetch fresh data
+        fetchAssetData()
+      } else {
+        console.log('[FileViewer] ID unchanged, skipping state reset')
+      }
     }
+    
+    // Always fetch current user (lightweight operation)
     fetchCurrentUser()
     
     // Cleanup function
@@ -261,7 +277,10 @@ function FileViewer() {
 
   const fetchAssetData = async () => {
     try {
-      setLoading(true)
+      // Only show loading screen if we don't have asset data yet
+      if (!asset) {
+        setLoading(true)
+      }
       setError(null)
       
       console.log('Fetching asset for ID:', id)
@@ -734,10 +753,9 @@ function FileViewer() {
                   }}>
                     <PDFViewer 
                       ref={pdfViewerRef}
-                      fileUrl={getMediaUrl(fileUrl, true)} 
+                      fileUrl={pdfUrl} 
                       fileName={asset.name}
                       onPageChange={setCurrentPage}
-                      key={id}
                     />
                   </div>
                   <PDFAnnotationLayer

@@ -3,6 +3,7 @@ import { Users as UsersIcon, Search, ChevronUp, ChevronDown } from 'lucide-react
 import toast from 'react-hot-toast'
 import api from '../services/api'
 import Pagination from '../components/Pagination'
+import CrushLoader from '../components/CrushLoader'
 
 function Users() {
   const [users, setUsers] = useState([])
@@ -310,13 +311,7 @@ function Users() {
         {/* Table Content */}
         <div style={{ maxHeight: '500px', minHeight: '200px', overflowY: 'auto' }}>
           {loading ? (
-            <div style={{ 
-              textAlign: 'center', 
-              padding: '60px 20px', 
-              color: 'rgba(255,255,255,0.5)' 
-            }}>
-              Loading users...
-            </div>
+            <CrushLoader />
           ) : users.length === 0 ? (
             <div style={{ 
               textAlign: 'center', 

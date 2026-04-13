@@ -51,8 +51,11 @@ function Login() {
     
     try {
       await login(username, password)
-      showToast('success', 'Login successful!')
       navigate('/dashboard')
+      // Show toast after navigation
+      setTimeout(() => {
+        showToast('success', 'Login successful!')
+      }, 100)
     } catch (error) {
       // Use consistent toast ID to prevent duplicates
       toast.error('Unable to log in. Please check your credentials\nAnd verify your email if you haven\'t already.', {

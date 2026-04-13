@@ -2624,17 +2624,13 @@ function Folders() {
 
                         <div style={{ flex: 2, minWidth: 0, paddingLeft: 8 }}>Name</div>
 
+                        <div style={{ width: 80, textAlign: 'center', transform: 'translateX(-55px)'}}>Status</div>
 
+                        <div style={{ width: 80, textAlign: 'center', transform: 'translateX(-5px)'}}>Version</div>
 
-                        <div style={{ width: 110, textAlign: 'left', paddingLeft: 0 }}>Status</div>
+                        <div style={{ width: 195, textAlign: 'center', transform: 'translateX(-25px)' }}>Created</div>
 
-
-
-                        <div style={{ width: 160, textAlign: 'left', paddingLeft: 41 }}>Created</div>
-
-
-
-                        <div style={{ width: 100, textAlign: 'left', paddingLeft: 8 }}>Owner</div>
+                        <div style={{ minWidth: 110, textAlign: 'center', transform: 'translateX(-55px)' }}>Owner</div>
 
 
 
@@ -2700,11 +2696,13 @@ function Folders() {
 
                             borderLeft: `4px solid ${
 
-                              project.review_cycle_status === 'not_started' ? '#9CA3AF' :
+                              project.review_cycle_status === 'not_started' ? '#f7f8f9' :
 
                               project.review_cycle_status === 'in_progress' ? '#FFD60A' :
 
                               project.review_cycle_status === 'approved' ? '#10B981' :
+
+                              project.review_cycle_status === 'approved_with_changes' ? '#F59E0B' :
 
                               project.review_cycle_status === 'rejected' ? '#EF4444' : '#9CA3AF'
 
@@ -2924,43 +2922,7 @@ function Folders() {
 
 
 
-                          <div style={{ width: 110, textAlign: 'left' }}>
-
-
-
-                            <span
-
-
-
-                              style={{
-
-                                fontSize: '0.7rem',
-
-                                fontWeight: 600,
-
-                                color: '#fff',
-
-                                background: 'rgba(156, 163, 175, 0.15)',
-
-                                padding: '4px 10px',
-
-                                borderRadius: '4px',
-
-                                border: '1px solid rgba(156, 163, 175, 0.3)',
-
-                                textTransform: 'uppercase',
-
-                                letterSpacing: '0.5px',
-
-                                marginRight: '8px'
-
-                              }}
-
-                            >
-
-                              V{project.version_number || 1}
-
-                            </span>
+                          <div style={{ minWidth: 110, textAlign: 'left' }}>
 
 
 
@@ -3045,6 +3007,82 @@ function Folders() {
 
 
                               <StatusBadge status={project.review_cycle_status || 'not_started'} size="small" />
+
+
+
+                            </span>
+
+
+
+                          </div>
+
+
+
+                          {/* Version */}
+
+
+
+                          <div style={{ width: 80, textAlign: 'left', paddingLeft: 36 }}>
+
+
+
+                            <span
+
+
+
+                              style={{
+
+
+
+                                fontSize: '0.7rem',
+
+
+
+                                fontWeight: 600,
+
+
+
+                                color: '#fff',
+
+
+
+                                background: 'rgba(156, 163, 175, 0.15)',
+
+
+
+                                padding: '4px 10px',
+
+
+
+                                borderRadius: '4px',
+
+
+
+                                border: '1px solid rgba(156, 163, 175, 0.3)',
+
+
+
+                                textTransform: 'uppercase',
+
+
+
+                                letterSpacing: '0.5px',
+
+
+
+                                display: 'inline-block'
+
+
+
+                              }}
+
+
+
+                            >
+
+
+
+                              V{project.version_number || 1}
 
 
 

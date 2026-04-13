@@ -92,7 +92,15 @@ function Profile() {
   )
 
   if (loading) return (
-    <div style={{ padding: '36px 40px' }}><CrushLoader text="Loading profile..." /></div>
+    <div style={{ 
+      display: 'flex', 
+      justifyContent: 'center', 
+      alignItems: 'center', 
+      minHeight: '100vh',
+      padding: '36px 40px'
+    }}>
+      <CrushLoader text="Loading profile..." />
+    </div>
   )
 
   return (

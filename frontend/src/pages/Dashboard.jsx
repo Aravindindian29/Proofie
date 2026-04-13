@@ -86,11 +86,11 @@ const statCards = [
 
 
 
-  { key: 'assets',          label: 'Assets',            icon: FileText,     gradient: 'linear-gradient(135deg,#5E5CE6,#FF375F)', glow: 'rgba(94,92,230,0.35)' },
+  { key: 'assets',          label: 'Rejected Proofs',    icon: FileText,     gradient: 'linear-gradient(135deg,#5E5CE6,#FF375F)', glow: 'rgba(94,92,230,0.35)' },
 
 
 
-  { key: 'reviewCycles',    label: 'Review Cycles',     icon: CheckCircle,  gradient: 'linear-gradient(135deg,#30D158,#0A84FF)', glow: 'rgba(48,209,88,0.35)' },
+  { key: 'reviewCycles',    label: 'Approved Proofs',    icon: CheckCircle,  gradient: 'linear-gradient(135deg,#30D158,#0A84FF)', glow: 'rgba(48,209,88,0.35)' },
 
 
 
@@ -254,7 +254,10 @@ function Dashboard() {
 
 
 
-      const [projectsRes] = await Promise.all([api.get('/versioning/projects/')])
+      const [projectsRes, statsRes] = await Promise.all([
+        api.get('/versioning/projects/'),
+        api.get('/versioning/projects/dashboard_stats/')
+      ])
 
 
 
@@ -266,7 +269,15 @@ function Dashboard() {
 
 
 
-      setStats(prev => ({ ...prev, projects: projects.length }))
+      // Update stats with actual counts from backend
+      if (statsRes.data) {
+        setStats({
+          projects: statsRes.data.total_proofs || 0,
+          assets: statsRes.data.rejected_proofs || 0,
+          reviewCycles: statsRes.data.approved_proofs || 0,
+          pendingApprovals: statsRes.data.pending_approvals || 0
+        })
+      }
 
 
 
@@ -286,7 +297,7 @@ function Dashboard() {
 
 
 
-      setStats(prev => ({ ...prev, projects: 0 }))
+      setStats({ projects: 0, assets: 0, reviewCycles: 0, pendingApprovals: 0 })
 
 
 

@@ -30,10 +30,8 @@ function AppContent() {
     checkAuth()
   }, [checkAuth])
 
-  // Clear all toasts when route changes
-  useEffect(() => {
-    toast.dismiss()
-  }, [location.pathname])
+  // Note: Removed toast.dismiss() on route change to allow success toasts to display
+  // Toasts will auto-dismiss based on their duration settings
 
   // Start/stop polling based on authentication
   useEffect(() => {
@@ -66,7 +64,7 @@ function AppContent() {
         limit={3}
         reverseOrder={true}
         toastOptions={{
-          duration: 4000,
+          duration: 2000,
           style: {
             background: 'rgba(255, 255, 255, 0.95)',
             color: '#333',

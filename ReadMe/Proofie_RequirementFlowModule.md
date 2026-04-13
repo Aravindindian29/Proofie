@@ -153,16 +153,16 @@ Handle upload, storage, and versioning of creative assets (PDFs, images, videos)
     "name": "design.pdf",
     "file_type": "pdf",
     "project": "project_id",
-    "created_at": "2026-03-30T10:00:00Z",
+    "created_at": "2026-04-11T10:00:00Z",
     "current_version": {
       "id": "version_id",
       "version_number": 2,
-      "file_url": "/media/assets/2026/03/30/design.pdf",
+      "file_url": "/media/assets/2026/04/11/design.pdf",
       "file_size": 1024000,
-      "thumbnail_url": "/media/thumbnails/2026/03/30/thumb_design.pdf.jpg",
+      "thumbnail_url": "/media/thumbnails/2026/04/11/thumb_design.pdf.jpg",
       "is_current": true,
       "uploaded_by": "user_id",
-      "uploaded_at": "2026-03-30T10:00:00Z"
+      "uploaded_at": "2026-04-11T10:00:00Z"
     },
     "versions": [
       {"version_number": 1, "is_current": false},
@@ -332,12 +332,12 @@ Enable team collaboration through comments, annotations, and mentions
     "content": "Update this wording",
     "color": "#FF0000",
     "is_resolved": false,
-    "created_at": "2026-03-30T10:00:00Z",
+    "created_at": "2026-04-11T10:00:00Z",
     "replies": [
       {
         "author": "user_id",
         "content": "Will update in next version",
-        "created_at": "2026-03-30T11:00:00Z"
+        "created_at": "2026-04-11T11:00:00Z"
       }
     ],
     "mentions": ["user1", "user2"]
@@ -520,7 +520,7 @@ class ApprovalGroup(models.Model):
         "status": "completed",
         "approvers": ["user1", "user2"],
         "decision": "approved",
-        "completed_at": "2026-03-30T12:00:00Z"
+        "completed_at": "2026-04-11T12:00:00Z"
       },
       {
         "name": "Group2",
@@ -528,7 +528,7 @@ class ApprovalGroup(models.Model):
         "status": "pending",
         "approvers": ["user3", "user4"],
         "decision": null,
-        "unlocked_at": "2026-03-30T12:00:00Z"
+        "unlocked_at": "2026-04-11T12:00:00Z"
       }
     ]
   }
