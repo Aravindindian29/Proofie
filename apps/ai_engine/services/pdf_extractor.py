@@ -1,12 +1,15 @@
 import fitz
 import re
 import logging
+import base64
+import io
+from PIL import Image
 
 logger = logging.getLogger(__name__)
 
 
 class PDFExtractor:
-    """Extract text and metadata from PDF files"""
+    """Extract text, images, and metadata from PDF files"""
     
     def extract_full_text(self, pdf_path):
         """Extract all text with page numbers"""
@@ -34,6 +37,123 @@ class PDFExtractor:
             }
         except Exception as e:
             logger.error(f"Error extracting text from PDF: {e}")
+            raise
+    
+    def extract_images_as_base64(self, pdf_path, max_images_per_page=3, max_pages=10):
+        """
+        Extract images from PDF and convert to base64 for vision API
+        
+        Args:
+            pdf_path: Path to PDF file
+            max_images_per_page: Maximum number of images to extract per page
+            max_pages: Maximum number of pages to process (to control costs)
+        
+        Returns:
+            List of dicts with page_number, image_base64, and image_index
+        """
+        try:
+            doc = fitz.open(pdf_path)
+            extracted_images = []
+            
+            # Limit pages to control API costs
+            pages_to_process = min(len(doc), max_pages)
+            logger.info(f"Extracting images from {pages_to_process} pages (total: {len(doc)})")
+            
+            for page_num in range(pages_to_process):
+                page = doc[page_num]
+                image_list = page.get_images(full=True)
+                
+                # Limit images per page
+                images_to_extract = min(len(image_list), max_images_per_page)
+                
+                for img_index in range(images_to_extract):
+                    try:
+                        xref = image_list[img_index][0]
+                        base_image = doc.extract_image(xref)
+                        image_bytes = base_image["image"]
+                        
+                        # Convert to base64
+                        image_base64 = base64.b64encode(image_bytes).decode('utf-8')
+                        
+                        # Get image format
+                        image_ext = base_image["ext"]
+                        
+                        extracted_images.append({
+                            'page_number': page_num + 1,
+                            'image_index': img_index + 1,
+                            'image_base64': image_base64,
+                            'image_format': image_ext,
+                            'mime_type': f'image/{image_ext}'
+                        })
+                        
+                        logger.info(f"Extracted image {img_index + 1} from page {page_num + 1}")
+                        
+                    except Exception as img_error:
+                        logger.warning(f"Failed to extract image {img_index} from page {page_num + 1}: {img_error}")
+                        continue
+            
+            doc.close()
+            logger.info(f"Total images extracted: {len(extracted_images)}")
+            
+            return extracted_images
+            
+        except Exception as e:
+            logger.error(f"Error extracting images from PDF: {e}")
+            raise
+    
+    def render_pages_as_images(self, pdf_path, max_pages=5, dpi=150):
+        """
+        Render PDF pages as images for vision analysis
+        This is useful when images are embedded in complex layouts
+        
+        Args:
+            pdf_path: Path to PDF file
+            max_pages: Maximum number of pages to render
+            dpi: Resolution for rendering (150 is good balance of quality/size)
+        
+        Returns:
+            List of dicts with page_number and image_base64
+        """
+        try:
+            doc = fitz.open(pdf_path)
+            rendered_pages = []
+            
+            pages_to_process = min(len(doc), max_pages)
+            logger.info(f"Rendering {pages_to_process} pages as images")
+            
+            for page_num in range(pages_to_process):
+                page = doc[page_num]
+                
+                # Render page to image at specified DPI
+                mat = fitz.Matrix(dpi/72, dpi/72)  # 72 is default DPI
+                pix = page.get_pixmap(matrix=mat)
+                
+                # Convert to PIL Image
+                img_data = pix.tobytes("png")
+                img = Image.open(io.BytesIO(img_data))
+                
+                # Convert to base64
+                buffered = io.BytesIO()
+                img.save(buffered, format="PNG")
+                img_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
+                
+                rendered_pages.append({
+                    'page_number': page_num + 1,
+                    'image_base64': img_base64,
+                    'mime_type': 'image/png',
+                    'width': pix.width,
+                    'height': pix.height
+                })
+                
+                logger.info(f"Rendered page {page_num + 1} as image ({pix.width}x{pix.height})")
+            
+            doc.close()
+            logger.info(f"Total pages rendered: {len(rendered_pages)}")
+            
+            return rendered_pages
+            
+        except Exception as e:
+            logger.error(f"Error rendering PDF pages: {e}")
             raise
     
     def extract_text_with_coordinates(self, pdf_path):

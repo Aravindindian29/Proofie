@@ -1,89 +1,66 @@
 """
-Regenerate thumbnails for all existing assets
-Run this after installing PyMuPDF to generate missing thumbnails
+Script to regenerate thumbnails for all FileVersions that don't have them
 """
-
 import os
 import django
 
+# Setup Django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 django.setup()
 
 from apps.versioning.models import FileVersion
 from apps.versioning.thumbnail_utils import generate_thumbnail_for_asset
-import logging
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-print("=" * 60)
-print("REGENERATING THUMBNAILS FOR ALL ASSETS")
-print("=" * 60)
-
-# Get all file versions without thumbnails
-versions_without_thumbnails = FileVersion.objects.filter(thumbnail__isnull=True)
-total = versions_without_thumbnails.count()
-
-print(f"\nFound {total} file versions without thumbnails")
-
-if total == 0:
-    print("\n✅ All file versions already have thumbnails!")
-else:
-    success_count = 0
-    fail_count = 0
+def regenerate_thumbnails():
+    """Regenerate thumbnails for all FileVersions without thumbnails"""
+    versions_without_thumbnails = FileVersion.objects.filter(thumbnail='')
     
-    for i, version in enumerate(versions_without_thumbnails, 1):
-        print(f"\n[{i}/{total}] Processing: {version.asset.name}")
-        print(f"  File: {version.file.name}")
-        print(f"  Type: {version.asset.file_type}")
-        
-        try:
-            if not version.file:
-                print(f"  ⚠️ No file attached")
-                fail_count += 1
-                continue
+    print(f"Found {versions_without_thumbnails.count()} versions without thumbnails")
+    
+    for version in versions_without_thumbnails:
+        if not version.file:
+            print(f"[SKIP] Version {version.id} has no file")
+            continue
             
+        try:
             file_path = version.file.path
+            print(f"\n[PROCESSING] Version {version.id}: {file_path}")
             
             if not os.path.exists(file_path):
-                print(f"  ❌ File not found: {file_path}")
-                fail_count += 1
+                print(f"[ERROR] File not found: {file_path}")
                 continue
             
-            file_type = version.asset.file_type
+            # Determine file type
+            file_type = None
+            if file_path.lower().endswith('.pdf'):
+                file_type = 'pdf'
+            elif file_path.lower().endswith(('.jpg', '.jpeg', '.png', '.gif', '.webp')):
+                file_type = 'image'
+            elif file_path.lower().endswith(('.mp4', '.mov', '.avi', '.webm')):
+                file_type = 'video'
             
             if not file_type:
-                print(f"  ⚠️ No file type specified")
-                fail_count += 1
+                print(f"[SKIP] Unknown file type for {file_path}")
                 continue
             
+            print(f"[INFO] File type: {file_type}")
+            
             # Generate thumbnail
-            print(f"  🖼️ Generating thumbnail...")
             thumbnail_content = generate_thumbnail_for_asset(file_path, file_type)
             
             if thumbnail_content:
-                # Save thumbnail
                 thumb_filename = f"thumb_{os.path.basename(file_path)}.jpg"
                 version.thumbnail.save(thumb_filename, thumbnail_content, save=True)
-                print(f"  ✅ Thumbnail saved: {version.thumbnail.name}")
-                success_count += 1
+                print(f"[SUCCESS] Thumbnail saved: {version.thumbnail.name}")
             else:
-                print(f"  ❌ Thumbnail generation failed")
-                fail_count += 1
+                print(f"[ERROR] Thumbnail generation returned None")
                 
         except Exception as e:
-            print(f"  ❌ Error: {e}")
-            fail_count += 1
+            print(f"[ERROR] Failed to generate thumbnail for version {version.id}: {e}")
             import traceback
             traceback.print_exc()
     
-    print("\n" + "=" * 60)
-    print("SUMMARY")
-    print("=" * 60)
-    print(f"Total processed: {total}")
-    print(f"✅ Success: {success_count}")
-    print(f"❌ Failed: {fail_count}")
-    print("=" * 60)
+    print(f"\n[DONE] Thumbnail regeneration complete")
 
-print("\nDone! Thumbnails have been regenerated.")
-print("Restart your Django server to see the changes.\n")
+if __name__ == '__main__':
+    regenerate_thumbnails()

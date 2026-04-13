@@ -164,7 +164,11 @@ def summarize_document(request):
 
         
 
-        # Check if we have cached analysis
+        # Check if we should force regeneration (for vision updates)
+
+        force_regenerate = request.data.get('force_regenerate', False)
+
+        # Check if we already have a cached summary for this version
 
         cached_analysis = AIAnalysis.objects.filter(
 
@@ -172,11 +176,11 @@ def summarize_document(request):
 
             analysis_type='summary'
 
-        ).first()
+        ).order_by('-created_at').first()
 
         
 
-        if cached_analysis:
+        if cached_analysis and not force_regenerate:
 
             logger.info(f"Returning cached summary for version {version_id}")
 
@@ -193,6 +197,9 @@ def summarize_document(request):
                 'processing_time': cached_analysis.processing_time
 
             })
+
+        if force_regenerate:
+            logger.info(f"Force regenerating summary with vision for version {version_id}")
 
         
 
@@ -227,12 +234,22 @@ def summarize_document(request):
             cpi_id = extractor.find_cpi_id(pdf_path)
 
         
+        # Extract images for vision analysis
+        logger.info("Extracting images from PDF for vision-based summary")
+        pdf_images = extractor.render_pages_as_images(pdf_path, max_pages=8, dpi=150)
 
-        # Generate AI summary
+        
+
+        # Generate AI summary with vision if available
 
         ai_provider = get_ai_provider()
-
-        result = ai_provider.summarize_text(pdf_data['full_text'], detail_level)
+        
+        if hasattr(ai_provider, 'summarize_with_vision'):
+            logger.info(f"Using vision-based summarization with {len(pdf_images)} images")
+            result = ai_provider.summarize_with_vision(pdf_data['full_text'], images=pdf_images, detail_level=detail_level)
+        else:
+            logger.info("Using text-only summarization")
+            result = ai_provider.summarize_text(pdf_data['full_text'], detail_level)
 
         
 
@@ -595,14 +612,23 @@ def analyze_content(request):
         extractor = PDFExtractor()
 
         pdf_data = extractor.extract_full_text(pdf_path)
+        
+        # Extract images for vision analysis
+        logger.info("Extracting images from PDF for vision-based content analysis")
+        pdf_images = extractor.render_pages_as_images(pdf_path, max_pages=8, dpi=150)
 
         
 
-        # Generate AI content analysis
+        # Generate AI content analysis with vision if available
 
         ai_provider = get_ai_provider()
-
-        result = ai_provider.analyze_content(pdf_data['full_text'], analysis_types)
+        
+        if hasattr(ai_provider, 'analyze_content_with_vision'):
+            logger.info(f"Using vision-based content analysis with {len(pdf_images)} images")
+            result = ai_provider.analyze_content_with_vision(pdf_data['full_text'], images=pdf_images, analysis_types=analysis_types)
+        else:
+            logger.info("Using text-only content analysis")
+            result = ai_provider.analyze_content(pdf_data['full_text'], analysis_types)
 
         
 
@@ -934,10 +960,21 @@ def post_to_jira(request):
                 detected_cpi = extractor.find_cpi_id(pdf_path)
 
             
+            # Extract images for vision-based analysis
+            logger.info("Extracting images from PDF for Jira acceptance criteria")
+            pdf_images = extractor.render_pages_as_images(pdf_path, max_pages=8, dpi=150)
+
+            
 
             ai_provider = get_ai_provider()
-
-            result = ai_provider.summarize_text(pdf_data['full_text'], 'brief')
+            
+            # Use vision-based summarization if available
+            if hasattr(ai_provider, 'summarize_with_vision'):
+                logger.info(f"Using vision-based summary for Jira with {len(pdf_images)} images")
+                result = ai_provider.summarize_with_vision(pdf_data['full_text'], images=pdf_images, detail_level='brief')
+            else:
+                logger.info("Using text-only summary for Jira")
+                result = ai_provider.summarize_text(pdf_data['full_text'], 'brief')
 
             
 
@@ -1243,18 +1280,38 @@ def generate_test_cases(request):
         
 
         # Generate test cases with risk areas and regression scope
-        # Extract full PDF text for detailed analysis
+        # Extract full PDF text AND images for detailed analysis
         extractor = PDFExtractor()
         as_is_data = extractor.extract_full_text(as_is_version.file.path)
         to_be_data = extractor.extract_full_text(to_be_version.file.path)
+        
+        # Extract images for vision analysis
+        logger.info("Extracting images from AS-IS PDF for vision analysis")
+        as_is_images = extractor.render_pages_as_images(as_is_version.file.path, max_pages=5, dpi=150)
+        
+        logger.info("Extracting images from TO-BE PDF for vision analysis")
+        to_be_images = extractor.render_pages_as_images(to_be_version.file.path, max_pages=5, dpi=150)
 
         ai_provider = get_ai_provider()
-
-        test_result = ai_provider.generate_test_cases(
-            diff_analysis.diff_summary,
-            as_is_text=as_is_data['full_text'],
-            to_be_text=to_be_data['full_text']
-        )
+        
+        # Check if provider supports vision (OpenAI)
+        if hasattr(ai_provider, 'generate_test_cases_with_vision'):
+            logger.info(f"Using vision-based test case generation with {len(as_is_images)} AS-IS and {len(to_be_images)} TO-BE images")
+            test_result = ai_provider.generate_test_cases_with_vision(
+                diff_analysis.diff_summary,
+                as_is_text=as_is_data['full_text'],
+                to_be_text=to_be_data['full_text'],
+                as_is_images=as_is_images,
+                to_be_images=to_be_images
+            )
+        else:
+            # Fallback to text-only for providers without vision support
+            logger.info("Using text-only test case generation (provider doesn't support vision)")
+            test_result = ai_provider.generate_test_cases(
+                diff_analysis.diff_summary,
+                as_is_text=as_is_data['full_text'],
+                to_be_text=to_be_data['full_text']
+            )
 
         test_cases = test_result['test_cases']
 
@@ -1454,11 +1511,15 @@ def generate_test_cases_single(request):
 
         
 
-        # Extract full PDF text
+        # Extract full PDF text AND images
 
         extractor = PDFExtractor()
 
         pdf_data = extractor.extract_full_text(version.file.path)
+        
+        # Extract images for vision analysis
+        logger.info("Extracting images from PDF for vision analysis")
+        pdf_images = extractor.render_pages_as_images(version.file.path, max_pages=5, dpi=150)
 
         
 
@@ -1483,10 +1544,22 @@ def generate_test_cases_single(request):
         }
 
         
+        # Use vision-based generation if available
+        if hasattr(ai_provider, 'generate_test_cases_with_vision'):
+            logger.info(f"Using vision-based test case generation with {len(pdf_images)} images")
+            test_result = ai_provider.generate_test_cases_with_vision(
+                diff_data,
+                as_is_text="",
+                to_be_text=pdf_data['full_text'],
+                as_is_images=None,
+                to_be_images=pdf_images
+            )
+        else:
+            # Fallback to text-only
+            logger.info("Using text-only test case generation")
+            test_result = ai_provider.generate_test_cases(
 
-        test_result = ai_provider.generate_test_cases(
-
-            diff_data,
+                diff_data,
 
             as_is_text="",  # No AS-IS for single PDF
 

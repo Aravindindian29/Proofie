@@ -1,5 +1,7 @@
 import logging
 import time
+import json
+import re
 from abc import ABC, abstractmethod
 from django.conf import settings
 import random
@@ -427,14 +429,15 @@ Provide a JSON response with the following structure:
 
 
 class OpenAIProvider(AIProvider):
-    """OpenAI GPT-3.5-turbo implementation"""
+    """OpenAI GPT implementation with Vision support"""
     
     def __init__(self, api_key):
         super().__init__(api_key)
         try:
             import openai
             self.client = openai.OpenAI(api_key=api_key)
-            self.model = "gpt-3.5-turbo"  # Using GPT-3.5-turbo (available on all accounts)
+            self.model = "gpt-4o"  # GPT-4o has vision capabilities and is more cost-effective
+            self.vision_model = "gpt-4o"  # Same model for vision tasks
         except ImportError:
             logger.error("OpenAI library not installed. Run: pip install openai")
             raise
@@ -457,8 +460,8 @@ class OpenAIProvider(AIProvider):
                     {"role": "system", "content": "You are an expert product analyst specializing in UX/UI documentation and technical specifications."},
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.3,
-                max_tokens=1500 if detail_level == 'detailed' else 800
+                max_tokens=1500 if detail_level == 'detailed' else 800,
+                temperature=0.7
             )
             
             result = response.choices[0].message.content
@@ -475,6 +478,124 @@ class OpenAIProvider(AIProvider):
             }
         except Exception as e:
             logger.error(f"Error in OpenAI summarization: {e}")
+            raise
+    
+    def summarize_with_vision(self, text, images=None, detail_level='brief'):
+        """
+        Generate AI-powered document summary with visual analysis
+        
+        Args:
+            text: Extracted text from PDF
+            images: List of base64 images from PDF
+            detail_level: 'brief' or 'detailed'
+        """
+        start_time = time.time()
+        product_context = get_product_context()
+        
+        try:
+            # Truncate text if too long
+            max_chars = 12000 if detail_level == 'detailed' else 8000
+            if len(text) > max_chars:
+                text = text[:max_chars] + "...\n[Content truncated]"
+            
+            prompt_text = f"""You are an expert product analyst specializing in UX/UI documentation. Analyze BOTH the text content AND visual elements (images, mockups, screenshots) to create a comprehensive summary.
+
+{product_context}
+
+TEXT CONTENT:
+{text}
+
+VISUAL ANALYSIS INSTRUCTIONS:
+- Analyze UI mockups, screenshots, wireframes, and design elements in the images
+- Identify key UI components: forms, buttons, navigation, layouts
+- Note visual design elements: colors, typography, spacing, branding
+- Extract specific UI details from images (button colors, sizes, positions)
+- Identify user flows and interaction patterns shown in visuals
+
+Provide a JSON response with the following structure:
+{{
+    "high_level_summary": "Clear 2-3 sentence overview including UI/visual changes visible in images",
+    "goal_of_project": "Primary objective based on text and visual elements",
+    "key_highlights": [
+        "UI change 1 with specific visual details (e.g., 'Blue CTA button (#0A84FF) added to header, 48px height')",
+        "UI change 2 with layout details (e.g., 'Form redesigned to 2-column layout with 16px spacing')",
+        "Visual element 3 from images (e.g., 'New email template mockup with updated branding')",
+        "Functional change 4 from text"
+    ],
+    "changes_included": [
+        {{
+            "description": "Specific change with visual details if shown in images",
+            "affected_channels": ["ORG", "RF", "RA", "PS"],
+            "impact_level": "low|medium|high"
+        }}
+    ],
+    "application_pages_with_changes": [
+        {{
+            "page_name": "Page name from text or images",
+            "change_type": "UI/UX|Layout|Design|Functionality",
+            "description": "Description including visual specifications if visible"
+        }}
+    ],
+    "ui_visual_changes": [
+        "Specific UI element 1 with color/size from images",
+        "Layout change 2 with spacing details",
+        "Design element 3 with visual specifications"
+    ],
+    "complexity": "low|medium|high",
+    "estimated_review_time": "Estimated time for review"
+}}
+
+Be VERY specific about visual elements from images - include colors, sizes, positions, layouts."""
+
+            # Build messages with images
+            messages = [
+                {"role": "system", "content": "You are an expert product analyst specializing in UX/UI documentation and visual design analysis."}
+            ]
+            
+            user_content = [{"type": "text", "text": prompt_text}]
+            
+            # Add images
+            if images:
+                logger.info(f"Adding {len(images)} images to summary analysis")
+                for idx, img in enumerate(images[:8]):  # Limit to 8 images for summary
+                    user_content.append({
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:{img['mime_type']};base64,{img['image_base64']}",
+                            "detail": "high"
+                        }
+                    })
+            
+            messages.append({"role": "user", "content": user_content})
+            
+            # Call GPT-4 Vision
+            logger.info(f"Calling GPT-4 Vision for summary with {len(user_content) - 1} images")
+            response = self.client.chat.completions.create(
+                model=self.vision_model,
+                messages=messages,
+                max_tokens=1500 if detail_level == 'detailed' else 1000,
+                temperature=0.7
+            )
+            
+            result = response.choices[0].message.content
+            tokens_used = response.usage.total_tokens
+            processing_time = time.time() - start_time
+            
+            logger.info(f"Vision summary complete. Tokens: {tokens_used}, Time: {processing_time:.2f}s")
+            logger.info(f"Vision summary raw response (first 500 chars): {result[:500]}")
+            
+            parsed_summary = self._parse_summary_response(result)
+            logger.info(f"Parsed summary keys: {parsed_summary.keys() if isinstance(parsed_summary, dict) else 'Not a dict'}")
+            
+            return {
+                'summary': parsed_summary,
+                'tokens_used': tokens_used,
+                'processing_time': processing_time,
+                'images_analyzed': len(images) if images else 0
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in vision-based summarization: {e}")
             raise
     
     def _build_summary_prompt(self, text, detail_level):
@@ -794,6 +915,164 @@ CRITICAL REQUIREMENTS:
             logger.error(f"Error in content analysis: {e}")
             raise
     
+    def analyze_content_with_vision(self, text, images=None, analysis_types=None):
+        """
+        Analyze content with visual elements for UI changes, copy changes, CTA changes, and compliance
+        
+        Args:
+            text: Extracted text from PDF
+            images: List of base64 images from PDF
+            analysis_types: List of analysis types to perform
+        """
+        start_time = time.time()
+        product_context = get_product_context()
+        
+        try:
+            prompt_text = f"""You are an expert UX reviewer and compliance analyst. Analyze BOTH text AND visual elements for UI changes, copy improvements, CTA updates, and compliance issues.
+
+{product_context}
+
+TEXT CONTENT:
+{text[:8000]}
+
+VISUAL ANALYSIS INSTRUCTIONS:
+- Analyze UI mockups, screenshots, and design elements in the images
+- Identify specific UI components: buttons, forms, inputs, navigation, layouts
+- Note visual design changes: colors, typography, spacing, positioning
+- Identify CTAs and their visual treatment (color, size, placement)
+- Check for compliance elements: disclaimers, disclosures, legal text
+- Compare visual elements with text descriptions
+
+Provide comprehensive analysis in JSON format:
+{{
+  "ui_changes": [
+    {{
+      "change": "Specific UI change with visual details (e.g., 'Blue CTA button added to landing page header, 48px height, #0A84FF color')",
+      "details": "Exact visual specifications from images: colors, sizes, positions, spacing",
+      "impact": "low|medium|high",
+      "visual_reference": "Description of what's shown in the image"
+    }}
+  ],
+  "copy_changes": [
+    {{
+      "area": "Where copy appears visually (e.g., 'Form error message below email field')",
+      "original": "Original text if visible",
+      "improved": "New text with visual context (font, color, position)",
+      "reason": "Why this improves UX based on visual presentation"
+    }}
+  ],
+  "cta_changes": [
+    {{
+      "cta_name": "Button/link name from images",
+      "visual_details": "Color, size, position, hover state if shown",
+      "before": "Previous design if shown",
+      "after": "New design with specifications",
+      "impact": "Expected impact on conversion/engagement"
+    }}
+  ],
+  "layout_changes": [
+    {{
+      "area": "Page/section with layout change",
+      "change": "Specific layout modification (e.g., '2-column to 3-column grid')",
+      "visual_details": "Spacing, alignment, responsive behavior if shown"
+    }}
+  ],
+  "design_elements": [
+    {{
+      "element": "Visual design element (e.g., 'Header banner', 'Icon set', 'Illustration')",
+      "description": "Detailed description from images",
+      "purpose": "Why this element is included"
+    }}
+  ],
+  "legal_compliance_changes": [
+    {{
+      "type": "Compliance change visible in images",
+      "description": "What changed with visual context",
+      "importance": "low|medium|high"
+    }}
+  ],
+  "compliance_issues": [
+    {{
+      "issue": "Missing or problematic element visible in images",
+      "severity": "high|medium|low",
+      "recommendation": "Specific fix with visual specifications"
+    }}
+  ],
+  "accessibility_notes": [
+    {{
+      "issue": "Accessibility concern from visual analysis (e.g., 'Low contrast ratio', 'Small text size')",
+      "recommendation": "Specific improvement"
+    }}
+  ]
+}}
+
+Be VERY specific about visual elements. Include colors, sizes, positions, and exact UI component details."""
+
+            # Build messages with images
+            messages = [
+                {"role": "system", "content": "You are an expert UX reviewer, visual designer, and compliance analyst specializing in UI/UX analysis."}
+            ]
+            
+            user_content = [{"type": "text", "text": prompt_text}]
+            
+            # Add images
+            if images:
+                logger.info(f"Adding {len(images)} images to content analysis")
+                for idx, img in enumerate(images[:8]):  # Limit to 8 images
+                    user_content.append({
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:{img['mime_type']};base64,{img['image_base64']}",
+                            "detail": "high"
+                        }
+                    })
+            
+            messages.append({"role": "user", "content": user_content})
+            
+            # Call GPT-4 Vision
+            logger.info(f"Calling GPT-4 Vision for content analysis with {len(user_content) - 1} images")
+            response = self.client.chat.completions.create(
+                model=self.vision_model,
+                messages=messages,
+                max_tokens=3000,
+                temperature=0.3
+            )
+            
+            result = response.choices[0].message.content
+            tokens_used = response.usage.total_tokens
+            processing_time = time.time() - start_time
+            
+            logger.info(f"Vision content analysis complete. Tokens: {tokens_used}, Time: {processing_time:.2f}s")
+            
+            # Parse JSON response
+            try:
+                json_match = re.search(r'\{.*\}', result, re.DOTALL)
+                if json_match:
+                    analysis_data = json.loads(json_match.group(0))
+                else:
+                    analysis_data = {
+                        "ui_changes": [],
+                        "copy_changes": [],
+                        "cta_changes": [],
+                        "layout_changes": [],
+                        "design_elements": [],
+                        "compliance_issues": [],
+                        "summary": "No valid JSON in response"
+                    }
+            except json.JSONDecodeError:
+                analysis_data = {"error": "Failed to parse response", "raw": result}
+            
+            return {
+                'analysis': analysis_data,
+                'tokens_used': tokens_used,
+                'processing_time': processing_time,
+                'images_analyzed': len(images) if images else 0
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in vision-based content analysis: {e}")
+            raise
+    
     def generate_test_cases(self, diff_data, as_is_text="", to_be_text=""):
         """Generate test cases based on diff analysis with optional full PDF text"""
         start_time = time.time()
@@ -912,4 +1191,128 @@ Generate similar detailed, specific test cases based on the actual document cont
             }
         except Exception as e:
             logger.error(f"Error generating test cases: {e}")
+            raise
+    
+    def generate_test_cases_with_vision(self, diff_data, as_is_text="", to_be_text="", as_is_images=None, to_be_images=None):
+        """
+        Generate test cases using GPT-4 Vision with both text and images
+        
+        Args:
+            diff_data: Diff analysis data
+            as_is_text: Text from AS-IS PDF
+            to_be_text: Text from TO-BE PDF
+            as_is_images: List of base64 images from AS-IS PDF
+            to_be_images: List of base64 images from TO-BE PDF
+        """
+        start_time = time.time()
+        product_context = get_product_context()
+        
+        try:
+            changes_text = "\n".join([
+                f"- {change.get('description', change.get('type', 'Change'))}"
+                for change in diff_data.get('changes', [])
+            ])
+            
+            # Build the prompt
+            prompt_text = f"""You are a QA expert for the Personify lending platform. Analyze BOTH the text content AND the visual elements (images, UI mockups, layouts, forms) to generate comprehensive test cases.
+
+{product_context}
+
+TEXT CONTENT ANALYSIS:
+AS-IS Text: {as_is_text[:2000] if as_is_text else 'N/A'}...
+TO-BE Text: {to_be_text[:2000] if to_be_text else 'N/A'}...
+
+Changes Summary:
+{changes_text}
+
+VISUAL ANALYSIS INSTRUCTIONS:
+- Analyze UI mockups, screenshots, and visual elements in the images
+- Identify form fields, buttons, CTAs, layouts, and visual changes
+- Note color schemes, positioning, and visual hierarchy
+- Compare AS-IS vs TO-BE visual differences
+
+Generate comprehensive test cases in JSON format:
+{{
+    "test_cases": [
+        {{
+            "test_case_id": "TC001",
+            "scenario": "Specific test scenario including visual elements",
+            "steps": ["Step 1 with UI element details", "Step 2", "Step 3"],
+            "expected_result": "Detailed expected outcome including visual validation",
+            "priority": "high|medium|low",
+            "type": "functional|ui|security|regression"
+        }}
+    ],
+    "qa_validation_scope": ["Scope item 1", "Scope item 2"]
+}}
+
+REQUIREMENTS:
+- Generate 10-15 test cases covering: UI validation, functional testing, visual regression, form validation
+- Include specific UI element names from the images (buttons, fields, labels)
+- Test visual changes (colors, layouts, positioning)
+- Cover both happy path and error scenarios
+- Include accessibility and responsive design tests if applicable"""
+
+            # Build messages with images
+            messages = [
+                {"role": "system", "content": "You are an expert QA engineer specializing in visual and functional testing for web applications."}
+            ]
+            
+            # Build user message with text and images
+            user_content = [{"type": "text", "text": prompt_text}]
+            
+            # Add AS-IS images
+            if as_is_images:
+                logger.info(f"Adding {len(as_is_images)} AS-IS images to vision analysis")
+                for idx, img in enumerate(as_is_images[:5]):  # Limit to 5 images to control costs
+                    user_content.append({
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:{img['mime_type']};base64,{img['image_base64']}",
+                            "detail": "high"  # Use high detail for better analysis
+                        }
+                    })
+            
+            # Add TO-BE images
+            if to_be_images:
+                logger.info(f"Adding {len(to_be_images)} TO-BE images to vision analysis")
+                for idx, img in enumerate(to_be_images[:5]):  # Limit to 5 images
+                    user_content.append({
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:{img['mime_type']};base64,{img['image_base64']}",
+                            "detail": "high"
+                        }
+                    })
+            
+            messages.append({"role": "user", "content": user_content})
+            
+            # Call GPT-4 Vision API
+            logger.info(f"Calling GPT-4 Vision with {len(user_content) - 1} images")
+            response = self.client.chat.completions.create(
+                model=self.vision_model,
+                messages=messages,
+                max_tokens=4000,
+                temperature=0.7
+            )
+            
+            result = response.choices[0].message.content
+            tokens_used = response.usage.total_tokens
+            processing_time = time.time() - start_time
+            
+            logger.info(f"Vision analysis complete. Tokens: {tokens_used}, Time: {processing_time:.2f}s")
+            
+            # Parse JSON response
+            test_data = self._parse_summary_response(result)
+            
+            return {
+                'test_cases': test_data.get('test_cases', []),
+                'qa_validation_scope': test_data.get('qa_validation_scope', []),
+                'tokens_used': tokens_used,
+                'processing_time': processing_time,
+                'images_analyzed': (len(as_is_images) if as_is_images else 0) + (len(to_be_images) if to_be_images else 0)
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in vision-based test case generation: {e}")
             raise
